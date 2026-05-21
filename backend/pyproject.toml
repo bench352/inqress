@@ -6,7 +6,10 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.136.1",
+    "phonenumbers>=9.0.30",
     "pydantic-settings>=2.14.1",
+    "pyseto>=1.9.3",
+    "qrcode[pil]>=8.2",
     "sqlalchemy>=2.0.49",
 ]
 

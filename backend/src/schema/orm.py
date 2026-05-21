@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, String, Text, LargeBinary, Integer
+import uuid
+
+from sqlalchemy import ForeignKey, String, Text, LargeBinary, Integer, UniqueConstraint, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 import schema.enum
@@ -11,7 +13,7 @@ class Base(DeclarativeBase):
 class Event(Base):
     __tablename__ = "event"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     date: Mapped[str] = mapped_column(String, nullable=False)
@@ -27,13 +29,20 @@ class Event(Base):
 
 class Attendee(Base):
     __tablename__ = "attendee"
+    __table_args__ = (
+        UniqueConstraint("event_id", "email"),
+        UniqueConstraint("event_id", "phone"),
+    )
 
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    event_id: Mapped[str] = mapped_column(ForeignKey("event.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("event.id"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String, nullable=False)
-    raw_phone: Mapped[str | None] = mapped_column(String)
-    country_code: Mapped[str | None] = mapped_column(String)
-    phone: Mapped[str | None] = mapped_column(String)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    raw_phone: Mapped[str] = mapped_column(String, nullable=False)
+    country_code: Mapped[str] = mapped_column(String, nullable=False)
+    phone: Mapped[str] = mapped_column(String, nullable=False)
     ticket_token: Mapped[str] = mapped_column(String, nullable=False)
     ticket_img: Mapped[bytes | None] = mapped_column(LargeBinary)
 
@@ -46,9 +55,13 @@ class Attendee(Base):
 class AttendanceLog(Base):
     __tablename__ = "attendance_log"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    event_id: Mapped[str] = mapped_column(ForeignKey("event.id"), nullable=False)
-    attendee_id: Mapped[str] = mapped_column(ForeignKey("attendee.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("event.id"), nullable=False
+    )
+    attendee_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("attendee.id"), nullable=False
+    )
     checked_in_at: Mapped[str] = mapped_column(String, nullable=False)
     method: Mapped[str] = mapped_column(String, nullable=False)
     device_info: Mapped[str | None] = mapped_column(Text)

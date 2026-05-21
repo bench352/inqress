@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, HTTPException, status
 
 from schema.rest import EventCreate, EventResponse, EventUpdate
@@ -17,7 +19,7 @@ def create_event(payload: EventCreate) -> EventResponse:
 
 
 @router.get("/{event_id}")
-def get_event(event_id: str) -> EventResponse:
+def get_event(event_id: uuid.UUID) -> EventResponse:
     event = events_service.get_event(event_id)
     if event is None:
         raise HTTPException(
@@ -27,7 +29,7 @@ def get_event(event_id: str) -> EventResponse:
 
 
 @router.patch("/{event_id}")
-def update_event(event_id: str, payload: EventUpdate) -> EventResponse:
+def update_event(event_id: uuid.UUID, payload: EventUpdate) -> EventResponse:
     event = events_service.update_event(event_id, payload)
     if event is None:
         raise HTTPException(
@@ -37,7 +39,7 @@ def update_event(event_id: str, payload: EventUpdate) -> EventResponse:
 
 
 @router.delete("/{event_id}")
-def delete_event(event_id: str) -> EventResponse:
+def delete_event(event_id: uuid.UUID) -> EventResponse:
     deleted_event = events_service.delete_event(event_id)
     if deleted_event is None:
         raise HTTPException(

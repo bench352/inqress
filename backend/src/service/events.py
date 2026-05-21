@@ -13,7 +13,7 @@ def list_events() -> list[EventResponse]:
         return [EventResponse.model_validate(row) for row in result.mappings().all()]
 
 
-def get_event(event_id: str) -> EventResponse | None:
+def get_event(event_id: uuid.UUID) -> EventResponse | None:
     with get_engine().begin() as conn:
         result = conn.execute(select(Event).where(Event.id == event_id))
         row = result.mappings().first()
@@ -25,7 +25,7 @@ def create_event(payload: EventCreate) -> EventResponse:
         result = conn.execute(
             insert(Event)
             .values(
-                id=str(uuid.uuid4()),
+                id=uuid.uuid4(),
                 name=payload.name,
                 description=payload.description,
                 date=payload.date,
@@ -35,7 +35,7 @@ def create_event(payload: EventCreate) -> EventResponse:
         return EventResponse.model_validate(result.mappings().one())
 
 
-def update_event(event_id: str, payload: EventUpdate) -> EventResponse | None:
+def update_event(event_id: uuid.UUID, payload: EventUpdate) -> EventResponse | None:
     values = payload.model_dump(exclude_unset=True, by_alias=False)
     if not values:
         return get_event(event_id)
@@ -47,7 +47,7 @@ def update_event(event_id: str, payload: EventUpdate) -> EventResponse | None:
         return EventResponse.model_validate(row) if row else None
 
 
-def delete_event(event_id: str) -> EventResponse | None:
+def delete_event(event_id: uuid.UUID) -> EventResponse | None:
     with get_engine().begin() as conn:
         result = conn.execute(
             delete(Event).where(Event.id == event_id).returning(Event)

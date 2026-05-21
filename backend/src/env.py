@@ -8,6 +8,7 @@ _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 class ServerSettings(pydantic_settings.BaseSettings):
     admin_username: str
     admin_password: str
+    default_country_code: str
 
     model_config = pydantic_settings.SettingsConfigDict(env_file=_ENV_FILE)
 
