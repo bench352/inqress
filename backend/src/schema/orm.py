@@ -38,6 +38,7 @@ class Attendee(Base):
     event_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("event.id"), nullable=False
     )
+    title: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str] = mapped_column(String, nullable=False)
     raw_phone: Mapped[str] = mapped_column(String, nullable=False)

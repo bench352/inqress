@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import uuid
 from pathlib import Path
@@ -60,6 +61,19 @@ def init_keys() -> None:
         _public_key = pyseto.Key.new(
             version=2, purpose="public", key=public_pem
         )
+
+
+def verify_ticket(token_str: str) -> TicketPayload:
+    assert _public_key is not None, "Keys not initialized"
+    try:
+        decoded = pyseto.decode(_public_key, token_str)
+        payload = json.loads(decoded.payload)
+        return TicketPayload(
+            event_id=uuid.UUID(payload["eventId"]),
+            attendee_id=uuid.UUID(payload["attendeeId"]),
+        )
+    except Exception as e:
+        raise ValueError(f"Invalid ticket: {e}")
 
 
 def generate_ticket(event_id: uuid.UUID, attendee_id: uuid.UUID) -> str:

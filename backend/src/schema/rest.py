@@ -37,6 +37,7 @@ class EventResponse(RestModel):
 
 
 class AttendeeCreate(RestModel):
+    title: str
     name: str
     email: str = Field(min_length=1)
     raw_phone: str = Field(min_length=1)
@@ -45,11 +46,39 @@ class AttendeeCreate(RestModel):
 class AttendeeResponse(RestModel):
     id: uuid.UUID
     event_id: uuid.UUID
+    title: str
     name: str
     email: str
     raw_phone: str
     country_code: str
     phone: str
+
+
+class ScanRequest(RestModel):
+    ticket: str
+
+
+class ScanSuccessDetail(RestModel):
+    attendee_title: str
+    attendee_name: str
+
+
+class ScanErrorDetail(RestModel):
+    reason: str
+
+
+class ScanResponse(RestModel):
+    success: bool
+    detail: ScanSuccessDetail | ScanErrorDetail
+
+
+class PhoneCheckinRequest(RestModel):
+    country_code: str
+    phone_no: str
+
+
+class ManualCheckinRequest(RestModel):
+    attendee_id: uuid.UUID
 
 
 class BulkCreateError(RestModel):

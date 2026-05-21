@@ -118,6 +118,7 @@ def bulk_create(
                     .values(
                         id=attendee_id,
                         event_id=event_id,
+                        title=p.title,
                         name=p.name,
                         email=p.email,
                         raw_phone=p.raw_phone,
