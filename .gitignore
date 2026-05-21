@@ -1,5 +1,6 @@
-# InQRess local database
+# InQRess local database/key data
 *.db
+*.pem
 
 ### Python template
 # Byte-compiled / optimized / DLL files
