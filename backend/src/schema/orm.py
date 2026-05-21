@@ -1,6 +1,8 @@
 from sqlalchemy import ForeignKey, String, Text, LargeBinary, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+import schema.enum
+
 
 class Base(DeclarativeBase):
     pass
@@ -13,7 +15,9 @@ class Event(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     date: Mapped[str] = mapped_column(String, nullable=False)
-    mode: Mapped[str] = mapped_column(String, nullable=False, default="disabled")
+    mode: Mapped[str] = mapped_column(
+        String, nullable=False, default=schema.enum.EventMode.DISABLED
+    )
 
     attendees: Mapped[list["Attendee"]] = relationship(back_populates="event")
     attendance_logs: Mapped[list["AttendanceLog"]] = relationship(
