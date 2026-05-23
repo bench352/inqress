@@ -1,8 +1,4 @@
-from pathlib import Path
-
 import pydantic_settings
-
-_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
 class ServerSettings(pydantic_settings.BaseSettings):
@@ -10,14 +6,9 @@ class ServerSettings(pydantic_settings.BaseSettings):
     admin_password: str
     default_country_code: str
 
-    model_config = pydantic_settings.SettingsConfigDict(env_file=_ENV_FILE)
 
-
-_settings: ServerSettings | None = None
-
-
-def get_settings() -> ServerSettings:
-    global _settings
-    if _settings is None:
-        _settings = ServerSettings()
-    return _settings
+class SmtpSettings(pydantic_settings.BaseSettings):
+    smtp_server: str = ""
+    smtp_port: int = 465
+    smtp_username: str = ""
+    smtp_password: str = ""

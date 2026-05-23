@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import uuid
 from pathlib import Path
@@ -54,12 +55,21 @@ def init_keys() -> None:
         _KEY_PATH.write_bytes(private_pem)
         _PUB_PATH.write_bytes(public_pem)
 
-        _private_key = pyseto.Key.new(
-            version=2, purpose="public", key=private_pem
+        _private_key = pyseto.Key.new(version=2, purpose="public", key=private_pem)
+        _public_key = pyseto.Key.new(version=2, purpose="public", key=public_pem)
+
+
+def verify_ticket(token_str: str) -> TicketPayload:
+    assert _public_key is not None, "Keys not initialized"
+    try:
+        decoded = pyseto.decode(_public_key, token_str)
+        payload = json.loads(decoded.payload)
+        return TicketPayload(
+            event_id=uuid.UUID(payload["eventId"]),
+            attendee_id=uuid.UUID(payload["attendeeId"]),
         )
-        _public_key = pyseto.Key.new(
-            version=2, purpose="public", key=public_pem
-        )
+    except Exception as e:
+        raise ValueError(f"Invalid ticket: {e}")
 
 
 def generate_ticket(event_id: uuid.UUID, attendee_id: uuid.UUID) -> str:
@@ -74,23 +84,21 @@ def generate_ticket(event_id: uuid.UUID, attendee_id: uuid.UUID) -> str:
 
 def generate_ticket_images(event_id: uuid.UUID | None = None) -> int:
     with get_engine().begin() as conn:
-        stmt = select(Attendee.id, Attendee.ticket_token).where(
-            Attendee.ticket_img == null()
-        )
+        stmt = select(Attendee).where(Attendee.ticket_img == null())
         if event_id is not None:
             stmt = stmt.where(Attendee.event_id == event_id)
 
-        rows = conn.execute(stmt).mappings().all()
+        rows = conn.execute(stmt).scalars().all()
 
         count = 0
         for row in rows:
-            img = qrcode.make(row["ticket_token"])
+            img = qrcode.make(row.ticket_token)
             buf = io.BytesIO()
             img.save(buf, format="PNG")
 
             conn.execute(
                 update(Attendee)
-                .where(Attendee.id == row["id"])
+                .where(Attendee.id == row.id)
                 .values(ticket_img=buf.getvalue())
             )
             count += 1

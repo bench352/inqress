@@ -2,9 +2,9 @@ import logging
 import uuid
 
 import phonenumbers
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, insert, select, update
 
-from env import get_settings
+from env import ServerSettings
 from schema.orm import Attendee
 from schema.rest import (
     AttendeeCreate,
@@ -21,10 +21,8 @@ logger = logging.getLogger(__name__)
 
 def list_attendees(event_id: uuid.UUID) -> list[AttendeeResponse]:
     with get_engine().begin() as conn:
-        result = conn.execute(
-            select(Attendee).where(Attendee.event_id == event_id)
-        )
-        return [AttendeeResponse.model_validate(row) for row in result.mappings().all()]
+        result = conn.execute(select(Attendee).where(Attendee.event_id == event_id))
+        return [AttendeeResponse.model_validate(row) for row in result.scalars().all()]
 
 
 def get_attendee(
@@ -36,7 +34,7 @@ def get_attendee(
                 Attendee.id == attendee_id, Attendee.event_id == event_id
             )
         )
-        row = result.mappings().first()
+        row = result.scalars().first()
         return AttendeeResponse.model_validate(row) if row else None
 
 
@@ -46,7 +44,7 @@ def bulk_create(
     if not payloads:
         return BulkCreateResponse(created=[], skipped=[], errors=[])
 
-    settings = get_settings()
+    settings = ServerSettings()
     default_region = settings.default_country_code
 
     parsed_entries: list[dict] = []
@@ -81,18 +79,17 @@ def bulk_create(
     with get_engine().begin() as conn:
         existing_rows = (
             conn.execute(
-                select(Attendee.email, Attendee.phone).where(
+                select(Attendee).where(
                     Attendee.event_id == event_id,
-                    (Attendee.email.in_(all_emails))
-                    | (Attendee.phone.in_(all_phones)),
+                    (Attendee.email.in_(all_emails)) | (Attendee.phone.in_(all_phones)),
                 )
             )
-            .mappings()
+            .scalars()
             .all()
         )
 
-        existing_emails = {row["email"] for row in existing_rows}
-        existing_phones = {row["phone"] for row in existing_rows}
+        existing_emails = {row.email for row in existing_rows}
+        existing_phones = {row.phone for row in existing_rows}
 
         created: list[AttendeeResponse] = []
         skipped: list[AttendeeCreate] = []
@@ -118,6 +115,7 @@ def bulk_create(
                     .values(
                         id=attendee_id,
                         event_id=event_id,
+                        title=p.title,
                         name=p.name,
                         email=p.email,
                         raw_phone=p.raw_phone,
@@ -127,7 +125,7 @@ def bulk_create(
                     )
                     .returning(Attendee)
                 )
-                created.append(AttendeeResponse.model_validate(result.mappings().one()))
+                created.append(AttendeeResponse.model_validate(result.scalars().one()))
                 existing_emails.add(p.email)
                 existing_phones.add(entry["phone"])
             except Exception as e:
@@ -139,13 +137,21 @@ def bulk_create(
     return BulkCreateResponse(created=created, skipped=skipped, errors=errors)
 
 
+def mark_ticket_delivered(event_id: uuid.UUID, attendee_id: uuid.UUID) -> bool:
+    with get_engine().begin() as conn:
+        result = conn.execute(
+            update(Attendee)
+            .where(Attendee.id == attendee_id, Attendee.event_id == event_id)
+            .values(is_ticket_delivered=True)
+        )
+        return result.rowcount > 0
+
+
 def bulk_delete(event_id: uuid.UUID, ids: list[uuid.UUID]) -> BulkDeleteResponse:
     if not ids:
         return BulkDeleteResponse(num_deleted=0)
     with get_engine().begin() as conn:
         result = conn.execute(
-            delete(Attendee).where(
-                Attendee.event_id == event_id, Attendee.id.in_(ids)
-            )
+            delete(Attendee).where(Attendee.event_id == event_id, Attendee.id.in_(ids))
         )
         return BulkDeleteResponse(num_deleted=result.rowcount)

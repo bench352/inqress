@@ -17,26 +17,38 @@ class RestModel(BaseModel):
 
 class EventCreate(RestModel):
     name: str
-    description: str | None = None
+    description: str = ""
     date: datetime.date
 
 
-class EventUpdate(RestModel):
-    name: str | None = None
-    description: str | None = None
-    date: str | None = None
-    mode: schema.enum.EventMode | None = None
+class EventPut(RestModel):
+    name: str
+    description: str
+    date: datetime.date
 
 
 class EventResponse(RestModel):
     id: uuid.UUID
     name: str
-    description: str | None
+    description: str
     date: str
     mode: schema.enum.EventMode
 
 
+class EventModeUpdate(RestModel):
+    mode: schema.enum.EventMode
+
+
+class EmailTemplateResponse(RestModel):
+    text: str
+
+
+class EmailTemplateRequest(RestModel):
+    text: str
+
+
 class AttendeeCreate(RestModel):
+    title: str
     name: str
     email: str = Field(min_length=1)
     raw_phone: str = Field(min_length=1)
@@ -45,11 +57,40 @@ class AttendeeCreate(RestModel):
 class AttendeeResponse(RestModel):
     id: uuid.UUID
     event_id: uuid.UUID
+    title: str
     name: str
     email: str
     raw_phone: str
     country_code: str
     phone: str
+    is_ticket_delivered: bool
+
+
+class ScanRequest(RestModel):
+    ticket: str
+
+
+class CheckinSuccessDetail(RestModel):
+    title: str
+    name: str
+
+
+class CheckinErrorDetail(RestModel):
+    reason: str
+
+
+class CheckinResponse(RestModel):
+    success: bool
+    detail: CheckinSuccessDetail | CheckinErrorDetail
+
+
+class PhoneCheckinRequest(RestModel):
+    country_code: str
+    phone_no: str
+
+
+class ManualCheckinRequest(RestModel):
+    attendee_id: uuid.UUID
 
 
 class BulkCreateError(RestModel):
