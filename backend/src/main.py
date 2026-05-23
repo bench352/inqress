@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+import dotenv
 import uvicorn
 from fastapi import FastAPI, Depends
 
@@ -15,6 +16,8 @@ from service.ticket import init_keys
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+dotenv.load_dotenv()
 
 
 @asynccontextmanager
@@ -43,4 +46,4 @@ app.include_router(
 )
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="localhost", port=8000)

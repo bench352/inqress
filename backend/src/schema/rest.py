@@ -17,23 +17,34 @@ class RestModel(BaseModel):
 
 class EventCreate(RestModel):
     name: str
-    description: str | None = None
+    description: str = ""
     date: datetime.date
 
 
-class EventUpdate(RestModel):
-    name: str | None = None
-    description: str | None = None
-    date: str | None = None
-    mode: schema.enum.EventMode | None = None
+class EventPut(RestModel):
+    name: str
+    description: str
+    date: datetime.date
 
 
 class EventResponse(RestModel):
     id: uuid.UUID
     name: str
-    description: str | None
+    description: str
     date: str
     mode: schema.enum.EventMode
+
+
+class EventModeUpdate(RestModel):
+    mode: schema.enum.EventMode
+
+
+class EmailTemplateResponse(RestModel):
+    text: str
+
+
+class EmailTemplateRequest(RestModel):
+    text: str
 
 
 class AttendeeCreate(RestModel):
@@ -52,24 +63,25 @@ class AttendeeResponse(RestModel):
     raw_phone: str
     country_code: str
     phone: str
+    is_ticket_delivered: bool
 
 
 class ScanRequest(RestModel):
     ticket: str
 
 
-class ScanSuccessDetail(RestModel):
-    attendee_title: str
-    attendee_name: str
+class CheckinSuccessDetail(RestModel):
+    title: str
+    name: str
 
 
-class ScanErrorDetail(RestModel):
+class CheckinErrorDetail(RestModel):
     reason: str
 
 
-class ScanResponse(RestModel):
+class CheckinResponse(RestModel):
     success: bool
-    detail: ScanSuccessDetail | ScanErrorDetail
+    detail: CheckinSuccessDetail | CheckinErrorDetail
 
 
 class PhoneCheckinRequest(RestModel):

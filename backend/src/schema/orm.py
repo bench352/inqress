@@ -1,6 +1,15 @@
 import uuid
 
-from sqlalchemy import ForeignKey, String, Text, LargeBinary, Integer, UniqueConstraint, Uuid
+from sqlalchemy import (
+    Boolean,
+    ForeignKey,
+    String,
+    Text,
+    LargeBinary,
+    Integer,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 import schema.enum
@@ -15,11 +24,12 @@ class Event(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    description: Mapped[str | None] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     date: Mapped[str] = mapped_column(String, nullable=False)
     mode: Mapped[str] = mapped_column(
         String, nullable=False, default=schema.enum.EventMode.DISABLED
     )
+    email_template: Mapped[str] = mapped_column(Text, nullable=False)
 
     attendees: Mapped[list["Attendee"]] = relationship(back_populates="event")
     attendance_logs: Mapped[list["AttendanceLog"]] = relationship(
@@ -46,6 +56,9 @@ class Attendee(Base):
     phone: Mapped[str] = mapped_column(String, nullable=False)
     ticket_token: Mapped[str] = mapped_column(String, nullable=False)
     ticket_img: Mapped[bytes | None] = mapped_column(LargeBinary)
+    is_ticket_delivered: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
 
     event: Mapped["Event"] = relationship(back_populates="attendees")
     attendance_logs: Mapped[list["AttendanceLog"]] = relationship(

@@ -3,7 +3,7 @@ import secrets
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from env import get_settings
+from env import ServerSettings
 
 security = HTTPBasic()
 
@@ -11,7 +11,7 @@ security = HTTPBasic()
 def verify_basic_auth(
     credentials: HTTPBasicCredentials = Depends(security),
 ) -> str:
-    settings = get_settings()
+    settings = ServerSettings()
     correct_username = secrets.compare_digest(
         credentials.username.encode(), settings.admin_username.encode()
     )
