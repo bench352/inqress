@@ -12,7 +12,7 @@ from sqlalchemy import select, update, null
 
 from schema.orm import Attendee
 from schema.service import TicketPayload
-from service.db import get_engine
+from service.db import get_session
 
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _KEY_PATH = _DATA_DIR / "key.pem"
@@ -83,12 +83,12 @@ def generate_ticket(event_id: uuid.UUID, attendee_id: uuid.UUID) -> str:
 
 
 def generate_ticket_images(event_id: uuid.UUID | None = None) -> int:
-    with get_engine().begin() as conn:
+    with get_session() as session:
         stmt = select(Attendee).where(Attendee.ticket_img == null())
         if event_id is not None:
             stmt = stmt.where(Attendee.event_id == event_id)
 
-        rows = conn.execute(stmt).scalars().all()
+        rows = session.execute(stmt).scalars().all()
 
         count = 0
         for row in rows:
@@ -96,7 +96,7 @@ def generate_ticket_images(event_id: uuid.UUID | None = None) -> int:
             buf = io.BytesIO()
             img.save(buf, format="PNG")
 
-            conn.execute(
+            session.execute(
                 update(Attendee)
                 .where(Attendee.id == row.id)
                 .values(ticket_img=buf.getvalue())

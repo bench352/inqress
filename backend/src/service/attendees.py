@@ -13,23 +13,23 @@ from schema.rest import (
     BulkCreateResponse,
     BulkDeleteResponse,
 )
-from service.db import get_engine
+from service.db import get_session
 from service import ticket
 
 logger = logging.getLogger(__name__)
 
 
 def list_attendees(event_id: uuid.UUID) -> list[AttendeeResponse]:
-    with get_engine().begin() as conn:
-        result = conn.execute(select(Attendee).where(Attendee.event_id == event_id))
+    with get_session() as session:
+        result = session.execute(select(Attendee).where(Attendee.event_id == event_id))
         return [AttendeeResponse.model_validate(row) for row in result.scalars().all()]
 
 
 def get_attendee(
     event_id: uuid.UUID, attendee_id: uuid.UUID
 ) -> AttendeeResponse | None:
-    with get_engine().begin() as conn:
-        result = conn.execute(
+    with get_session() as session:
+        result = session.execute(
             select(Attendee).where(
                 Attendee.id == attendee_id, Attendee.event_id == event_id
             )
@@ -63,7 +63,7 @@ def bulk_create(
             parsed_entries.append({"payload": p, "error": "Invalid phone number"})
             continue
 
-        phone = f"{parsed.country_code}{parsed.national_number}"
+        phone = str(parsed.national_number)
         country_code = f"+{parsed.country_code}"
 
         parsed_entries.append(
@@ -76,9 +76,9 @@ def bulk_create(
         )
         all_phones.add(phone)
 
-    with get_engine().begin() as conn:
+    with get_session() as session:
         existing_rows = (
-            conn.execute(
+            session.execute(
                 select(Attendee).where(
                     Attendee.event_id == event_id,
                     (Attendee.email.in_(all_emails)) | (Attendee.phone.in_(all_phones)),
@@ -110,7 +110,7 @@ def bulk_create(
                 attendee_id = uuid.uuid4()
                 token = ticket.generate_ticket(event_id, attendee_id)
 
-                result = conn.execute(
+                result = session.execute(
                     insert(Attendee)
                     .values(
                         id=attendee_id,
@@ -138,8 +138,8 @@ def bulk_create(
 
 
 def mark_ticket_delivered(event_id: uuid.UUID, attendee_id: uuid.UUID) -> bool:
-    with get_engine().begin() as conn:
-        result = conn.execute(
+    with get_session() as session:
+        result = session.execute(
             update(Attendee)
             .where(Attendee.id == attendee_id, Attendee.event_id == event_id)
             .values(is_ticket_delivered=True)
@@ -150,8 +150,8 @@ def mark_ticket_delivered(event_id: uuid.UUID, attendee_id: uuid.UUID) -> bool:
 def bulk_delete(event_id: uuid.UUID, ids: list[uuid.UUID]) -> BulkDeleteResponse:
     if not ids:
         return BulkDeleteResponse(num_deleted=0)
-    with get_engine().begin() as conn:
-        result = conn.execute(
+    with get_session() as session:
+        result = session.execute(
             delete(Attendee).where(Attendee.event_id == event_id, Attendee.id.in_(ids))
         )
         return BulkDeleteResponse(num_deleted=result.rowcount)

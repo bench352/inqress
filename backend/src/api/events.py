@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
 
 from schema.rest import (
@@ -81,6 +81,31 @@ def update_email_template(
     event_id: uuid.UUID, payload: EmailTemplateRequest
 ) -> Response:
     updated = events_service.update_email_template(event_id, payload.text)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{event_id}/boothImage")
+def get_booth_image(event_id: uuid.UUID) -> Response:
+    result = events_service.get_booth_image(event_id)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Booth image not found"
+        )
+    image_bytes, content_type = result
+    return Response(content=image_bytes, media_type=content_type)
+
+
+@router.post("/{event_id}/boothImage", status_code=status.HTTP_204_NO_CONTENT)
+def upload_booth_image(
+    event_id: uuid.UUID, file: UploadFile = File(...)
+) -> Response:
+    updated = events_service.set_booth_image(
+        event_id, file.file.read(), file.content_type or "image/png"
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
