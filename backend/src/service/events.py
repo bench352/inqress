@@ -67,11 +67,13 @@ def update_event(event_id: uuid.UUID, payload: EventPut) -> EventResponse | None
 
 def delete_event(event_id: uuid.UUID) -> EventResponse | None:
     with get_session() as session:
-        result = session.execute(
-            delete(Event).where(Event.id == event_id).returning(Event)
-        )
+        result = session.execute(select(Event).where(Event.id == event_id))
         row = result.scalars().first()
-        return EventResponse.model_validate(row) if row else None
+        if row is None:
+            return None
+        response = EventResponse.model_validate(row)
+        session.execute(delete(Event).where(Event.id == event_id))
+        return response
 
 
 def update_event_mode(event_id: uuid.UUID, mode: EventMode) -> EventResponse | None:
