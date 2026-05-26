@@ -45,8 +45,12 @@ export default function EmailTemplateDialog({open, eventId, onClose}: Props) {
                     setLoading(false)
                 }
             })
-            .catch(() => { if (!cancelled) setLoading(false) })
-        return () => { cancelled = true }
+            .catch(() => {
+                if (!cancelled) setLoading(false)
+            })
+        return () => {
+            cancelled = true
+        }
     }, [eventId, username, password])
 
     const saveMutation = useMutation({

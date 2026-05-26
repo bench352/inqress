@@ -49,8 +49,12 @@ export default function EmailTicketDialog({open, eventId, attendeeId, attendeeEm
                     setLoading(false)
                 }
             })
-            .catch(() => { if (!cancelled) setLoading(false) })
-        return () => { cancelled = true }
+            .catch(() => {
+                if (!cancelled) setLoading(false)
+            })
+        return () => {
+            cancelled = true
+        }
     }, [eventId, attendeeId, username, password])
 
     const sendMutation = useMutation({

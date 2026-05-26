@@ -2,7 +2,6 @@ import datetime
 import logging
 import uuid
 
-import phonenumbers
 from sqlalchemy import select, insert
 
 from schema.enum import EventMode
@@ -91,26 +90,13 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> CheckinResponse:
 def checkin_by_phone(
     event_id: uuid.UUID, country_code: str, phone_no: str
 ) -> CheckinResponse:
-    full_number = f"{country_code}{phone_no}"
-    try:
-        parsed = phonenumbers.parse(full_number)
-    except phonenumbers.NumberParseException:
+    if not country_code or not phone_no:
         return CheckinResponse(
             success=False,
             detail=CheckinErrorDetail(
                 reason="No attendee found with this phone number"
             ),
         )
-
-    if not phonenumbers.is_valid_number(parsed):
-        return CheckinResponse(
-            success=False,
-            detail=CheckinErrorDetail(
-                reason="No attendee found with this phone number"
-            ),
-        )
-
-    normalized_phone = f"{parsed.country_code}{parsed.national_number}"
 
     with get_session() as session:
         event = session.execute(
@@ -130,7 +116,8 @@ def checkin_by_phone(
         attendee = session.execute(
             select(Attendee).where(
                 Attendee.event_id == event_id,
-                Attendee.phone == normalized_phone,
+                Attendee.country_code == country_code,
+                Attendee.phone == phone_no,
             )
         ).scalars().first()
         if attendee is None:

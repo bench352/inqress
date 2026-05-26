@@ -216,7 +216,12 @@ export default function EventDetail() {
 
             <ModifyEventsDialog
                 open={settingsDialogOpen}
-                event={{name: event.name, description: event.description, date: event.date, hasBoothImage: event.hasBoothImage}}
+                event={{
+                    name: event.name,
+                    description: event.description,
+                    date: event.date,
+                    hasBoothImage: event.hasBoothImage
+                }}
                 eventId={eventId}
                 isUpdating={isUpdating}
                 isDeleting={isDeleting}

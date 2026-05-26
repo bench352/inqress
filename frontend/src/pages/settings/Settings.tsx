@@ -1,12 +1,5 @@
 import {useState} from 'react'
-import {
-    Card,
-    List,
-    ListItemButton,
-    ListItemIcon,
-    ListItemText,
-    Typography,
-} from '@mui/material'
+import {Card, List, ListItemButton, ListItemIcon, ListItemText, Typography,} from '@mui/material'
 import VideocamIcon from '@mui/icons-material/Videocam'
 import WebcamSettingsDialog from './components/WebcamSettingsDialog'
 

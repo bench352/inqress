@@ -1,13 +1,5 @@
 import {useEffect, useRef, useState} from 'react'
-import {
-    Box,
-    Button,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-} from '@mui/material'
+import {Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,} from '@mui/material'
 import {apiUrl} from '../../../api'
 import {useAuth} from '../../../providers/useAuth'
 
@@ -43,7 +35,9 @@ export default function PreviewTicketDialog({open, eventId, attendeeId, onClose}
                 setImageUrl(url)
                 setLoading(false)
             })
-            .catch(() => { if (!cancelled) setLoading(false) })
+            .catch(() => {
+                if (!cancelled) setLoading(false)
+            })
         return () => {
             cancelled = true
             if (blobUrlRef.current) {

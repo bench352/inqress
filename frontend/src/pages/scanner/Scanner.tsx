@@ -1,7 +1,6 @@
-import {useState, useCallback} from 'react'
+import {useCallback, useState} from 'react'
 import {Box, Button, Typography} from '@mui/material'
 import QrCodeIcon from '@mui/icons-material/QrCode'
-import DoorBackIcon from '@mui/icons-material/DoorBack'
 import {useLocation} from '@tanstack/react-router'
 import {Scanner as QrScanner} from '@yudiel/react-qr-scanner'
 import {useQuery} from '@tanstack/react-query'
@@ -10,6 +9,7 @@ import BoothImage from './components/BoothImage'
 import CheckinResultDialog from './components/CheckinResultDialog'
 import CheckinByPhoneDialog from './components/CheckinByPhoneDialog'
 import EventDisabledDialog from './components/EventDisabledDialog'
+import LoginIcon from '@mui/icons-material/Login';
 
 interface EventResponse {
     id: string
@@ -69,7 +69,7 @@ export default function Scanner() {
                     setCheckinPhase('error')
                 })
         },
-        [eventId]
+        [eventId, api]
     )
 
     const handleScanDismiss = useCallback(() => {
@@ -151,21 +151,21 @@ export default function Scanner() {
                 >
                     <QrCodeIcon sx={{fontSize: 120, color: 'primary.main'}}/>
                     <Typography
-                        variant="h5"
+                        variant="h3"
                         color="text.secondary"
-                        sx={{textAlign: 'center', maxWidth: 400}}
+                        sx={{textAlign: 'center', fontSize: 40, maxWidth: 450, pt: 6}}
                     >
-                        Present your QR code ticket to camera to continue
+                        Present your QR code ticket to the camera to check in
                     </Typography>
                 </Box>
                 <Box sx={{p: 4, display: 'flex', justifyContent: 'center'}}>
                     <Button
                         variant="contained"
                         size="large"
-                        startIcon={<DoorBackIcon/>}
                         onClick={handlePhoneOpen}
-                        sx={{py: 2, px: 6, fontSize: '1.1rem'}}
+                        sx={{py: 2, px: 4, fontSize: '1.8rem'}}
                     >
+                        <LoginIcon sx={{fontSize: 50, pr: 2}}/>
                         Check-in without QR Code
                     </Button>
                 </Box>

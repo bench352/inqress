@@ -1,8 +1,7 @@
-import {useState, useEffect, useCallback} from 'react'
+import {useCallback, useEffect, useState} from 'react'
 import {
     Box,
     Button,
-    CircularProgress,
     Dialog,
     FormControl,
     IconButton,
@@ -13,16 +12,12 @@ import {
     TextField,
     Typography,
 } from '@mui/material'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import ErrorIcon from '@mui/icons-material/Error'
 import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid'
+import QrCode2Icon from '@mui/icons-material/QrCode2'
 import BackspaceIcon from '@mui/icons-material/Backspace'
-import CheckIcon from '@mui/icons-material/Check'
-import useSound from 'use-sound'
-import PhoneDialPad from './PhoneDialPad'
+import PhoneDialPad, {DIAL_BUTTON_HEIGHT} from './PhoneDialPad'
+import CheckinResultDisplay from './CheckinResultDisplay'
 import {useApi} from '../../../api'
-import successSound from '../../../assets/soundEffects/checkin_success.aac'
-import failSound from '../../../assets/soundEffects/checkin_fail.aac'
 
 interface CheckinSuccessDetail {
     title: string
@@ -44,7 +39,16 @@ interface Props {
     onClose: () => void
 }
 
+interface CountryCodesResponse {
+    default: string
+    options: string[]
+}
+
 type Phase = 'input' | 'loading' | 'success' | 'error'
+
+const DIAL_PAD_MAX_WIDTH = 360
+const PHONE_ICON_SIZE = 120
+const PHONE_NO_FONT_SIZE = 22
 
 export default function CheckinByPhoneDialog({open, eventId, onClose}: Props) {
     const api = useApi()
@@ -54,32 +58,19 @@ export default function CheckinByPhoneDialog({open, eventId, onClose}: Props) {
     const [phase, setPhase] = useState<Phase>('input')
     const [result, setResult] = useState<CheckinResponse | null>(null)
     const [errorMessage, setErrorMessage] = useState('')
-    const [playSuccess] = useSound(successSound, {volume: 0.5})
-    const [playFail] = useSound(failSound, {volume: 0.5})
 
     useEffect(() => {
-        api.get<string[]>(`/api/events/${eventId}/phones/countryCodes`)
-            .then((codes) => {
-                setCountryCodes(codes)
-                if (codes.length > 0) {
-                    setSelectedCountryCode(codes[0])
+        api.get<CountryCodesResponse>(`/api/events/${eventId}/phones/countryCodes`)
+            .then((data) => {
+                setCountryCodes(data.options)
+                if (data.default) {
+                    setSelectedCountryCode(data.default)
+                } else if (data.options.length > 0) {
+                    setSelectedCountryCode(data.options[0])
                 }
             })
             .catch(() => setCountryCodes([]))
-    }, [])
-
-    useEffect(() => {
-        if (phase === 'success') playSuccess()
-        if (phase === 'error') playFail()
-    }, [phase])
-
-    useEffect(() => {
-        if (phase === 'success' || phase === 'error') {
-            const delay = phase === 'success' ? 5000 : 3000
-            const timer = setTimeout(onClose, delay)
-            return () => clearTimeout(timer)
-        }
-    }, [phase, onClose])
+    }, [api, eventId])
 
     const handleDigit = useCallback((digit: string) => {
         setPhoneNo((prev) => prev + digit)
@@ -108,48 +99,15 @@ export default function CheckinByPhoneDialog({open, eventId, onClose}: Props) {
 
     if (!open) return null
 
-    if (phase === 'loading' || phase === 'success' || phase === 'error') {
+    if (phase !== 'input') {
         return (
             <Dialog open fullScreen>
-                <Box
-                    sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 4,
-                        p: 8,
-                    }}
-                >
-                    {phase === 'loading' && (
-                        <>
-                            <CircularProgress size={96}/>
-                            <Typography variant="h4" color="text.secondary">
-                                Just a moment...
-                            </Typography>
-                        </>
-                    )}
-                    {phase === 'success' && result?.success && 'detail' in result && !('reason' in result.detail) && (
-                        <>
-                            <CheckCircleIcon sx={{fontSize: 128, color: 'success.main'}}/>
-                            <Typography variant="h3">Welcome</Typography>
-                            <Typography variant="h4" color="text.secondary">
-                                {result.detail.title} {result.detail.name}
-                            </Typography>
-                        </>
-                    )}
-                    {phase === 'error' && (
-                        <>
-                            <ErrorIcon sx={{fontSize: 128, color: 'error.main'}}/>
-                            <Typography variant="h4" color="error.main">
-                                {result && !result.success && 'reason' in result.detail
-                                    ? result.detail.reason
-                                    : errorMessage || 'Unknown error'}
-                            </Typography>
-                        </>
-                    )}
-                </Box>
+                <CheckinResultDisplay
+                    phase={phase}
+                    result={result}
+                    errorMessage={errorMessage}
+                    onDismiss={onClose}
+                />
             </Dialog>
         )
     }
@@ -159,19 +117,23 @@ export default function CheckinByPhoneDialog({open, eventId, onClose}: Props) {
             <Box sx={{display: 'flex', height: '100%'}}>
                 <Box
                     sx={{
-                        flex: 1,
+                        aspectRatio: '1 / 1',
+                        height: '100%',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 3,
+                        gap: 4,
                         p: 6,
                         bgcolor: 'grey.100',
                     }}
                 >
-                    <PhoneAndroidIcon sx={{fontSize: 96, color: 'primary.main'}}/>
-                    <Typography variant="h5" sx={{textAlign: 'center', maxWidth: 360}}>
-                        Enter the phone number you registered for this event.
+                    <PhoneAndroidIcon sx={{fontSize: PHONE_ICON_SIZE, color: 'primary.main'}}/>
+                    <Typography
+                        variant="h3"
+                        sx={{textAlign: 'center', maxWidth: DIAL_PAD_MAX_WIDTH * 1.5, pt: 4}}
+                    >
+                        Enter the phone number you registered for this event
                     </Typography>
                 </Box>
                 <Box
@@ -185,16 +147,17 @@ export default function CheckinByPhoneDialog({open, eventId, onClose}: Props) {
                         p: 4,
                     }}
                 >
-                    <Stack direction="row" spacing={2} sx={{width: '100%', maxWidth: 360}}>
-                        <FormControl sx={{minWidth: 130}}>
+                    <Stack direction="row" spacing={2} sx={{width: '100%', maxWidth: DIAL_PAD_MAX_WIDTH}}>
+                        <FormControl>
                             <InputLabel>Code</InputLabel>
                             <Select
                                 value={selectedCountryCode}
                                 label="Code"
                                 onChange={(e) => setSelectedCountryCode(e.target.value)}
+                                sx={{fontSize: PHONE_NO_FONT_SIZE}}
                             >
                                 {countryCodes.map((code) => (
-                                    <MenuItem key={code} value={code}>
+                                    <MenuItem key={code} value={code} sx={{fontSize: PHONE_NO_FONT_SIZE}}>
                                         {code}
                                     </MenuItem>
                                 ))}
@@ -203,7 +166,7 @@ export default function CheckinByPhoneDialog({open, eventId, onClose}: Props) {
                         <TextField
                             fullWidth
                             value={phoneNo}
-                            slotProps={{input: {readOnly: true}}}
+                            slotProps={{input: {readOnly: true, sx: {fontSize: PHONE_NO_FONT_SIZE}}}}
                             placeholder="Phone number"
                             sx={{flex: 1}}
                             InputProps={{
@@ -218,29 +181,23 @@ export default function CheckinByPhoneDialog({open, eventId, onClose}: Props) {
                     <PhoneDialPad
                         onDigit={handleDigit}
                         onBackspace={handleBackspace}
+                        onSubmit={handleSubmit}
                         disabled={false}
+                        submitDisabled={!phoneNo}
                     />
-                    <Stack direction="row" spacing={2}>
-                        <Button
-                            variant="outlined"
-                            size="large"
-                            onClick={onClose}
-                            sx={{py: 1.5, fontSize: '1.1rem'}}
-                        >
-                            Return to QR check-in
-                        </Button>
-                        <Button
-                            variant="contained"
-                            color="success"
-                            size="large"
-                            startIcon={<CheckIcon/>}
-                            disabled={!phoneNo}
-                            onClick={handleSubmit}
-                            sx={{minWidth: 180, py: 1.5, fontSize: '1.1rem'}}
-                        >
-                            Check In
-                        </Button>
-                    </Stack>
+                    <Button
+                        variant="outlined"
+                        startIcon={<QrCode2Icon/>}
+                        onClick={onClose}
+                        sx={{
+                            maxWidth: DIAL_PAD_MAX_WIDTH,
+                            width: '100%',
+                            height: DIAL_BUTTON_HEIGHT,
+                            fontSize: '1.3rem'
+                        }}
+                    >
+                        Return to QR check-in
+                    </Button>
                 </Box>
             </Box>
         </Dialog>

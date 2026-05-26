@@ -1,15 +1,5 @@
-import {useState, useEffect, useRef} from 'react'
-import {
-    Box,
-    Button,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Paper,
-    Stack,
-    Typography,
-} from '@mui/material'
+import {useEffect, useRef, useState} from 'react'
+import {Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Typography,} from '@mui/material'
 import ImageIcon from '@mui/icons-material/Image'
 import QrCodeIcon from '@mui/icons-material/QrCode'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
@@ -42,7 +32,7 @@ export default function BoothImageConfigDialog({open, eventId, hasBoothImage, on
         api.getBlob(`/api/events/${eventId}/boothImage`)
             .then((blob) => setImageUrl(URL.createObjectURL(blob)))
             .catch(() => setImageUrl(null))
-    }, [open, hasBoothImage])
+    }, [open, hasBoothImage, api, eventId])
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]

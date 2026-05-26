@@ -195,7 +195,7 @@ export default function AttendeeDetailsDialog({open, attendee, eventId, eventNam
                             onClick={() => setSubView('preview')}
                             disabled={!attendee.isTicketReady}
                         >
-                            <ListItemIcon><QrCodeIcon /></ListItemIcon>
+                            <ListItemIcon><QrCodeIcon/></ListItemIcon>
                             <ListItemText
                                 primary="Preview ticket"
                                 secondary={!attendee.isTicketReady ? 'Ticket image is still generating' : undefined}

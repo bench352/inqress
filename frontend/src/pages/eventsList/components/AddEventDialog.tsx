@@ -11,7 +11,8 @@ interface AddEventDialogProps {
     loading: boolean
 }
 
-export default function AddEventDialog({open, onClose, onSubmit, loading}: AddEventDialogProps) {
+export default function
+    AddEventDialog({open, onClose, onSubmit, loading}: AddEventDialogProps) {
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [date, setDate] = useState<dayjs.Dayjs | null>(dayjs())

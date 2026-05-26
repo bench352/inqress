@@ -1,4 +1,4 @@
-import {useState, useEffect} from 'react'
+import {useEffect, useState} from 'react'
 import {Box, Typography} from '@mui/material'
 import ImageIcon from '@mui/icons-material/Image'
 import {useApi} from '../../../api'
@@ -32,7 +32,7 @@ export default function BoothImage({eventId, eventName, hasBoothImage}: Props) {
         return () => {
             cancelled = true
         }
-    }, [eventId, hasBoothImage])
+    }, [eventId, hasBoothImage, api])
 
     return (
         <Box

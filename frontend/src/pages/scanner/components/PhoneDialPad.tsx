@@ -1,11 +1,14 @@
 import Grid from '@mui/material/Grid'
-import {Button, IconButton} from '@mui/material'
+import {Button} from '@mui/material'
+import CheckIcon from '@mui/icons-material/Check'
 import BackspaceIcon from '@mui/icons-material/Backspace'
 
 interface Props {
     onDigit: (digit: string) => void
     onBackspace: () => void
+    onSubmit: () => void
     disabled: boolean
+    submitDisabled: boolean
 }
 
 const digits = [
@@ -15,7 +18,11 @@ const digits = [
     ['*', '0', '#'],
 ]
 
-export default function PhoneDialPad({onDigit, onBackspace, disabled}: Props) {
+export const DIAL_DIGIT_FONT_SIZE = '2rem'
+export const DIAL_ACTION_FONT_SIZE = '1.3rem'
+export const DIAL_BUTTON_HEIGHT = 68
+
+export default function PhoneDialPad({onDigit, onBackspace, onSubmit, disabled, submitDisabled}: Props) {
     return (
         <Grid container spacing={1} sx={{maxWidth: 360}}>
             {digits.map((row, ri) =>
@@ -26,7 +33,7 @@ export default function PhoneDialPad({onDigit, onBackspace, disabled}: Props) {
                             variant="contained"
                             disabled={disabled}
                             onClick={() => onDigit(digit)}
-                            sx={{minHeight: 56, fontSize: '1.5rem'}}
+                            sx={{height: DIAL_BUTTON_HEIGHT, fontSize: DIAL_DIGIT_FONT_SIZE}}
                         >
                             {digit}
                         </Button>
@@ -36,33 +43,26 @@ export default function PhoneDialPad({onDigit, onBackspace, disabled}: Props) {
             <Grid size={4}>
                 <Button
                     fullWidth
-                    variant="contained"
+                    variant="outlined"
                     disabled={disabled}
-                    sx={{minHeight: 56}}
-                    onClick={() => onDigit(',')}
+                    onClick={onBackspace}
+                    sx={{height: DIAL_BUTTON_HEIGHT, fontSize: DIAL_ACTION_FONT_SIZE}}
                 >
-                    ,
+                    <BackspaceIcon/>
                 </Button>
             </Grid>
-            <Grid size={4}>
+            <Grid size={8}>
                 <Button
                     fullWidth
                     variant="contained"
-                    disabled={disabled}
-                    sx={{minHeight: 56}}
-                    onClick={() => onDigit('+')}
+                    color="success"
+                    disabled={submitDisabled}
+                    onClick={onSubmit}
+                    sx={{height: DIAL_BUTTON_HEIGHT, fontSize: DIAL_ACTION_FONT_SIZE}}
                 >
-                    +
+                    <CheckIcon sx={{mr: 1}}/>
+                    Check In
                 </Button>
-            </Grid>
-            <Grid size={4}>
-                <IconButton
-                    onClick={onBackspace}
-                    disabled={disabled}
-                    sx={{minHeight: 56, width: '100%'}}
-                >
-                    <BackspaceIcon/>
-                </IconButton>
             </Grid>
         </Grid>
     )

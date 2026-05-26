@@ -109,3 +109,8 @@ class BulkCreateResponse(RestModel):
 
 class BulkDeleteResponse(RestModel):
     num_deleted: int
+
+
+class CountryCodesResponse(RestModel):
+    default: str
+    options: list[str]

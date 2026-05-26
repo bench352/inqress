@@ -1,6 +1,7 @@
 import {StrictMode} from 'react'
 import {createRoot} from 'react-dom/client'
 import {createTheme, CssBaseline, ThemeProvider} from '@mui/material'
+import {blue, deepPurple} from '@mui/material/colors'
 import {RouterProvider} from '@tanstack/react-router'
 import {LocalizationProvider} from '@mui/x-date-pickers/LocalizationProvider'
 import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs'
@@ -14,6 +15,10 @@ import {router} from './router'
 
 const theme = createTheme({
     cssVariables: true,
+    palette: {
+        primary: deepPurple,
+        secondary: blue,
+    },
 })
 
 createRoot(document.getElementById('root')!).render(

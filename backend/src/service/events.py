@@ -1,17 +1,20 @@
 import uuid
 from pathlib import Path
 
+import phonenumbers
 from sqlalchemy import delete, insert, select, update
 
 from schema.enum import EventMode
 from schema.orm import Attendee, AttendanceLog, Event
 from schema.rest import (
+    CountryCodesResponse,
     EmailTemplateResponse,
     EventCreate,
     EventPut,
     EventResponse,
 )
 from service.db import get_session
+from env import ServerSettings
 
 _DEFAULT_TEMPLATE_PATH = (
     Path(__file__).resolve().parent.parent / "assets" / "default_email_template.html"
@@ -134,11 +137,20 @@ def set_booth_image(
         return result.rowcount > 0
 
 
-def get_unique_country_codes(event_id: uuid.UUID) -> list[str]:
+def get_unique_country_codes(event_id: uuid.UUID) -> CountryCodesResponse:
     with get_session() as session:
         result = session.execute(
             select(Attendee.country_code)
             .where(Attendee.event_id == event_id)
             .distinct()
         )
-        return [row[0] for row in result.all() if row[0]]
+        options = [row[0] for row in result.all() if row[0]]
+
+    settings = ServerSettings()
+    try:
+        cc = phonenumbers.country_code_for_region(settings.default_country_code)
+        default = f"+{cc}"
+    except Exception:
+        default = options[0] if options else ""
+
+    return CountryCodesResponse(default=default, options=options)
