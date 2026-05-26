@@ -69,7 +69,7 @@ def verify_ticket(token_str: str) -> TicketPayload:
             attendee_id=uuid.UUID(payload["attendeeId"]),
         )
     except Exception as e:
-        raise ValueError(f"Invalid ticket: {e}")
+        raise ValueError("Not a valid ticket.") from e
 
 
 def generate_ticket(event_id: uuid.UUID, attendee_id: uuid.UUID) -> str:

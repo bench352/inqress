@@ -100,9 +100,7 @@ def get_booth_image(event_id: uuid.UUID) -> Response:
 
 
 @router.post("/{event_id}/boothImage", status_code=status.HTTP_204_NO_CONTENT)
-def upload_booth_image(
-    event_id: uuid.UUID, file: UploadFile = File(...)
-) -> Response:
+def upload_booth_image(event_id: uuid.UUID, file: UploadFile = File(...)) -> Response:
     updated = events_service.set_booth_image(
         event_id, file.file.read(), file.content_type or "image/png"
     )

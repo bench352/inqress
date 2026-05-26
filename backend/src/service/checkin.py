@@ -25,13 +25,13 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> CheckinResponse:
     if payload.event_id != event_id:
         return CheckinResponse(
             success=False,
-            detail=CheckinErrorDetail(reason="Ticket is for a different event"),
+            detail=CheckinErrorDetail(reason="Ticket is not for this event."),
         )
 
     with get_session() as session:
-        event = session.execute(
-            select(Event).where(Event.id == event_id)
-        ).scalars().first()
+        event = (
+            session.execute(select(Event).where(Event.id == event_id)).scalars().first()
+        )
         if event is None:
             return CheckinResponse(
                 success=False, detail=CheckinErrorDetail(reason="Event not found")
@@ -43,26 +43,38 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> CheckinResponse:
                 detail=CheckinErrorDetail(reason="Event check-in is not active"),
             )
 
-        attendee = session.execute(
-            select(Attendee).where(
-                Attendee.id == payload.attendee_id,
-                Attendee.event_id == event_id,
+        attendee = (
+            session.execute(
+                select(Attendee).where(
+                    Attendee.id == payload.attendee_id,
+                    Attendee.event_id == event_id,
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         if attendee is None:
             return CheckinResponse(
-                success=False, detail=CheckinErrorDetail(reason="Attendee not found")
+                success=False,
+                detail=CheckinErrorDetail(
+                    reason="You are not registered for this event."
+                ),
             )
 
-        already_checked_in = session.execute(
-            select(AttendanceLog).where(
-                AttendanceLog.event_id == event_id,
-                AttendanceLog.attendee_id == payload.attendee_id,
+        already_checked_in = (
+            session.execute(
+                select(AttendanceLog).where(
+                    AttendanceLog.event_id == event_id,
+                    AttendanceLog.attendee_id == payload.attendee_id,
+                )
             )
-        ).scalars().first() is not None
+            .scalars()
+            .first()
+            is not None
+        )
         if already_checked_in:
             return CheckinResponse(
-                success=False, detail=CheckinErrorDetail(reason="Already checked in")
+                success=False, detail=CheckinErrorDetail(reason="Already checked in.")
             )
 
         is_test = 1 if event.mode == EventMode.TEST else 0
@@ -99,9 +111,9 @@ def checkin_by_phone(
         )
 
     with get_session() as session:
-        event = session.execute(
-            select(Event).where(Event.id == event_id)
-        ).scalars().first()
+        event = (
+            session.execute(select(Event).where(Event.id == event_id)).scalars().first()
+        )
         if event is None:
             return CheckinResponse(
                 success=False, detail=CheckinErrorDetail(reason="Event not found")
@@ -113,13 +125,17 @@ def checkin_by_phone(
                 detail=CheckinErrorDetail(reason="Event check-in is not active"),
             )
 
-        attendee = session.execute(
-            select(Attendee).where(
-                Attendee.event_id == event_id,
-                Attendee.country_code == country_code,
-                Attendee.phone == phone_no,
+        attendee = (
+            session.execute(
+                select(Attendee).where(
+                    Attendee.event_id == event_id,
+                    Attendee.country_code == country_code,
+                    Attendee.phone == phone_no,
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         if attendee is None:
             return CheckinResponse(
                 success=False,
@@ -128,12 +144,17 @@ def checkin_by_phone(
                 ),
             )
 
-        already_checked_in = session.execute(
-            select(AttendanceLog).where(
-                AttendanceLog.event_id == event_id,
-                AttendanceLog.attendee_id == attendee.id,
+        already_checked_in = (
+            session.execute(
+                select(AttendanceLog).where(
+                    AttendanceLog.event_id == event_id,
+                    AttendanceLog.attendee_id == attendee.id,
+                )
             )
-        ).scalars().first() is not None
+            .scalars()
+            .first()
+            is not None
+        )
         if already_checked_in:
             return CheckinResponse(
                 success=False, detail=CheckinErrorDetail(reason="Already checked in")
@@ -163,9 +184,9 @@ def checkin_by_phone(
 
 def checkin_manual(event_id: uuid.UUID, attendee_id: uuid.UUID) -> CheckinResponse:
     with get_session() as session:
-        event = session.execute(
-            select(Event).where(Event.id == event_id)
-        ).scalars().first()
+        event = (
+            session.execute(select(Event).where(Event.id == event_id)).scalars().first()
+        )
         if event is None:
             return CheckinResponse(
                 success=False, detail=CheckinErrorDetail(reason="Event not found")
@@ -177,23 +198,32 @@ def checkin_manual(event_id: uuid.UUID, attendee_id: uuid.UUID) -> CheckinRespon
                 detail=CheckinErrorDetail(reason="Event check-in is not active"),
             )
 
-        attendee = session.execute(
-            select(Attendee).where(
-                Attendee.id == attendee_id,
-                Attendee.event_id == event_id,
+        attendee = (
+            session.execute(
+                select(Attendee).where(
+                    Attendee.id == attendee_id,
+                    Attendee.event_id == event_id,
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         if attendee is None:
             return CheckinResponse(
                 success=False, detail=CheckinErrorDetail(reason="Attendee not found")
             )
 
-        already_checked_in = session.execute(
-            select(AttendanceLog).where(
-                AttendanceLog.event_id == event_id,
-                AttendanceLog.attendee_id == attendee_id,
+        already_checked_in = (
+            session.execute(
+                select(AttendanceLog).where(
+                    AttendanceLog.event_id == event_id,
+                    AttendanceLog.attendee_id == attendee_id,
+                )
             )
-        ).scalars().first() is not None
+            .scalars()
+            .first()
+            is not None
+        )
         if already_checked_in:
             return CheckinResponse(
                 success=False, detail=CheckinErrorDetail(reason="Already checked in")

@@ -39,4 +39,5 @@ def checkin_manual(
 @router_authed.get("/events/{event_id}/phones/countryCodes")
 def get_country_codes(event_id: uuid.UUID) -> CountryCodesResponse:
     from service import events as events_service
+
     return events_service.get_unique_country_codes(event_id)

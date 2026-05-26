@@ -76,9 +76,11 @@ def delete_event(event_id: uuid.UUID) -> EventResponse | None:
 
 def update_event_mode(event_id: uuid.UUID, mode: EventMode) -> EventResponse | None:
     with get_session() as session:
-        current = session.execute(
-            select(Event.mode).where(Event.id == event_id)
-        ).scalars().first()
+        current = (
+            session.execute(select(Event.mode).where(Event.id == event_id))
+            .scalars()
+            .first()
+        )
 
         if current == EventMode.TEST and mode == EventMode.DISABLED:
             session.execute(
@@ -125,9 +127,7 @@ def get_booth_image(event_id: uuid.UUID) -> tuple[bytes, str] | None:
         return row[0], row[1] or "image/png"
 
 
-def set_booth_image(
-    event_id: uuid.UUID, image_bytes: bytes, content_type: str
-) -> bool:
+def set_booth_image(event_id: uuid.UUID, image_bytes: bytes, content_type: str) -> bool:
     with get_session() as session:
         result = session.execute(
             update(Event)
