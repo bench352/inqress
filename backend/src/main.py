@@ -11,7 +11,7 @@ import api.events
 import api.health
 from schema.orm import Base
 from service.auth import verify_basic_auth
-from service.db import get_engine
+from service.db import ENGINE
 from service.ticket import init_keys
 
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +23,7 @@ dotenv.load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing DB schema")
-    Base.metadata.create_all(get_engine())
+    Base.metadata.create_all(ENGINE)
     logger.info("Initializing ticket keys")
     init_keys()
     yield
@@ -46,4 +46,4 @@ app.include_router(
 )
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="localhost", port=8000)
+    uvicorn.run("main:app", host="localhost", port=8000, reload=True)

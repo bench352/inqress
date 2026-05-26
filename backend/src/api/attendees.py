@@ -137,7 +137,7 @@ def send_email(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Email template not found"
         )
-    subject = f"Your Ticket for {event.name}"
+    subject = f"[Ticket] {event.name}"
     email_service.send_ticket_email(
         attendee.email,
         subject,

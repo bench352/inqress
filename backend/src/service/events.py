@@ -1,17 +1,20 @@
 import uuid
 from pathlib import Path
 
+import phonenumbers
 from sqlalchemy import delete, insert, select, update
 
 from schema.enum import EventMode
-from schema.orm import Event
+from schema.orm import Attendee, AttendanceLog, Event
 from schema.rest import (
+    CountryCodesResponse,
     EmailTemplateResponse,
     EventCreate,
     EventPut,
     EventResponse,
 )
-from service.db import get_engine
+from service.db import get_session
+from env import ServerSettings
 
 _DEFAULT_TEMPLATE_PATH = (
     Path(__file__).resolve().parent.parent / "assets" / "default_email_template.html"
@@ -23,22 +26,22 @@ def _load_default_template() -> str:
 
 
 def list_events() -> list[EventResponse]:
-    with get_engine().begin() as conn:
-        result = conn.execute(select(Event).order_by(Event.date))
+    with get_session() as session:
+        result = session.execute(select(Event).order_by(Event.date))
         return [EventResponse.model_validate(row) for row in result.scalars().all()]
 
 
 def get_event(event_id: uuid.UUID) -> EventResponse | None:
-    with get_engine().begin() as conn:
-        result = conn.execute(select(Event).where(Event.id == event_id))
+    with get_session() as session:
+        result = session.execute(select(Event).where(Event.id == event_id))
         row = result.scalars().first()
         return EventResponse.model_validate(row) if row else None
 
 
 def create_event(payload: EventCreate) -> EventResponse:
     default_template = _load_default_template()
-    with get_engine().begin() as conn:
-        result = conn.execute(
+    with get_session() as session:
+        result = session.execute(
             insert(Event)
             .values(
                 id=uuid.uuid4(),
@@ -54,8 +57,8 @@ def create_event(payload: EventCreate) -> EventResponse:
 
 def update_event(event_id: uuid.UUID, payload: EventPut) -> EventResponse | None:
     values = payload.model_dump(by_alias=False)
-    with get_engine().begin() as conn:
-        result = conn.execute(
+    with get_session() as session:
+        result = session.execute(
             update(Event).where(Event.id == event_id).values(**values).returning(Event)
         )
         row = result.scalars().first()
@@ -63,8 +66,8 @@ def update_event(event_id: uuid.UUID, payload: EventPut) -> EventResponse | None
 
 
 def delete_event(event_id: uuid.UUID) -> EventResponse | None:
-    with get_engine().begin() as conn:
-        result = conn.execute(
+    with get_session() as session:
+        result = session.execute(
             delete(Event).where(Event.id == event_id).returning(Event)
         )
         row = result.scalars().first()
@@ -72,8 +75,20 @@ def delete_event(event_id: uuid.UUID) -> EventResponse | None:
 
 
 def update_event_mode(event_id: uuid.UUID, mode: EventMode) -> EventResponse | None:
-    with get_engine().begin() as conn:
-        result = conn.execute(
+    with get_session() as session:
+        current = session.execute(
+            select(Event.mode).where(Event.id == event_id)
+        ).scalars().first()
+
+        if current == EventMode.TEST and mode == EventMode.DISABLED:
+            session.execute(
+                delete(AttendanceLog).where(
+                    AttendanceLog.event_id == event_id,
+                    AttendanceLog.is_test == 1,
+                )
+            )
+
+        result = session.execute(
             update(Event).where(Event.id == event_id).values(mode=mode).returning(Event)
         )
         row = result.scalars().first()
@@ -81,15 +96,61 @@ def update_event_mode(event_id: uuid.UUID, mode: EventMode) -> EventResponse | N
 
 
 def get_email_template(event_id: uuid.UUID) -> EmailTemplateResponse | None:
-    with get_engine().begin() as conn:
-        result = conn.execute(select(Event.email_template).where(Event.id == event_id))
+    with get_session() as session:
+        result = session.execute(
+            select(Event.email_template).where(Event.id == event_id)
+        )
         text = result.scalars().first()
         return EmailTemplateResponse(text=text) if text is not None else None
 
 
 def update_email_template(event_id: uuid.UUID, text: str) -> bool:
-    with get_engine().begin() as conn:
-        result = conn.execute(
+    with get_session() as session:
+        result = session.execute(
             update(Event).where(Event.id == event_id).values(email_template=text)
         )
         return result.rowcount > 0
+
+
+def get_booth_image(event_id: uuid.UUID) -> tuple[bytes, str] | None:
+    with get_session() as session:
+        result = session.execute(
+            select(Event.booth_image, Event.booth_image_type).where(
+                Event.id == event_id
+            )
+        )
+        row = result.first()
+        if row is None or row[0] is None:
+            return None
+        return row[0], row[1] or "image/png"
+
+
+def set_booth_image(
+    event_id: uuid.UUID, image_bytes: bytes, content_type: str
+) -> bool:
+    with get_session() as session:
+        result = session.execute(
+            update(Event)
+            .where(Event.id == event_id)
+            .values(booth_image=image_bytes, booth_image_type=content_type)
+        )
+        return result.rowcount > 0
+
+
+def get_unique_country_codes(event_id: uuid.UUID) -> CountryCodesResponse:
+    with get_session() as session:
+        result = session.execute(
+            select(Attendee.country_code)
+            .where(Attendee.event_id == event_id)
+            .distinct()
+        )
+        options = [row[0] for row in result.all() if row[0]]
+
+    settings = ServerSettings()
+    try:
+        cc = phonenumbers.country_code_for_region(settings.default_country_code)
+        default = f"+{cc}"
+    except Exception:
+        default = options[0] if options else ""
+
+    return CountryCodesResponse(default=default, options=options)

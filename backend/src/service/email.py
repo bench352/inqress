@@ -16,7 +16,13 @@ def _render_template(
     template_str: str, title: str, full_name: str, event_name: str
 ) -> str:
     template = Template(template_str)
-    return template.render(title=title, fullName=full_name, eventName=event_name)
+    ticket_qr = (
+        '<p style="text-align: center; margin: 20px 0;">'
+        '<img src="cid:qr_code" alt="Your QR Code Ticket"'
+        ' style="max-width: 320px; border: 2px solid #ddd; padding: 12px; border-radius: 8px;"/>'
+        '</p>'
+    )
+    return template.render(title=title, fullName=full_name, eventName=event_name, ticketQR=ticket_qr)
 
 
 def render_preview_html(

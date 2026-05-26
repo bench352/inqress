@@ -33,6 +33,7 @@ class EventResponse(RestModel):
     description: str
     date: str
     mode: schema.enum.EventMode
+    has_booth_image: bool
 
 
 class EventModeUpdate(RestModel):
@@ -64,6 +65,8 @@ class AttendeeResponse(RestModel):
     country_code: str
     phone: str
     is_ticket_delivered: bool
+    is_ticket_ready: bool
+    attended: bool
 
 
 class ScanRequest(RestModel):
@@ -106,3 +109,8 @@ class BulkCreateResponse(RestModel):
 
 class BulkDeleteResponse(RestModel):
     num_deleted: int
+
+
+class CountryCodesResponse(RestModel):
+    default: str
+    options: list[str]
