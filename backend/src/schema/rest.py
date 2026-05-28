@@ -114,3 +114,28 @@ class BulkDeleteResponse(RestModel):
 class CountryCodesResponse(RestModel):
     default: str
     options: list[str]
+
+
+class SheetPreview(RestModel):
+    columns: list[str]
+    heads: list[list[str]]
+
+
+class ExcelPreviewResponse(RestModel):
+    task_id: uuid.UUID
+    expire_in: datetime.datetime
+    sheet_names: list[str]
+    sheets: dict[str, SheetPreview]
+
+
+class RowMapping(RestModel):
+    title_column: str | None = None
+    name_column: str | None = None
+    raw_phone_column: str | None = None
+    email_column: str | None = None
+
+
+class ExcelImportRequest(RestModel):
+    task_id: uuid.UUID
+    sheet_name: str
+    row_mapping: RowMapping
