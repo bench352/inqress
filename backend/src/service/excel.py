@@ -1,7 +1,6 @@
 import csv
 import datetime
 import io
-import logging
 import threading
 import uuid
 
@@ -9,28 +8,35 @@ import openpyxl
 
 from schema.rest import AttendeeCreate
 
-logger = logging.getLogger(__name__)
-
 CacheEntry = tuple[dict[str, tuple[list[str], list[list[str]]]], datetime.datetime]
 _cache: dict[uuid.UUID, CacheEntry] = {}
 _cache_lock = threading.Lock()
 _CACHE_TTL = datetime.timedelta(minutes=30)
 
 
+def _cleanup(task_id: uuid.UUID) -> None:
+    with _cache_lock:
+        _cache.pop(task_id, None)
+
+
 def _parse_xlsx(file_bytes: bytes) -> dict[str, tuple[list[str], list[list[str]]]]:
-    wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
-    result: dict[str, tuple[list[str], list[list[str]]]] = {}
-    for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        rows = list(ws.iter_rows(values_only=True))
-        if not rows:
-            result[sheet_name] = ([], [])
-            continue
-        columns = [str(c) if c is not None else "" for c in rows[0]]
-        data = [[str(c) if c is not None else "" for c in row] for row in rows[1:]]
-        result[sheet_name] = (columns, data)
-    wb.close()
-    return result
+    wb: openpyxl.Workbook | None = None
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+        result: dict[str, tuple[list[str], list[list[str]]]] = {}
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            rows = list(ws.iter_rows(values_only=True))
+            if not rows:
+                result[sheet_name] = ([], [])
+                continue
+            columns = [str(c) if c is not None else "" for c in rows[0]]
+            data = [[str(c) if c is not None else "" for c in row] for row in rows[1:]]
+            result[sheet_name] = (columns, data)
+        return result
+    finally:
+        if wb is not None:
+            wb.close()
 
 
 def _parse_csv(file_bytes: bytes) -> dict[str, tuple[list[str], list[list[str]]]]:
@@ -59,7 +65,7 @@ def store_workbook(workbook: dict[str, tuple[list[str], list[list[str]]]]) -> uu
     expiry = datetime.datetime.now() + _CACHE_TTL
     with _cache_lock:
         _cache[task_id] = (workbook, expiry)
-    threading.Timer(_CACHE_TTL.total_seconds(), lambda: _cache.pop(task_id, None)).start()
+    threading.Timer(_CACHE_TTL.total_seconds(), _cleanup, args=(task_id,)).start()
     return task_id
 
 
@@ -86,7 +92,7 @@ def map_rows(
     if sheet_name not in workbook:
         raise ValueError(f"Sheet '{sheet_name}' not found in workbook")
     columns, rows = workbook[sheet_name]
-    idx_by_field = {}
+    idx_by_field: dict[str, int] = {}
     if title_column is not None and title_column in columns:
         idx_by_field["title"] = columns.index(title_column)
     if name_column is not None and name_column in columns:
@@ -96,12 +102,15 @@ def map_rows(
     if email_column is not None and email_column in columns:
         idx_by_field["email"] = columns.index(email_column)
 
+    def _get(row: list[str], idx: int) -> str:
+        return row[idx] if idx < len(row) else ""
+
     result: list[AttendeeCreate] = []
     for row in rows:
-        title = row[idx_by_field["title"]] if "title" in idx_by_field else ""
-        name = row[idx_by_field["name"]] if "name" in idx_by_field else ""
-        raw_phone = row[idx_by_field["raw_phone"]] if "raw_phone" in idx_by_field else ""
-        email = row[idx_by_field["email"]] if "email" in idx_by_field else ""
+        title = _get(row, idx_by_field["title"]) if "title" in idx_by_field else ""
+        name = _get(row, idx_by_field["name"]) if "name" in idx_by_field else ""
+        raw_phone = _get(row, idx_by_field["raw_phone"]) if "raw_phone" in idx_by_field else ""
+        email = _get(row, idx_by_field["email"]) if "email" in idx_by_field else ""
         if not name.strip():
             continue
         result.append(AttendeeCreate(title=title, name=name, email=email, raw_phone=raw_phone))
