@@ -4,7 +4,7 @@ import {
     Alert,
     Box,
     Button,
-    Chip,
+    Chip, Divider,
     MenuItem,
     Paper,
     Select,
@@ -25,8 +25,9 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {useLocation, useNavigate} from '@tanstack/react-router'
 import {useApi} from '../../api'
 import {useAuth} from '../../providers/useAuth'
+import TabIcon from '@mui/icons-material/Tab';
 
-const ATTENDEE_FIELDS = ['Ignore', 'Title', 'Name', 'Phone', 'Email'] as const
+const ATTENDEE_FIELDS = ['(Ignore)', 'Title', 'Name', 'Phone', 'Email'] as const
 type AttendeeField = (typeof ATTENDEE_FIELDS)[number]
 
 interface SheetPreview {
@@ -149,10 +150,10 @@ export default function AddAttendeesBySpreadsheet() {
     const handleColumnMappingChange = (columnName: string, field: AttendeeField) => {
         setColumnMapping((prev) => {
             const next = {...prev}
-            if (field !== 'Ignore') {
+            if (field !== '(Ignore)') {
                 Object.keys(next).forEach((col) => {
                     if (next[col] === field && col !== columnName) {
-                        next[col] = 'Ignore'
+                        next[col] = '(Ignore)'
                     }
                 })
             }
@@ -162,7 +163,7 @@ export default function AddAttendeesBySpreadsheet() {
     }
 
     const getMappingAssignment = (field: AttendeeField): string | null => {
-        if (field === 'Ignore') return null
+        if (field === '(Ignore)') return null
         return Object.entries(columnMapping).find(([, f]) => f === field)?.[0] ?? null
     }
 
@@ -189,9 +190,9 @@ export default function AddAttendeesBySpreadsheet() {
                 <Typography variant="h4">{eventName}</Typography>
                 <Typography variant="h5">Add Attendees from Spreadsheet</Typography>
                 <Stepper activeStep={3}>
-                    <Step><StepLabel>Upload file</StepLabel></Step>
+                    <Step><StepLabel>Upload spreadsheet</StepLabel></Step>
                     <Step><StepLabel>{preview && preview.sheetNames.length > 1 ? 'Select sheet' : 'Review'}</StepLabel></Step>
-                    <Step><StepLabel>Map columns</StepLabel></Step>
+                    <Step><StepLabel>Map columns to attendees' details</StepLabel></Step>
                     <Step><StepLabel>Completed</StepLabel></Step>
                 </Stepper>
                 <Typography variant="h5">Import Result</Typography>
@@ -260,9 +261,9 @@ export default function AddAttendeesBySpreadsheet() {
             <Typography variant="h5">Add Attendees from Spreadsheet</Typography>
 
             <Stepper activeStep={activeStep}>
-                <Step><StepLabel>Upload file</StepLabel></Step>
+                <Step><StepLabel>Upload spreadsheet</StepLabel></Step>
                 <Step><StepLabel>{preview && preview.sheetNames.length > 1 ? 'Select sheet' : 'Review'}</StepLabel></Step>
-                <Step><StepLabel>Map columns</StepLabel></Step>
+                <Step><StepLabel>Map columns to attendees' details</StepLabel></Step>
                 <Step><StepLabel>Completed</StepLabel></Step>
             </Stepper>
 
@@ -303,7 +304,8 @@ export default function AddAttendeesBySpreadsheet() {
 
             {activeStep === 1 && preview && preview.sheetNames.length > 1 && (
                 <Stack spacing={2}>
-                    <Typography variant="subtitle1">Select a sheet to import:</Typography>
+
+                    <Typography variant="subtitle1">There're multiple sheets in your uploaded file. Choose the one that has the data you want to import!</Typography>
                     {preview.sheetNames.map((name) => {
                         const sheet = preview.sheets[name]
                         return (
@@ -313,7 +315,14 @@ export default function AddAttendeesBySpreadsheet() {
                                 sx={{p: 2, cursor: 'pointer', '&:hover': {borderColor: 'primary.main', bgcolor: 'action.hover'}}}
                                 onClick={() => handleSheetSelect(name)}
                             >
-                                <Typography variant="subtitle2" sx={{mb: 1}}>{name}</Typography>
+                                <Stack direction="row"
+                                       spacing={1}
+                                       sx={{
+                                           justifyContent: "flex-start",
+                                           alignItems: "center",
+                                       }}><TabIcon/>
+                                    <Typography variant="h6" sx={{mb: 1}}>{name}</Typography></Stack>
+
                                 {sheet.columns.length > 0 ? (
                                     <TableContainer>
                                         <Table size="small">
@@ -347,7 +356,7 @@ export default function AddAttendeesBySpreadsheet() {
             {activeStep === 2 && preview && selectedSheet && (
                 <Stack spacing={2}>
                     <Typography variant="subtitle1">
-                        Sheet: <strong>{selectedSheet}</strong> — map each column to an attendee field:
+                        <strong>{selectedSheet}</strong> — map each column to an attendee field:
                     </Typography>
                     {preview.sheets[selectedSheet].columns.length > 0 ? (
                         <>
@@ -356,9 +365,9 @@ export default function AddAttendeesBySpreadsheet() {
                                     <TableHead>
                                         <TableRow>
                                             {preview.sheets[selectedSheet].columns.map((col) => {
-                                                const assigned = columnMapping[col] || 'Ignore'
+                                                const assigned = columnMapping[col] || '(Ignore)'
                                                 const usedFields = new Set(
-                                                    Object.values(columnMapping).filter((f) => f !== 'Ignore'),
+                                                    Object.values(columnMapping).filter((f) => f !== '(Ignore)'),
                                                 )
                                                 return (
                                                     <TableCell key={col} sx={{verticalAlign: 'top', pb: 1}}>
@@ -374,7 +383,7 @@ export default function AddAttendeesBySpreadsheet() {
                                                                 <MenuItem
                                                                     key={f}
                                                                     value={f}
-                                                                    disabled={f !== 'Ignore' && f !== assigned && usedFields.has(f)}
+                                                                    disabled={f !== '(Ignore)' && f !== assigned && usedFields.has(f)}
                                                                 >
                                                                     {f}
                                                                 </MenuItem>
