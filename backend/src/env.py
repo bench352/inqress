@@ -5,6 +5,7 @@ class ServerSettings(pydantic_settings.BaseSettings):
     admin_username: str
     admin_password: str
     default_country_code: str
+    debug: bool = False
 
 
 class SmtpSettings(pydantic_settings.BaseSettings):
