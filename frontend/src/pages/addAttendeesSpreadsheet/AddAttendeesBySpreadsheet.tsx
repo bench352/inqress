@@ -240,6 +240,9 @@ export default function AddAttendeesBySpreadsheet() {
                         </Stack>
                     </Paper>
                 )}
+                {result.created.length === 0 && result.skipped.length === 0 && result.errors.length === 0 && (
+                    <Typography color="text.secondary">No attendees were processed.</Typography>
+                )}
                 <Box>
                     <Button variant="contained" onClick={() => navigate({to: '/events/$eventId', params: {eventId}})}>
                         Return to Event
