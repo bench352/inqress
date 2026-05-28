@@ -20,6 +20,7 @@ import {
     TableRow,
     Typography,
 } from '@mui/material'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {useLocation, useNavigate} from '@tanstack/react-router'
 import {useApi} from '../../api'
@@ -185,6 +186,8 @@ export default function AddAttendeesBySpreadsheet() {
     if (activeStep === 3 && result) {
         return (
             <Stack spacing={3}>
+                <Typography variant="h4">{eventName}</Typography>
+                <Typography variant="h5">Add Attendees from Spreadsheet</Typography>
                 <Stepper activeStep={3}>
                     <Step><StepLabel>Upload file</StepLabel></Step>
                     <Step><StepLabel>{preview && preview.sheetNames.length > 1 ? 'Select sheet' : 'Review'}</StepLabel></Step>
@@ -252,14 +255,16 @@ export default function AddAttendeesBySpreadsheet() {
 
     return (
         <Stack spacing={3}>
+            <Typography variant="h4">{eventName}</Typography>
+
+            <Typography variant="h5">Add Attendees from Spreadsheet</Typography>
+
             <Stepper activeStep={activeStep}>
                 <Step><StepLabel>Upload file</StepLabel></Step>
                 <Step><StepLabel>{preview && preview.sheetNames.length > 1 ? 'Select sheet' : 'Review'}</StepLabel></Step>
                 <Step><StepLabel>Map columns</StepLabel></Step>
                 <Step><StepLabel>Completed</StepLabel></Step>
             </Stepper>
-
-            <Typography variant="h5">Add Attendees from Spreadsheet to {eventName}</Typography>
 
             {uploadError && <Alert severity="error" onClose={() => setUploadError(null)}>{uploadError}</Alert>}
             {importError && <Alert severity="error" onClose={() => setImportError(null)}>{importError}</Alert>}
@@ -280,6 +285,7 @@ export default function AddAttendeesBySpreadsheet() {
                             '&:hover': {borderColor: 'primary.main', bgcolor: 'action.hover'},
                         }}
                     >
+                        <CloudUploadIcon color="action" sx={{fontSize: 40, mb: 1}}/>
                         <Typography variant="body1" sx={{mb: 1}}>Click to select a spreadsheet</Typography>
                         <Typography variant="caption" color="text.secondary" sx={{display: 'block'}}>
                             Supports .xlsx, .xls, .csv
@@ -355,14 +361,14 @@ export default function AddAttendeesBySpreadsheet() {
                                                     Object.values(columnMapping).filter((f) => f !== 'Ignore'),
                                                 )
                                                 return (
-                                                    <TableCell key={col} sx={{verticalAlign: 'top', pb: 0}}>
+                                                    <TableCell key={col} sx={{verticalAlign: 'top', pb: 1}}>
                                                         <Select
                                                             value={assigned}
                                                             onChange={(ev: SelectChangeEvent<AttendeeField>) =>
                                                                 handleColumnMappingChange(col, ev.target.value as AttendeeField)
                                                             }
                                                             size="small"
-                                                            sx={{minWidth: 100, mb: 0.5}}
+                                                            sx={{minWidth: 100}}
                                                         >
                                                             {ATTENDEE_FIELDS.map((f) => (
                                                                 <MenuItem
@@ -374,12 +380,14 @@ export default function AddAttendeesBySpreadsheet() {
                                                                 </MenuItem>
                                                             ))}
                                                         </Select>
-                                                        <Typography variant="caption" display="block" sx={{fontWeight: 600}}>
-                                                            {col}
-                                                        </Typography>
                                                     </TableCell>
                                                 )
                                             })}
+                                        </TableRow>
+                                        <TableRow>
+                                            {preview.sheets[selectedSheet].columns.map((col) => (
+                                                <TableCell key={col} sx={{fontWeight: 600, pt: 1}}>{col}</TableCell>
+                                            ))}
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>

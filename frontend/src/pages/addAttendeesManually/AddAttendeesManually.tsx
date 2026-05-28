@@ -129,11 +129,12 @@ export default function AddAttendeesManually() {
     if (activeStep === 1 && result) {
         return (
             <Stack spacing={3}>
+                <Typography variant="h4">{eventName}</Typography>
+                <Typography variant="h5">Add Attendees Manually</Typography>
                 <Stepper activeStep={1}>
                     <Step><StepLabel>Input attendee details</StepLabel></Step>
                     <Step><StepLabel>Completed</StepLabel></Step>
                 </Stepper>
-
                 <Typography variant="h5">Import Result</Typography>
 
                 {result.created.length > 0 && (
@@ -200,12 +201,14 @@ export default function AddAttendeesManually() {
 
     return (
         <Stack spacing={3}>
+            <Typography variant="h4">{eventName}</Typography>
+
+            <Typography variant="h5">Add Attendees Manually</Typography>
+
             <Stepper activeStep={0}>
                 <Step><StepLabel>Input attendee details</StepLabel></Step>
                 <Step><StepLabel>Completed</StepLabel></Step>
             </Stepper>
-
-            <Typography variant="h5">Add Attendees to {eventName}</Typography>
 
             {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
