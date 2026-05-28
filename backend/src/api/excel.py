@@ -2,7 +2,7 @@ import datetime
 import logging
 import uuid
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile, status
 
 from schema.rest import (
     BulkCreateResponse,
@@ -13,6 +13,7 @@ from schema.rest import (
 from service import attendees as attendees_service
 from service import events as events_service
 from service import excel as excel_service
+from service.ticket import generate_ticket_images
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ def excel_preview(event_id: uuid.UUID, file: UploadFile = File(...)) -> ExcelPre
 
 
 @router.post("/excelImport")
-def excel_import(event_id: uuid.UUID, payload: ExcelImportRequest) -> BulkCreateResponse:
+def excel_import(event_id: uuid.UUID, payload: ExcelImportRequest, background_tasks: BackgroundTasks) -> BulkCreateResponse:
     _check_event(event_id)
     workbook = excel_service.get_workbook(payload.task_id)
     if workbook is None:
@@ -75,4 +76,7 @@ def excel_import(event_id: uuid.UUID, payload: ExcelImportRequest) -> BulkCreate
         payload.row_mapping.raw_phone_column,
         payload.row_mapping.email_column,
     )
-    return attendees_service.bulk_create(event_id, mapped)
+    result = attendees_service.bulk_create(event_id, mapped)
+    if result.created:
+        background_tasks.add_task(generate_ticket_images, event_id)
+    return result
