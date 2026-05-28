@@ -140,10 +140,6 @@ export default function AddAttendeesBySpreadsheet() {
         }
     }, [eventId, username, password])
 
-    const handleButtonClick = useCallback(() => {
-        fileInputRef.current?.click()
-    }, [])
-
     const handleSheetSelect = (sheetName: string) => {
         setSelectedSheet(sheetName)
         setActiveStep(2)
@@ -270,33 +266,32 @@ export default function AddAttendeesBySpreadsheet() {
 
             {activeStep === 0 && (
                 <Stack spacing={2} alignItems="center">
-                    <Paper
-                        variant="outlined"
+                    <Box
+                        onClick={() => fileInputRef.current?.click()}
                         sx={{
                             p: 6,
                             textAlign: 'center',
                             width: '100%',
                             maxWidth: 400,
-                            borderStyle: 'dashed',
+                            border: '2px dashed',
+                            borderColor: 'divider',
+                            borderRadius: 1,
                             cursor: 'pointer',
                             '&:hover': {borderColor: 'primary.main', bgcolor: 'action.hover'},
                         }}
                     >
-                        <Typography variant="body1" sx={{mb: 1}}>Drag and drop or click to upload</Typography>
-                        <Button variant="contained" loading={uploading} onClick={handleButtonClick}>
-                            Select File
-                        </Button>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            hidden
-                            accept=".xlsx,.xls,.csv"
-                            onChange={handleFileChange}
-                        />
-                        <Typography variant="caption" color="text.secondary" sx={{mt: 1, display: 'block'}}>
+                        <Typography variant="body1" sx={{mb: 1}}>Click to select a spreadsheet</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{display: 'block'}}>
                             Supports .xlsx, .xls, .csv
                         </Typography>
-                    </Paper>
+                    </Box>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        hidden
+                        onChange={handleFileChange}
+                    />
                 </Stack>
             )}
 
