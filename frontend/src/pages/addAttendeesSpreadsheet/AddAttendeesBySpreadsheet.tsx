@@ -1,4 +1,5 @@
-import {useState} from 'react'
+import {useCallback, useRef, useState} from 'react'
+import type {SelectChangeEvent} from '@mui/material/Select'
 import {
     Alert,
     Box,
@@ -7,7 +8,6 @@ import {
     MenuItem,
     Paper,
     Select,
-    SelectChangeEvent,
     Stack,
     Step,
     StepLabel,
@@ -22,7 +22,7 @@ import {
 } from '@mui/material'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {useLocation, useNavigate} from '@tanstack/react-router'
-import {useApi, apiUrl} from '../../api'
+import {useApi} from '../../api'
 import {useAuth} from '../../providers/useAuth'
 
 const ATTENDEE_FIELDS = ['Ignore', 'Title', 'Name', 'Phone', 'Email'] as const
@@ -79,6 +79,7 @@ export default function AddAttendeesBySpreadsheet() {
     const api = useApi()
     const queryClient = useQueryClient()
     const {username, password} = useAuth()
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const eventQuery = useQuery<{name: string}>({
         queryKey: ['event', eventId],
@@ -109,7 +110,7 @@ export default function AddAttendeesBySpreadsheet() {
         },
     })
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
         setUploading(true)
@@ -117,13 +118,9 @@ export default function AddAttendeesBySpreadsheet() {
         try {
             const formData = new FormData()
             formData.append('file', file)
-            const headers: Record<string, string> = {}
-            if (username && password) {
-                headers['Authorization'] = `Basic ${btoa(`${username}:${password}`)}`
-            }
-            const res = await fetch(`${apiUrl}/api/events/${eventId}/excelPreview`, {
+            const res = await fetch(`/api/events/${eventId}/excelPreview`, {
                 method: 'POST',
-                headers,
+                headers: username && password ? {Authorization: `Basic ${btoa(`${username}:${password}`)}`} : {},
                 body: formData,
             })
             if (!res.ok) throw new Error(`${res.status}`)
@@ -139,8 +136,13 @@ export default function AddAttendeesBySpreadsheet() {
             setUploadError('Failed to upload or parse the file. Ensure it is a valid Excel or CSV file.')
         } finally {
             setUploading(false)
+            if (fileInputRef.current) fileInputRef.current.value = ''
         }
-    }
+    }, [eventId, username, password])
+
+    const handleButtonClick = useCallback(() => {
+        fileInputRef.current?.click()
+    }, [])
 
     const handleSheetSelect = (sheetName: string) => {
         setSelectedSheet(sheetName)
@@ -281,15 +283,16 @@ export default function AddAttendeesBySpreadsheet() {
                         }}
                     >
                         <Typography variant="body1" sx={{mb: 1}}>Drag and drop or click to upload</Typography>
-                        <Button component="label" variant="contained" loading={uploading}>
+                        <Button variant="contained" loading={uploading} onClick={handleButtonClick}>
                             Select File
-                            <input
-                                type="file"
-                                hidden
-                                accept=".xlsx,.xls,.csv"
-                                onChange={handleFileChange}
-                            />
                         </Button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            hidden
+                            accept=".xlsx,.xls,.csv"
+                            onChange={handleFileChange}
+                        />
                         <Typography variant="caption" color="text.secondary" sx={{mt: 1, display: 'block'}}>
                             Supports .xlsx, .xls, .csv
                         </Typography>
