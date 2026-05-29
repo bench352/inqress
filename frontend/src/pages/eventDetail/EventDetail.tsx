@@ -3,6 +3,7 @@ import {
     Button,
     Card,
     Chip,
+    Collapse,
     Grid,
     LinearProgress,
     Stack,
@@ -15,6 +16,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
 import {useLocation, useNavigate} from '@tanstack/react-router'
 import {useEventDetail} from './useEventDetail'
+import EmailIcon from '@mui/icons-material/Email'
 import AddAttendeesSpeedDial from './components/AddAttendeesSpeedDial'
 import AttendeeCard from './components/AttendeeCard'
 import AttendeeDetailsDialog from './components/AttendeeDetailsDialog'
@@ -91,6 +93,7 @@ export default function EventDetail() {
 
     const totalCount = attendees.length
     const attendedCount = attended.length
+    const undeliveredReadyCount = attendees.filter(a => !a.isTicketDelivered && a.isTicketReady).length
 
     if (isEventLoading || !event) {
         return <LinearProgress/>
@@ -162,6 +165,27 @@ export default function EventDetail() {
             </Card>
 
             <AttendanceSummary totalCount={totalCount} attendedCount={attendedCount}/>
+
+            <Collapse in={undeliveredReadyCount > 0}>
+                <Card sx={{p: 2}}>
+                    <Stack spacing={1.5}>
+                        <Stack direction="row" spacing={1.5} sx={{alignItems: 'center'}}>
+                            <EmailIcon color="primary"/>
+                            <Typography variant="h6">Deliver tickets to all attendees in one click</Typography>
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary">
+                            {undeliveredReadyCount} attendee(s) haven't received their ticket yet. Click here to send
+                            tickets to all undelivered attendees.
+                        </Typography>
+                        <Button
+                            variant="contained"
+                            onClick={() => navigate({to: '/events/$eventId/bulkTicketDelivery', params: {eventId}})}
+                        >
+                            Bulk ticket delivery to undelivered attendees
+                        </Button>
+                    </Stack>
+                </Card>
+            </Collapse>
 
             {isAttendeesLoading && <LinearProgress/>}
 

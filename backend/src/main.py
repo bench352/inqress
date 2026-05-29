@@ -42,6 +42,11 @@ app.include_router(
     api.attendees.router, prefix="/api", dependencies=[Depends(verify_basic_auth)]
 )
 app.include_router(
+    api.attendees.bulk_email_router,
+    prefix="/api",
+    dependencies=[Depends(verify_basic_auth)],
+)
+app.include_router(
     api.checkin.router_authed,
     prefix="/api",
     dependencies=[Depends(verify_basic_auth)],
