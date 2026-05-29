@@ -79,6 +79,7 @@ export default function AddAttendeesManually() {
     const [rows, setRows] = useState<AttendeeInput[]>([newRow()])
     const [result, setResult] = useState<BulkCreateResult | null>(null)
     const [error, setError] = useState<string | null>(null)
+    const [rowErrors, setRowErrors] = useState<Record<number, Record<string, string>>>({})
 
     const mutation = useMutation({
         mutationFn: (payload: Array<{ title: string; name: string; email: string; rawPhone: string }>) =>
@@ -100,6 +101,20 @@ export default function AddAttendeesManually() {
         )
     }
 
+    const clearRowError = (key: number, field: string) => {
+        setRowErrors(prev => {
+            if (!prev[key]) return prev
+            const rowErr = {...prev[key]}
+            delete rowErr[field]
+            if (Object.keys(rowErr).length === 0) {
+                const next = {...prev}
+                delete next[key]
+                return next
+            }
+            return {...prev, [key]: rowErr}
+        })
+    }
+
     const deleteRow = (key: number) => {
         setRows((prev) => {
             const next = prev.filter((r) => r.key !== key)
@@ -113,6 +128,18 @@ export default function AddAttendeesManually() {
 
     const handleSubmit = () => {
         setError(null)
+        const newErrors: Record<number, Record<string, string>> = {}
+        let hasErrors = false
+        for (const row of rows) {
+            const rowErr: Record<string, string> = {}
+            if (!row.name.trim()) { rowErr.name = 'Name is required'; hasErrors = true }
+            if (!row.email.trim()) { rowErr.email = 'Email is required'; hasErrors = true }
+            if (!row.rawPhone.trim()) { rowErr.phone = 'Phone is required'; hasErrors = true }
+            if (Object.keys(rowErr).length > 0) newErrors[row.key] = rowErr
+        }
+        setRowErrors(newErrors)
+        if (hasErrors) return
+
         const payload = rows.map(({title, name, email, rawPhone}) => ({
             title,
             name,
@@ -122,6 +149,8 @@ export default function AddAttendeesManually() {
         mutation.mutate(payload)
     }
 
+    const hasValidationError = Object.keys(rowErrors).length > 0
+
     const hasAnyField = rows.some(
         (r) => r.title || r.name || r.email || r.rawPhone,
     )
@@ -129,11 +158,12 @@ export default function AddAttendeesManually() {
     if (activeStep === 1 && result) {
         return (
             <Stack spacing={3}>
+                <Typography variant="h4">{eventName}</Typography>
+                <Typography variant="h5">Add Attendees Manually</Typography>
                 <Stepper activeStep={1}>
                     <Step><StepLabel>Input attendee details</StepLabel></Step>
                     <Step><StepLabel>Completed</StepLabel></Step>
                 </Stepper>
-
                 <Typography variant="h5">Import Result</Typography>
 
                 {result.created.length > 0 && (
@@ -200,12 +230,14 @@ export default function AddAttendeesManually() {
 
     return (
         <Stack spacing={3}>
+            <Typography variant="h4">{eventName}</Typography>
+
+            <Typography variant="h5">Add Attendees Manually</Typography>
+
             <Stepper activeStep={0}>
                 <Step><StepLabel>Input attendee details</StepLabel></Step>
                 <Step><StepLabel>Completed</StepLabel></Step>
             </Stepper>
-
-            <Typography variant="h5">Add Attendees to {eventName}</Typography>
 
             {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
@@ -238,7 +270,8 @@ export default function AddAttendeesManually() {
                                 <TableCell>
                                     <TextField
                                         value={row.name}
-                                        onChange={(e) => updateRow(row.key, 'name', e.target.value)}
+                                        onChange={(e) => { updateRow(row.key, 'name', e.target.value); clearRowError(row.key, 'name') }}
+                                        error={!!rowErrors[row.key]?.name}
                                         size="small"
                                         fullWidth
                                         placeholder="Name"
@@ -247,7 +280,8 @@ export default function AddAttendeesManually() {
                                 <TableCell>
                                     <TextField
                                         value={row.email}
-                                        onChange={(e) => updateRow(row.key, 'email', e.target.value)}
+                                        onChange={(e) => { updateRow(row.key, 'email', e.target.value); clearRowError(row.key, 'email') }}
+                                        error={!!rowErrors[row.key]?.email}
                                         size="small"
                                         fullWidth
                                         placeholder="Email"
@@ -257,7 +291,8 @@ export default function AddAttendeesManually() {
                                 <TableCell>
                                     <TextField
                                         value={row.rawPhone}
-                                        onChange={(e) => updateRow(row.key, 'rawPhone', e.target.value)}
+                                        onChange={(e) => { updateRow(row.key, 'rawPhone', e.target.value); clearRowError(row.key, 'phone') }}
+                                        error={!!rowErrors[row.key]?.phone}
                                         size="small"
                                         fullWidth
                                         placeholder="Phone"
@@ -280,7 +315,7 @@ export default function AddAttendeesManually() {
                 Add Row
             </Button>
 
-            <Box>
+            <Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
                 <Button
                     variant="contained"
                     onClick={handleSubmit}
@@ -289,6 +324,11 @@ export default function AddAttendeesManually() {
                 >
                     Submit
                 </Button>
+                {hasValidationError && (
+                    <Typography variant="body2" color="error">
+                        Complete the required fields
+                    </Typography>
+                )}
             </Box>
         </Stack>
     )

@@ -8,7 +8,9 @@ from fastapi import FastAPI, Depends
 import api.attendees
 import api.checkin
 import api.events
+import api.excel
 import api.health
+import env
 from schema.orm import Base
 from service.auth import verify_basic_auth
 from service.db import ENGINE
@@ -44,6 +46,15 @@ app.include_router(
     prefix="/api",
     dependencies=[Depends(verify_basic_auth)],
 )
+app.include_router(
+    api.excel.router, prefix="/api", dependencies=[Depends(verify_basic_auth)]
+)
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="localhost", port=8000, reload=True)
+    server_settings = env.ServerSettings()
+    uvicorn.run(
+        "main:app",
+        host=server_settings.host,
+        port=server_settings.port,
+        reload=server_settings.debug,
+    )
