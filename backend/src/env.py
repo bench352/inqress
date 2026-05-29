@@ -15,3 +15,4 @@ class SmtpSettings(pydantic_settings.BaseSettings):
     smtp_port: int = 465
     smtp_username: str = ""
     smtp_password: str = ""
+    email_wait_between_delivery_second: int = 5

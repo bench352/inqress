@@ -8,6 +8,7 @@ import Scanner from './pages/scanner/Scanner'
 import Settings from './pages/settings/Settings'
 import AddAttendeesManually from './pages/addAttendeesManually/AddAttendeesManually'
 import AddAttendeesBySpreadsheet from './pages/addAttendeesSpreadsheet/AddAttendeesBySpreadsheet'
+import BulkTicketDelivery from './pages/bulkTicketDelivery/BulkTicketDelivery'
 
 const rootRoute = createRootRoute()
 
@@ -65,6 +66,12 @@ const addAttendeesSpreadsheetRoute = createRoute({
     component: AddAttendeesBySpreadsheet,
 })
 
+const bulkTicketDeliveryRoute = createRoute({
+    getParentRoute: () => appShellLayout,
+    path: '/events/$eventId/bulkTicketDelivery',
+    component: BulkTicketDelivery,
+})
+
 const settingsRoute = createRoute({
     getParentRoute: () => appShellLayout,
     path: '/settings',
@@ -78,6 +85,7 @@ const routeTree = rootRoute.addChildren([
         eventsRoute,
         addAttendeesManuallyRoute,
         addAttendeesSpreadsheetRoute,
+        bulkTicketDeliveryRoute,
         eventDetailRoute,
         settingsRoute,
     ]),

@@ -1,9 +1,11 @@
 import logging
+import time
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, status
 from fastapi.responses import HTMLResponse, Response
 
+from env import SmtpSettings
 from schema.rest import (
     AttendeeCreate,
     AttendeeResponse,
@@ -165,3 +167,94 @@ def mark_ticket_delivered(
     _check_attendee(event_id, attendee_id)
     attendees_service.mark_ticket_delivered(event_id, attendee_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+bulk_email_router = APIRouter(prefix="/events/{event_id}", tags=["bulk-email"])
+
+
+def _bulk_send_emails_task(
+    event_id: uuid.UUID, attendee_ids: list[uuid.UUID]
+) -> None:
+    event = events_service.get_event(event_id)
+    if event is None:
+        logger.error("Event %s not found during bulk email task", event_id)
+        return
+
+    template = events_service.get_email_template(event_id)
+    if template is None:
+        logger.error("Email template not found for event %s", event_id)
+        return
+
+    smtp_settings = SmtpSettings()
+    total = len(attendee_ids)
+
+    for i, attendee_id in enumerate(attendee_ids):
+        try:
+            attendee = attendees_service.get_attendee(event_id, attendee_id)
+            if attendee is None:
+                logger.warning(
+                    "Attendee %s not found, skipping (%d/%d)",
+                    attendee_id,
+                    i + 1,
+                    total,
+                )
+                continue
+
+            qr_bytes = checkin_service.get_ticket_image(event_id, attendee_id)
+            if qr_bytes is None:
+                logger.warning(
+                    "Ticket image not ready for attendee %s, skipping (%d/%d)",
+                    attendee_id,
+                    i + 1,
+                    total,
+                )
+                continue
+
+            subject = f"[Ticket] {event.name}"
+            email_service.send_ticket_email(
+                attendee.email,
+                subject,
+                template.text,
+                attendee.title,
+                attendee.name,
+                event.name,
+                qr_bytes,
+            )
+            if not attendees_service.mark_ticket_delivered(event_id, attendee_id):
+                logger.warning(
+                    "Failed to mark ticket delivered for attendee %s in event %s",
+                    attendee_id,
+                    event_id,
+                )
+            logger.info(
+                "Sent email to %s (%d/%d)", attendee.email, i + 1, total
+            )
+        except Exception:
+            logger.exception(
+                "Failed to send email to attendee %s (%d/%d)",
+                attendee_id,
+                i + 1,
+                total,
+            )
+
+        if i < total - 1:
+            time.sleep(smtp_settings.email_wait_between_delivery_second)
+
+    logger.info(
+        "Bulk email sending completed for event %s (%d attendees)",
+        event_id,
+        total,
+    )
+
+
+@bulk_email_router.post("/emails", status_code=status.HTTP_201_CREATED)
+def bulk_send_email(
+    event_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    payload: list[uuid.UUID] = Body(...),
+) -> dict:
+    _check_event(event_id)
+    for attendee_id in payload:
+        _check_attendee(event_id, attendee_id)
+    background_tasks.add_task(_bulk_send_emails_task, event_id, payload)
+    return {"message": "Bulk email sending started"}

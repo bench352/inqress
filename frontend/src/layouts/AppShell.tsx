@@ -19,7 +19,7 @@ import {
     Menu as MenuIcon,
     Settings as SettingsIcon,
 } from '@mui/icons-material'
-import {Outlet, useNavigate, useRouter} from '@tanstack/react-router'
+import {Outlet, useLocation, useNavigate, useRouter} from '@tanstack/react-router'
 import {useAuth} from '../providers/useAuth'
 
 const DRAWER_WIDTH = 240
@@ -61,7 +61,9 @@ function DrawerContent() {
 export default function AppShell() {
     const {isAuthenticated} = useAuth()
     const router = useRouter()
+    const location = useLocation()
     const [mobileOpen, setMobileOpen] = useState(false)
+    const fullWidth = location.pathname.includes('/bulkTicketDelivery')
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -122,11 +124,9 @@ export default function AppShell() {
             >
                 <DrawerContent/>
             </Drawer>
-            <Box component="main" sx={{flexGrow: 1, p: 3, width: {md: `calc(100% - ${DRAWER_WIDTH}px)`}}}>
+            <Box component="main" sx={{flexGrow: 1, p: fullWidth ? 0 : 3, width: {md: `calc(100% - ${DRAWER_WIDTH}px)`}}}>
                 <Toolbar/>
-                <Container fixed>
-                    <Outlet/>
-                </Container>
+                {fullWidth ? <Outlet/> : <Container fixed><Outlet/></Container>}
             </Box>
         </Box>
     )
