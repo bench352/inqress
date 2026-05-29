@@ -22,7 +22,9 @@ def _cleanup(task_id: uuid.UUID) -> None:
 def _parse_xlsx(file_bytes: bytes) -> dict[str, tuple[list[str], list[list[str]]]]:
     wb: openpyxl.Workbook | None = None
     try:
-        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+        wb = openpyxl.load_workbook(
+            io.BytesIO(file_bytes), read_only=True, data_only=True
+        )
         result: dict[str, tuple[list[str], list[list[str]]]] = {}
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
@@ -50,7 +52,9 @@ def _parse_csv(file_bytes: bytes) -> dict[str, tuple[list[str], list[list[str]]]
     return {"Sheet1": (columns, data)}
 
 
-def parse_workbook(file_bytes: bytes, filename: str) -> dict[str, tuple[list[str], list[list[str]]]]:
+def parse_workbook(
+    file_bytes: bytes, filename: str
+) -> dict[str, tuple[list[str], list[list[str]]]]:
     name_lower = filename.lower()
     if name_lower.endswith(".csv"):
         return _parse_csv(file_bytes)
@@ -69,7 +73,9 @@ def store_workbook(workbook: dict[str, tuple[list[str], list[list[str]]]]) -> uu
     return task_id
 
 
-def get_workbook(task_id: uuid.UUID) -> dict[str, tuple[list[str], list[list[str]]]] | None:
+def get_workbook(
+    task_id: uuid.UUID,
+) -> dict[str, tuple[list[str], list[list[str]]]] | None:
     with _cache_lock:
         entry = _cache.get(task_id)
         if entry is None:
@@ -107,11 +113,15 @@ def map_rows(
 
     result: list[AttendeeCreate] = []
     for row in rows:
-        title = _get(row, idx_by_field["title"]) if "title" in idx_by_field else ""
-        name = _get(row, idx_by_field["name"]) if "name" in idx_by_field else ""
-        raw_phone = _get(row, idx_by_field["raw_phone"]) if "raw_phone" in idx_by_field else ""
-        email = _get(row, idx_by_field["email"]) if "email" in idx_by_field else ""
-        if not name.strip():
+        title = _get(row, idx_by_field["title"]).strip() if "title" in idx_by_field else ""
+        name = _get(row, idx_by_field["name"]).strip() if "name" in idx_by_field else ""
+        raw_phone = (
+            _get(row, idx_by_field["raw_phone"]).strip() if "raw_phone" in idx_by_field else ""
+        )
+        email = _get(row, idx_by_field["email"]).strip() if "email" in idx_by_field else ""
+        if not name:
             continue
-        result.append(AttendeeCreate(title=title, name=name, email=email, raw_phone=raw_phone))
+        result.append(
+            AttendeeCreate(title=title, name=name, email=email, raw_phone=raw_phone)
+        )
     return result

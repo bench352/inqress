@@ -29,15 +29,21 @@ def _check_event(event_id: uuid.UUID):
 
 
 @router.post("/excelPreview")
-def excel_preview(event_id: uuid.UUID, file: UploadFile = File(...)) -> ExcelPreviewResponse:
+def excel_preview(
+    event_id: uuid.UUID, file: UploadFile = File(...)
+) -> ExcelPreviewResponse:
     _check_event(event_id)
     try:
-        workbook = excel_service.parse_workbook(file.file.read(), file.filename or "upload.xlsx")
+        workbook = excel_service.parse_workbook(
+            file.file.read(), file.filename or "upload.xlsx"
+        )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception("Failed to parse uploaded file")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to parse file")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to parse file"
+        )
 
     task_id = excel_service.store_workbook(workbook)
     expiry = datetime.datetime.now() + datetime.timedelta(minutes=30)
@@ -55,7 +61,9 @@ def excel_preview(event_id: uuid.UUID, file: UploadFile = File(...)) -> ExcelPre
 
 
 @router.post("/excelImport")
-def excel_import(event_id: uuid.UUID, payload: ExcelImportRequest, background_tasks: BackgroundTasks) -> BulkCreateResponse:
+def excel_import(
+    event_id: uuid.UUID, payload: ExcelImportRequest, background_tasks: BackgroundTasks
+) -> BulkCreateResponse:
     _check_event(event_id)
     workbook = excel_service.get_workbook(payload.task_id)
     if workbook is None:

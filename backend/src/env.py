@@ -5,6 +5,8 @@ class ServerSettings(pydantic_settings.BaseSettings):
     admin_username: str
     admin_password: str
     default_country_code: str
+    host: str = "localhost"
+    port: int = 8000
     debug: bool = False
 
 

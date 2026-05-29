@@ -4,7 +4,8 @@ import {
     Alert,
     Box,
     Button,
-    Chip, Divider,
+    Chip,
+    CircularProgress,
     MenuItem,
     Paper,
     Select,
@@ -115,6 +116,7 @@ export default function AddAttendeesBySpreadsheet() {
     const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
+        setColumnMapping({})
         setUploading(true)
         setUploadError(null)
         try {
@@ -143,6 +145,7 @@ export default function AddAttendeesBySpreadsheet() {
     }, [eventId, username, password])
 
     const handleSheetSelect = (sheetName: string) => {
+        setColumnMapping({})
         setSelectedSheet(sheetName)
         setActiveStep(2)
     }
@@ -182,77 +185,7 @@ export default function AddAttendeesBySpreadsheet() {
         importMutation.mutate({taskId: preview.taskId, sheetName: selectedSheet, rowMapping})
     }
 
-    const isImportDisabled = !getMappingAssignment('Name')
-
-    if (activeStep === 3 && result) {
-        return (
-            <Stack spacing={3}>
-                <Typography variant="h4">{eventName}</Typography>
-                <Typography variant="h5">Add Attendees from Spreadsheet</Typography>
-                <Stepper activeStep={3}>
-                    <Step><StepLabel>Upload spreadsheet</StepLabel></Step>
-                    <Step><StepLabel>{preview && preview.sheetNames.length > 1 ? 'Select sheet' : 'Review'}</StepLabel></Step>
-                    <Step><StepLabel>Map columns to attendees' details</StepLabel></Step>
-                    <Step><StepLabel>Completed</StepLabel></Step>
-                </Stepper>
-                <Typography variant="h5">Import Result</Typography>
-                {result.created.length > 0 && (
-                    <Paper variant="outlined" sx={{p: 2}}>
-                        <Stack spacing={1}>
-                            <Typography variant="subtitle1" color="success.main">
-                                <Chip label={result.created.length} color="success" size="small" sx={{mr: 1}}/>
-                                Created
-                            </Typography>
-                            {result.created.map((a, i) => (
-                                <Typography key={i} variant="body2" color="text.secondary">
-                                    {a.title} {a.name} &lt;{a.email}&gt;
-                                    {a.isTicketDelivered ? ' — ticket delivered' : ''}
-                                </Typography>
-                            ))}
-                        </Stack>
-                    </Paper>
-                )}
-                {result.skipped.length > 0 && (
-                    <Paper variant="outlined" sx={{p: 2}}>
-                        <Stack spacing={1}>
-                            <Typography variant="subtitle1" color="warning.main">
-                                <Chip label={result.skipped.length} color="warning" size="small" sx={{mr: 1}}/>
-                                Skipped (duplicate)
-                            </Typography>
-                            {result.skipped.map((a, i) => (
-                                <Typography key={i} variant="body2" color="text.secondary">
-                                    {a.title} {a.name} &lt;{a.email}&gt;
-                                </Typography>
-                            ))}
-                        </Stack>
-                    </Paper>
-                )}
-                {result.errors.length > 0 && (
-                    <Paper variant="outlined" sx={{p: 2}}>
-                        <Stack spacing={1}>
-                            <Typography variant="subtitle1" color="error.main">
-                                <Chip label={result.errors.length} color="error" size="small" sx={{mr: 1}}/>
-                                Errors
-                            </Typography>
-                            {result.errors.map((e, i) => (
-                                <Typography key={i} variant="body2" color="text.secondary">
-                                    {e.attendee.title} {e.attendee.name}: {e.reason}
-                                </Typography>
-                            ))}
-                        </Stack>
-                    </Paper>
-                )}
-                {result.created.length === 0 && result.skipped.length === 0 && result.errors.length === 0 && (
-                    <Typography color="text.secondary">No attendees were processed.</Typography>
-                )}
-                <Box>
-                    <Button variant="contained" onClick={() => navigate({to: '/events/$eventId', params: {eventId}})}>
-                        Return to Event
-                    </Button>
-                </Box>
-            </Stack>
-        )
-    }
+    const isImportDisabled = !getMappingAssignment('Title') || !getMappingAssignment('Name') || !getMappingAssignment('Phone') || !getMappingAssignment('Email')
 
     return (
         <Stack spacing={3}>
@@ -262,18 +195,18 @@ export default function AddAttendeesBySpreadsheet() {
 
             <Stepper activeStep={activeStep}>
                 <Step><StepLabel>Upload spreadsheet</StepLabel></Step>
-                <Step><StepLabel>{preview && preview.sheetNames.length > 1 ? 'Select sheet' : 'Review'}</StepLabel></Step>
+                <Step><StepLabel>Select sheet</StepLabel></Step>
                 <Step><StepLabel>Map columns to attendees' details</StepLabel></Step>
                 <Step><StepLabel>Completed</StepLabel></Step>
             </Stepper>
 
-            {uploadError && <Alert severity="error" onClose={() => setUploadError(null)}>{uploadError}</Alert>}
-            {importError && <Alert severity="error" onClose={() => setImportError(null)}>{importError}</Alert>}
+            {activeStep !== 3 && uploadError && <Alert severity="error" onClose={() => setUploadError(null)}>{uploadError}</Alert>}
+            {activeStep !== 3 && importError && <Alert severity="error" onClose={() => setImportError(null)}>{importError}</Alert>}
 
             {activeStep === 0 && (
                 <Stack spacing={2} alignItems="center">
                     <Box
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => !uploading && fileInputRef.current?.click()}
                         sx={{
                             p: 6,
                             textAlign: 'center',
@@ -282,20 +215,31 @@ export default function AddAttendeesBySpreadsheet() {
                             border: '2px dashed',
                             borderColor: 'divider',
                             borderRadius: 1,
-                            cursor: 'pointer',
-                            '&:hover': {borderColor: 'primary.main', bgcolor: 'action.hover'},
+                            cursor: uploading ? 'wait' : 'pointer',
+                            opacity: uploading ? 0.6 : 1,
+                            pointerEvents: uploading ? 'none' : 'auto',
+                            '&:hover': uploading ? {} : {borderColor: 'primary.main', bgcolor: 'action.hover'},
                         }}
                     >
-                        <CloudUploadIcon color="action" sx={{fontSize: 40, mb: 1}}/>
-                        <Typography variant="body1" sx={{mb: 1}}>Click to select a spreadsheet</Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{display: 'block'}}>
-                            Supports .xlsx, .xls, .csv
-                        </Typography>
+                        {uploading ? (
+                            <>
+                                <CircularProgress size={40} sx={{mb: 1}}/>
+                                <Typography variant="body1" sx={{mb: 1}}>Uploading and parsing file...</Typography>
+                            </>
+                        ) : (
+                            <>
+                                <CloudUploadIcon color="action" sx={{fontSize: 40, mb: 1}}/>
+                                <Typography variant="body1" sx={{mb: 1}}>Click to select a spreadsheet</Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{display: 'block'}}>
+                                    Supports .xlsx, .csv
+                                </Typography>
+                            </>
+                        )}
                     </Box>
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept=".xlsx,.xls,.csv"
+                            accept=".xlsx,.csv"
                         hidden
                         onChange={handleFileChange}
                     />
@@ -336,8 +280,8 @@ export default function AddAttendeesBySpreadsheet() {
                                             <TableBody>
                                                 {sheet.heads.map((row, ri) => (
                                                     <TableRow key={ri}>
-                                                        {row.map((cell, ci) => (
-                                                            <TableCell key={ci}>{cell}</TableCell>
+                                                        {sheet.columns.map((_, ci) => (
+                                                            <TableCell key={ci}>{row[ci] ?? ''}</TableCell>
                                                         ))}
                                                     </TableRow>
                                                 ))}
@@ -356,7 +300,7 @@ export default function AddAttendeesBySpreadsheet() {
             {activeStep === 2 && preview && selectedSheet && (
                 <Stack spacing={2}>
                     <Typography variant="subtitle1">
-                        <strong>{selectedSheet}</strong> — map each column to an attendee field:
+                        <strong>{selectedSheet}</strong> - Use the dropdown to map your spreadsheet columns to corresponding attendee information. The first 5 data entrires are shown for preview.
                     </Typography>
                     {preview.sheets[selectedSheet].columns.length > 0 ? (
                         <>
@@ -402,8 +346,8 @@ export default function AddAttendeesBySpreadsheet() {
                                     <TableBody>
                                         {preview.sheets[selectedSheet].heads.map((row, ri) => (
                                             <TableRow key={ri}>
-                                                {row.map((cell, ci) => (
-                                                    <TableCell key={ci}>{cell}</TableCell>
+                                                {preview.sheets[selectedSheet].columns.map((_, ci) => (
+                                                    <TableCell key={ci}>{row[ci] ?? ''}</TableCell>
                                                 ))}
                                             </TableRow>
                                         ))}
@@ -425,6 +369,66 @@ export default function AddAttendeesBySpreadsheet() {
                         <Typography variant="body2" color="text.secondary">This sheet is empty.</Typography>
                     )}
                 </Stack>
+            )}
+
+            {activeStep === 3 && result && (
+                <>
+                    <Typography variant="h5">Import Result</Typography>
+                    {result.created.length > 0 && (
+                        <Paper variant="outlined" sx={{p: 2}}>
+                            <Stack spacing={1}>
+                                <Typography variant="subtitle1" color="success.main">
+                                    <Chip label={result.created.length} color="success" size="small" sx={{mr: 1}}/>
+                                    Created
+                                </Typography>
+                                {result.created.map((a, i) => (
+                                    <Typography key={i} variant="body2" color="text.secondary">
+                                        {a.title} {a.name} &lt;{a.email}&gt;
+                                        {a.isTicketDelivered ? ' — ticket delivered' : ''}
+                                    </Typography>
+                                ))}
+                            </Stack>
+                        </Paper>
+                    )}
+                    {result.skipped.length > 0 && (
+                        <Paper variant="outlined" sx={{p: 2}}>
+                            <Stack spacing={1}>
+                                <Typography variant="subtitle1" color="warning.main">
+                                    <Chip label={result.skipped.length} color="warning" size="small" sx={{mr: 1}}/>
+                                    Skipped (duplicate)
+                                </Typography>
+                                {result.skipped.map((a, i) => (
+                                    <Typography key={i} variant="body2" color="text.secondary">
+                                        {a.title} {a.name} &lt;{a.email}&gt;
+                                    </Typography>
+                                ))}
+                            </Stack>
+                        </Paper>
+                    )}
+                    {result.errors.length > 0 && (
+                        <Paper variant="outlined" sx={{p: 2}}>
+                            <Stack spacing={1}>
+                                <Typography variant="subtitle1" color="error.main">
+                                    <Chip label={result.errors.length} color="error" size="small" sx={{mr: 1}}/>
+                                    Errors
+                                </Typography>
+                                {result.errors.map((e, i) => (
+                                    <Typography key={i} variant="body2" color="text.secondary">
+                                        {e.attendee.title} {e.attendee.name}: {e.reason}
+                                    </Typography>
+                                ))}
+                            </Stack>
+                        </Paper>
+                    )}
+                    {result.created.length === 0 && result.skipped.length === 0 && result.errors.length === 0 && (
+                        <Typography color="text.secondary">No attendees were processed.</Typography>
+                    )}
+                    <Box>
+                        <Button variant="contained" onClick={() => navigate({to: '/events/$eventId', params: {eventId}})}>
+                            Return to Event
+                        </Button>
+                    </Box>
+                </>
             )}
         </Stack>
     )

@@ -52,4 +52,9 @@ app.include_router(
 
 if __name__ == "__main__":
     server_settings = env.ServerSettings()
-    uvicorn.run("main:app", host="localhost", port=8000, reload=server_settings.debug)
+    uvicorn.run(
+        "main:app",
+        host=server_settings.host,
+        port=server_settings.port,
+        reload=server_settings.debug,
+    )
