@@ -38,6 +38,7 @@ export function useApi() {
           headers: authHeaders(),
         });
         if (!res.ok) throw await parseApiError(res);
+        if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       post: async <T>(path: string, body?: unknown): Promise<T> => {
@@ -50,6 +51,7 @@ export function useApi() {
           body: body !== undefined ? JSON.stringify(body) : undefined,
         });
         if (!res.ok) throw await parseApiError(res);
+        if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       put: async <T>(path: string, body: unknown): Promise<T> => {
@@ -62,6 +64,7 @@ export function useApi() {
           body: JSON.stringify(body),
         });
         if (!res.ok) throw await parseApiError(res);
+        if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       del: async <T>(path: string, body?: unknown): Promise<T> => {
@@ -76,6 +79,7 @@ export function useApi() {
           body: body !== undefined ? JSON.stringify(body) : undefined,
         });
         if (!res.ok) throw await parseApiError(res);
+        if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       getBlob: async (path: string): Promise<Blob> => {
@@ -99,6 +103,7 @@ export function useApi() {
           body: formData,
         });
         if (!res.ok) throw await parseApiError(res);
+        if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       postNoAuth: async <T>(path: string, body: unknown): Promise<T> => {
@@ -108,6 +113,7 @@ export function useApi() {
           body: JSON.stringify(body),
         });
         if (!res.ok) throw await parseApiError(res);
+        if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       getAuthToken: (): string | null => {

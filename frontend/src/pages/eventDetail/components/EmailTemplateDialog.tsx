@@ -12,7 +12,8 @@ import {
 } from "@mui/material";
 import Editor from "@monaco-editor/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useApi } from "../../../api";
+import { useSnackbar } from "notistack";
+import { ApiError, useApi } from "../../../api";
 
 interface Props {
   open: boolean;
@@ -23,6 +24,7 @@ interface Props {
 export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
   const api = useApi();
   const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
 
   const templateQuery = useQuery({
     queryKey: ["emailTemplate", eventId],
@@ -42,6 +44,11 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event", eventId] });
       onClose();
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof ApiError ? err.detail : "Failed to save email template";
+      enqueueSnackbar(message, { variant: "error" });
     },
   });
 
