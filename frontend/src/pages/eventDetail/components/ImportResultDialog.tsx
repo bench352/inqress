@@ -25,6 +25,8 @@ interface AttendeeResult {
   name: string;
   email: string;
   rawPhone: string;
+  countryCode: string;
+  phone: string;
 }
 
 interface SkippedResult {
@@ -135,7 +137,9 @@ export default function ImportResultDialog({
                           <TableRow key={i}>
                             <TableCell>{a.title}</TableCell>
                             <TableCell>{a.name}</TableCell>
-                            <TableCell>{a.rawPhone}</TableCell>
+                            <TableCell>
+                              {a.countryCode} {a.phone}
+                            </TableCell>
                             <TableCell>{a.email}</TableCell>
                           </TableRow>
                         ))}

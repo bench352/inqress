@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Box,
   Button,
@@ -15,23 +15,11 @@ import {
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import QrCode2Icon from "@mui/icons-material/QrCode2";
 import BackspaceIcon from "@mui/icons-material/Backspace";
+import { useQuery } from "@tanstack/react-query";
 import PhoneDialPad, { DIAL_BUTTON_HEIGHT } from "./PhoneDialPad";
 import CheckinResultDisplay from "./CheckinResultDisplay";
 import { useApi } from "../../../api";
-
-interface CheckinSuccessDetail {
-  title: string;
-  name: string;
-}
-
-interface CheckinErrorDetail {
-  reason: string;
-}
-
-interface CheckinResponse {
-  success: boolean;
-  detail: CheckinSuccessDetail | CheckinErrorDetail;
-}
+import type { CheckinResponse } from "../types";
 
 interface Props {
   open: boolean;
@@ -56,26 +44,26 @@ export default function CheckinByPhoneDialog({
   onClose,
 }: Props) {
   const api = useApi();
-  const [countryCodes, setCountryCodes] = useState<string[]>([]);
-  const [selectedCountryCode, setSelectedCountryCode] = useState("");
+  const [userSelectedCode, setUserSelectedCode] = useState<string | null>(null);
   const [phoneNo, setPhoneNo] = useState("");
   const [phase, setPhase] = useState<Phase>("input");
   const [result, setResult] = useState<CheckinResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    api
-      .get<CountryCodesResponse>(`/api/events/${eventId}/phones/countryCodes`)
-      .then((data) => {
-        setCountryCodes(data.options);
-        if (data.default) {
-          setSelectedCountryCode(data.default);
-        } else if (data.options.length > 0) {
-          setSelectedCountryCode(data.options[0]);
-        }
-      })
-      .catch(() => setCountryCodes([]));
-  }, [api, eventId]);
+  const countryCodesQuery = useQuery<CountryCodesResponse>({
+    queryKey: ["countryCodes", eventId],
+    queryFn: () => api.get(`/api/events/${eventId}/phones/countryCodes`),
+    enabled: open,
+  });
+
+  const countryCodes = countryCodesQuery.data?.options ?? [];
+  const defaultCountryCode =
+    countryCodesQuery.data?.default ?? countryCodes[0] ?? "";
+  const selectedCountryCode = userSelectedCode ?? defaultCountryCode;
+
+  const handleCountryCodeChange = (code: string) => {
+    setUserSelectedCode(code);
+  };
 
   const handleDigit = useCallback((digit: string) => {
     setPhoneNo((prev) => prev + digit);
@@ -169,7 +157,7 @@ export default function CheckinByPhoneDialog({
               <Select
                 value={selectedCountryCode}
                 label="Code"
-                onChange={(e) => setSelectedCountryCode(e.target.value)}
+                onChange={(e) => handleCountryCodeChange(e.target.value)}
                 sx={{ fontSize: PHONE_NO_FONT_SIZE }}
               >
                 {countryCodes.map((code) => (
@@ -187,17 +175,22 @@ export default function CheckinByPhoneDialog({
               fullWidth
               value={phoneNo}
               slotProps={{
-                input: { readOnly: true, sx: { fontSize: PHONE_NO_FONT_SIZE } },
+                input: {
+                  readOnly: true,
+                  sx: { fontSize: PHONE_NO_FONT_SIZE },
+                  endAdornment: phoneNo ? (
+                    <IconButton
+                      onClick={handleBackspace}
+                      edge="end"
+                      size="small"
+                    >
+                      <BackspaceIcon />
+                    </IconButton>
+                  ) : undefined,
+                },
               }}
               placeholder="Phone number"
               sx={{ flex: 1 }}
-              InputProps={{
-                endAdornment: phoneNo ? (
-                  <IconButton onClick={handleBackspace} edge="end" size="small">
-                    <BackspaceIcon />
-                  </IconButton>
-                ) : undefined,
-              }}
             />
           </Stack>
           <PhoneDialPad

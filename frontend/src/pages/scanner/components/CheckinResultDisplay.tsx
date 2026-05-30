@@ -5,22 +5,7 @@ import ErrorIcon from "@mui/icons-material/Error";
 import useSound from "use-sound";
 import successSound from "../../../assets/soundEffects/checkin_success.aac";
 import failSound from "../../../assets/soundEffects/checkin_fail.aac";
-
-interface CheckinSuccessDetail {
-  title: string;
-  name: string;
-}
-
-interface CheckinErrorDetail {
-  reason: string;
-}
-
-interface CheckinResponse {
-  success: boolean;
-  detail: CheckinSuccessDetail | CheckinErrorDetail;
-}
-
-type CheckinPhase = "loading" | "success" | "error";
+import type { CheckinPhase, CheckinResponse } from "../types";
 
 interface Props {
   phase: CheckinPhase;
@@ -48,6 +33,7 @@ export default function CheckinResultDisplay({
   }, [phase, playSuccess, playFail]);
 
   useEffect(() => {
+    if (phase === "loading") return;
     const timer = setTimeout(onDismiss, DISMISS_DELAY_MS);
     return () => clearTimeout(timer);
   }, [phase, onDismiss]);

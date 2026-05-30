@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
+import { apiUrl } from "../api";
 import { useAuth } from "../providers/useAuth";
 
 interface ProgressState {
@@ -105,14 +106,14 @@ export function useEventStream(
   }, []);
 
   useEffect(() => {
-    if (!username || !password) return;
+    if (!eventId || !username || !password) return;
 
     const token = btoa(`${username}:${password}`);
     stoppedRef.current = false;
 
     const connect = () => {
       if (stoppedRef.current) return;
-      const url = `/api/events/${eventId}/streams?token=${encodeURIComponent(token)}`;
+      const url = `${apiUrl}/api/events/${eventId}/streams?token=${encodeURIComponent(token)}`;
       const es = new EventSource(url);
       eventSourceRef.current = es;
 
@@ -136,91 +137,92 @@ export function useEventStream(
     };
 
     function handleMessage(ev: SseRawEvent) {
+      const handleProgress = <T extends SseProgressData>(
+        data: T,
+        setProgressFn: React.Dispatch<
+          React.SetStateAction<ProgressState | null>
+        >,
+      ) => {
+        setProgressFn({
+          inProgress: data.inProgress,
+          numCompleted: data.numCompleted,
+          numTotal: data.numTotal,
+          estRemainMin: data.estRemainMin ?? null,
+          numErrors: data.numErrors ?? 0,
+        });
+      };
+
+      const handleNotificationSuccess = (
+        message: string,
+        resultId?: string,
+        expireOn?: string,
+      ) => {
+        enqueueSnackbarRef.current(message, { variant: "success" });
+        if (resultId && expireOn) {
+          setResultDialog({
+            resultId: resultId,
+            expireOn: expireOn,
+          });
+        }
+        queryClientRef.current.invalidateQueries({
+          queryKey: ["attendees", eventId],
+        });
+      };
+
+      const handleNotificationError = (message: string) => {
+        enqueueSnackbarRef.current(message, { variant: "error" });
+        queryClientRef.current.invalidateQueries({
+          queryKey: ["attendees", eventId],
+        });
+      };
+
       if (ev.eventType === "CREATE_ATTENDEE") {
         if (ev.type === "PROGRESS") {
           const data = ev.data as SseProgressData;
-          setCreateAttendeeProgress({
-            inProgress: data.inProgress,
-            numCompleted: data.numCompleted,
-            numTotal: data.numTotal,
-            estRemainMin: data.estRemainMin ?? null,
-            numErrors: data.numErrors ?? 0,
-          });
+          handleProgress(data, setCreateAttendeeProgress);
         } else if (ev.type === "NOTIFICATION") {
-          queryClientRef.current.invalidateQueries({
-            queryKey: ["attendees", eventId],
-          });
           const data = ev.data as SseSuccessData | SseErrorData;
           if (data.type === "success") {
             const successData = data as SseSuccessData;
-            enqueueSnackbarRef.current("Attendee import completed", {
-              variant: "success",
-            });
-            if (successData.resultId && successData.expireOn) {
-              setResultDialog({
-                resultId: successData.resultId,
-                expireOn: successData.expireOn,
-              });
-            }
+            handleNotificationSuccess(
+              "Attendee import completed",
+              successData.resultId,
+              successData.expireOn,
+            );
           } else if (data.type === "error") {
             const errorData = data as SseErrorData;
-            enqueueSnackbarRef.current(
+            handleNotificationError(
               `Import failed: ${errorData.detail || "Unknown error"}`,
-              { variant: "error" },
             );
           }
         }
       } else if (ev.eventType === "SEND_EMAIL") {
         if (ev.type === "PROGRESS") {
           const data = ev.data as SseProgressData;
-          setSendEmailProgress({
-            inProgress: data.inProgress,
-            numCompleted: data.numCompleted,
-            numTotal: data.numTotal,
-            estRemainMin: data.estRemainMin ?? null,
-            numErrors: data.numErrors ?? 0,
-          });
+          handleProgress(data, setSendEmailProgress);
         } else if (ev.type === "NOTIFICATION") {
-          queryClientRef.current.invalidateQueries({
-            queryKey: ["attendees", eventId],
-          });
           const data = ev.data as SseSuccessData | SseErrorData;
           if (data.type === "success") {
-            enqueueSnackbarRef.current("Bulk email sending completed", {
-              variant: "success",
-            });
+            handleNotificationSuccess("Bulk email sending completed");
           } else if (data.type === "error") {
             const errorData = data as SseErrorData;
-            enqueueSnackbarRef.current(
+            handleNotificationError(
               `Email sending failed: ${errorData.detail || "Unknown error"}`,
-              { variant: "error" },
             );
           }
         }
       } else if (ev.eventType === "GENERATE_TICKET_QR") {
         if (ev.type === "PROGRESS") {
           const data = ev.data as SseProgressData;
-          setGenerateTicketQrProgress({
-            inProgress: data.inProgress,
-            numCompleted: data.numCompleted,
-            numTotal: data.numTotal,
-            estRemainMin: data.estRemainMin ?? null,
-            numErrors: data.numErrors ?? 0,
-          });
+          handleProgress(data, setGenerateTicketQrProgress);
         } else if (ev.type === "NOTIFICATION") {
-          queryClientRef.current.invalidateQueries({
-            queryKey: ["attendees", eventId],
-          });
           const data = ev.data as SseSuccessData | SseErrorData;
           if (data.type === "success") {
-            enqueueSnackbarRef.current("Ticket QR generation completed", {
-              variant: "success",
-            });
+            handleNotificationSuccess("Ticket QR generation completed");
           } else if (data.type === "error") {
             const errorData = data as SseErrorData;
-            enqueueSnackbarRef.current(
+            handleNotificationError(
               `Ticket QR generation failed: ${errorData.detail || "Unknown error"}`,
-              { variant: "error" },
             );
           }
         }

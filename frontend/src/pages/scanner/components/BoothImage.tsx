@@ -21,11 +21,13 @@ export default function BoothImage({
     if (!hasBoothImage) return;
 
     let cancelled = false;
+    let blobUrl: string | null = null;
     api
       .getBlob(`/api/events/${eventId}/boothImage`)
       .then((blob) => {
         if (!cancelled) {
-          setImageUrl(URL.createObjectURL(blob));
+          blobUrl = URL.createObjectURL(blob);
+          setImageUrl(blobUrl);
         }
       })
       .catch(() => {
@@ -36,6 +38,7 @@ export default function BoothImage({
 
     return () => {
       cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
   }, [eventId, hasBoothImage, api]);
 

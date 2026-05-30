@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AppBar,
   Box,
@@ -21,7 +21,7 @@ import {
 } from "@mui/icons-material";
 import {
   Outlet,
-  useLocation,
+  useMatches,
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
@@ -66,9 +66,12 @@ function DrawerContent() {
 export default function AppShell() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
-  const location = useLocation();
+  const matches = useMatches();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const fullWidth = location.pathname.includes("/bulkTicketDelivery");
+  const fullWidth = useMemo(
+    () => matches.some((m) => m.staticData?.fullWidth),
+    [matches],
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {

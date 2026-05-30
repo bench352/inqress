@@ -327,6 +327,11 @@ def bulk_create_and_notify(event_id: uuid.UUID, payload: list[AttendeeCreate]) -
             datetime.datetime.now() + datetime.timedelta(minutes=30)
         ).isoformat()
 
+        # Workaround for manual attendee creation. An artificial delay
+        # is the easiest way to let frontend resume SSE stream and receive
+        # the import result after a manual attendee creation
+        time.sleep(1)
+
         manager.send(
             event_id,
             SseEvent[CreateAttendeeSuccessData](
@@ -344,6 +349,18 @@ def bulk_create_and_notify(event_id: uuid.UUID, payload: list[AttendeeCreate]) -
                 ticket.generate_qrs_task(event_id, [a.id for a in result.created])
             except Exception:
                 logger.exception("Ticket generation failed for event %s", event_id)
+
+    except Exception:
+        logger.exception("Background task failed for event %s", event_id)
+
+        manager.send(
+            event_id,
+            SseEvent[CreateAttendeeErrorData](
+                event_type=SseEventType.CREATE_ATTENDEE,
+                type=SseType.NOTIFICATION,
+                data=CreateAttendeeErrorData(detail="Import task failed"),
+            ),
+        )
 
     finally:
         manager.mark_job_done(event_id, "import")

@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
 import { useApi } from "../../../api";
 
 interface Props {
@@ -25,31 +26,36 @@ export default function PreviewTicketDialog({
 }: Props) {
   const api = useApi();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const blobUrlRef = useRef<string | null>(null);
 
+  const ticketQuery = useQuery({
+    queryKey: ["ticketPreview", eventId, attendeeId],
+    queryFn: () =>
+      api.getBlob(
+        `/api/events/${eventId}/attendees/${attendeeId}/ticket/preview`,
+      ),
+    enabled: open,
+  });
+
   useEffect(() => {
-    let cancelled = false;
-    api
-      .getBlob(`/api/events/${eventId}/attendees/${attendeeId}/ticket/preview`)
-      .then((blob) => {
-        if (cancelled) return;
-        const url = URL.createObjectURL(blob);
-        blobUrlRef.current = url;
-        setImageUrl(url);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
+    if (ticketQuery.data) {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+      }
+      const url = URL.createObjectURL(ticketQuery.data);
+      blobUrlRef.current = url;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Blob URL management requires state sync with external resource
+      setImageUrl(url);
+    } else {
+      setImageUrl(null);
+    }
     return () => {
-      cancelled = true;
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
         blobUrlRef.current = null;
       }
     };
-  }, [eventId, attendeeId, api]);
+  }, [ticketQuery.data]);
 
   const handleDownload = () => {
     if (!imageUrl) return;
@@ -79,8 +85,8 @@ export default function PreviewTicketDialog({
             alignItems: "center",
           }}
         >
-          {loading && <CircularProgress />}
-          {!loading && imageUrl && (
+          {ticketQuery.isLoading && <CircularProgress />}
+          {!ticketQuery.isLoading && imageUrl && (
             <Box
               component="img"
               src={imageUrl}
@@ -88,7 +94,9 @@ export default function PreviewTicketDialog({
               sx={{ maxWidth: "100%" }}
             />
           )}
-          {!loading && !imageUrl && <Box>Failed to load ticket image.</Box>}
+          {!ticketQuery.isLoading && !imageUrl && (
+            <Box>Failed to load ticket image.</Box>
+          )}
         </Box>
       </DialogContent>
       <DialogActions>

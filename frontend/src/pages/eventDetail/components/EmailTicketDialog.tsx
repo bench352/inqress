@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -12,7 +11,8 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import DOMPurify from "dompurify";
 import { useApi } from "../../../api";
 
 interface Props {
@@ -34,26 +34,15 @@ export default function EmailTicketDialog({
 }: Props) {
   const api = useApi();
   const queryClient = useQueryClient();
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .getText(`/api/events/${eventId}/attendees/${attendeeId}/email/preview`)
-      .then((html) => {
-        if (!cancelled) {
-          setPreviewHtml(html);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId, attendeeId, api]);
+  const previewQuery = useQuery({
+    queryKey: ["emailPreview", eventId, attendeeId],
+    queryFn: () =>
+      api.getText(
+        `/api/events/${eventId}/attendees/${attendeeId}/email/preview`,
+      ),
+    enabled: open,
+  });
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -64,6 +53,8 @@ export default function EmailTicketDialog({
       onClose();
     },
   });
+
+  const previewHtml = previewQuery.data ?? null;
 
   return (
     <Dialog
@@ -82,12 +73,12 @@ export default function EmailTicketDialog({
           </Typography>
         </Stack>
         <Box sx={{ mt: 2 }}>
-          {loading && (
+          {previewQuery.isLoading && (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <CircularProgress />
             </Box>
           )}
-          {!loading && !previewHtml && (
+          {!previewQuery.isLoading && !previewHtml && (
             <Typography color="error">Failed to load email preview.</Typography>
           )}
           {previewHtml && (
@@ -104,7 +95,9 @@ export default function EmailTicketDialog({
                   maxHeight: 400,
                   overflow: "auto",
                 }}
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(previewHtml),
+                }}
               />
             </Paper>
           )}

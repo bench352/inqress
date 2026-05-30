@@ -26,6 +26,12 @@ export default function DateDialog({
 }: Props) {
   const [selectedDate, setSelectedDate] = useState(() => dayjs(currentDate));
 
+  const handleDateChange = (value: dayjs.Dayjs | null) => {
+    if (value) {
+      setSelectedDate(value);
+    }
+  };
+
   const handleSave = () => {
     if (selectedDate) {
       onSave(selectedDate.format("YYYY-MM-DD"));
@@ -38,14 +44,14 @@ export default function DateDialog({
       onClose={onClose}
       maxWidth="xs"
       fullWidth
-      key={String(open)}
+      key={currentDate}
     >
       <DialogTitle>Change Event Date</DialogTitle>
       <DialogContent>
         <DatePicker
           label="Date"
           value={selectedDate}
-          onChange={setSelectedDate}
+          onChange={handleDateChange}
           format="YYYY-MM-DD"
           sx={{ mt: 1, width: "100%" }}
         />

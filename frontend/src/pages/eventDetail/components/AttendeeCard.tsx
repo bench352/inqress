@@ -38,7 +38,7 @@ export default function AttendeeCard({ attendee, onClick }: Props) {
     <Card sx={{ height: "100%" }}>
       <CardActionArea onClick={onClick} sx={{ height: "100%" }}>
         <CardContent>
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }} gutterBottom>
             {attendee.title} {attendee.name}
           </Typography>
           <Stack spacing={0.75}>

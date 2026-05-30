@@ -1,16 +1,10 @@
-import {
-  Button,
-  Card,
-  LinearProgress,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Button, Card, Stack, Typography } from "@mui/material";
 import EmailIcon from "@mui/icons-material/Email";
 import QrCodeIcon from "@mui/icons-material/QrCode";
-import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
 import { useApi } from "../../../api";
+import ProgressCard from "@/components/ProgressCard";
 
 interface ProgressState {
   inProgress: boolean;
@@ -41,130 +35,24 @@ export default function ActionsSection({
 }: Props) {
   const navigate = useNavigate();
   const api = useApi();
-  const [generating, setGenerating] = useState(false);
+
+  const generateQrMutation = useMutation({
+    mutationFn: () => api.post(`/api/events/${eventId}/ticketQRs`, notReadyIds),
+  });
 
   return (
     <>
       <Typography variant="subtitle1">Actions</Typography>
       <Stack spacing={2}>
-        {!!createAttendeeProgress?.inProgress && (
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              <Typography variant="subtitle1">
-                Importing attendees...
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={
-                  createAttendeeProgress && createAttendeeProgress.numTotal > 0
-                    ? (createAttendeeProgress.numCompleted /
-                        createAttendeeProgress.numTotal) *
-                      100
-                    : 0
-                }
-              />
-              <Stack direction="row" sx={{ justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">
-                  {createAttendeeProgress.numCompleted} /{" "}
-                  {createAttendeeProgress.numTotal} attendees completed
-                  {createAttendeeProgress.numErrors > 0 && (
-                    <>
-                      {" "}
-                      ({createAttendeeProgress.numErrors} error
-                      {createAttendeeProgress.numErrors !== 1 ? "s" : ""})
-                    </>
-                  )}
-                </Typography>
-                {createAttendeeProgress.estRemainMin != null && (
-                  <Typography variant="body2" color="text.secondary">
-                    Estimated {createAttendeeProgress.estRemainMin} minute
-                    {createAttendeeProgress.estRemainMin !== 1 ? "s" : ""}{" "}
-                    remaining.
-                  </Typography>
-                )}
-              </Stack>
-            </Stack>
-          </Paper>
-        )}
-
-        {!!sendEmailProgress?.inProgress && (
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              <Typography variant="subtitle1">Sending emails...</Typography>
-              <LinearProgress
-                variant="determinate"
-                value={
-                  sendEmailProgress && sendEmailProgress.numTotal > 0
-                    ? (sendEmailProgress.numCompleted /
-                        sendEmailProgress.numTotal) *
-                      100
-                    : 0
-                }
-              />
-              <Stack direction="row" sx={{ justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">
-                  {sendEmailProgress.numCompleted} /{" "}
-                  {sendEmailProgress.numTotal} emails sent
-                  {sendEmailProgress.numErrors > 0 && (
-                    <>
-                      {" "}
-                      ({sendEmailProgress.numErrors} error
-                      {sendEmailProgress.numErrors !== 1 ? "s" : ""})
-                    </>
-                  )}
-                </Typography>
-                {sendEmailProgress.estRemainMin != null && (
-                  <Typography variant="body2" color="text.secondary">
-                    Estimated {sendEmailProgress.estRemainMin} minute
-                    {sendEmailProgress.estRemainMin !== 1 ? "s" : ""} remaining.
-                  </Typography>
-                )}
-              </Stack>
-            </Stack>
-          </Paper>
-        )}
-
-        {!!generateTicketQrProgress?.inProgress && (
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              <Typography variant="subtitle1">
-                Generating ticket QR codes...
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={
-                  generateTicketQrProgress &&
-                  generateTicketQrProgress.numTotal > 0
-                    ? (generateTicketQrProgress.numCompleted /
-                        generateTicketQrProgress.numTotal) *
-                      100
-                    : 0
-                }
-              />
-              <Stack direction="row" sx={{ justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">
-                  {generateTicketQrProgress.numCompleted} /{" "}
-                  {generateTicketQrProgress.numTotal} QR codes generated
-                  {generateTicketQrProgress.numErrors > 0 && (
-                    <>
-                      {" "}
-                      ({generateTicketQrProgress.numErrors} error
-                      {generateTicketQrProgress.numErrors !== 1 ? "s" : ""})
-                    </>
-                  )}
-                </Typography>
-                {generateTicketQrProgress.estRemainMin != null && (
-                  <Typography variant="body2" color="text.secondary">
-                    Estimated {generateTicketQrProgress.estRemainMin} minute
-                    {generateTicketQrProgress.estRemainMin !== 1 ? "s" : ""}{" "}
-                    remaining.
-                  </Typography>
-                )}
-              </Stack>
-            </Stack>
-          </Paper>
-        )}
-
+        <ProgressCard
+          title="Importing attendees..."
+          progress={createAttendeeProgress}
+        />
+        <ProgressCard title="Sending emails..." progress={sendEmailProgress} />
+        <ProgressCard
+          title="Generating ticket QR codes..."
+          progress={generateTicketQrProgress}
+        />
         {notReadyCount > 0 && !generateTicketQrProgress?.inProgress && (
           <Card sx={{ p: 2 }}>
             <Stack spacing={1.5}>
@@ -184,18 +72,8 @@ export default function ActionsSection({
               </Typography>
               <Button
                 variant="contained"
-                loading={generating}
-                onClick={async () => {
-                  setGenerating(true);
-                  try {
-                    await api.post(
-                      `/api/events/${eventId}/ticketQRs`,
-                      notReadyIds,
-                    );
-                  } finally {
-                    setGenerating(false);
-                  }
-                }}
+                loading={generateQrMutation.isPending}
+                onClick={() => generateQrMutation.mutate()}
               >
                 Generate all ticket QR codes
               </Button>

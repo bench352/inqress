@@ -1,21 +1,6 @@
 import { Dialog } from "@mui/material";
 import CheckinResultDisplay from "./CheckinResultDisplay";
-
-interface CheckinSuccessDetail {
-  title: string;
-  name: string;
-}
-
-interface CheckinErrorDetail {
-  reason: string;
-}
-
-interface CheckinResponse {
-  success: boolean;
-  detail: CheckinSuccessDetail | CheckinErrorDetail;
-}
-
-type CheckinPhase = "idle" | "loading" | "success" | "error";
+import type { CheckinPhase, CheckinResponse } from "../types";
 
 interface Props {
   open: boolean;

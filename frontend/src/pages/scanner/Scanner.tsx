@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Box, Button, Typography } from "@mui/material";
 import QrCodeIcon from "@mui/icons-material/QrCode";
-import { useLocation } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { Scanner as QrScanner } from "@yudiel/react-qr-scanner";
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "../../api";
@@ -10,6 +10,11 @@ import CheckinResultDialog from "./components/CheckinResultDialog";
 import CheckinByPhoneDialog from "./components/CheckinByPhoneDialog";
 import EventDisabledDialog from "./components/EventDisabledDialog";
 import LoginIcon from "@mui/icons-material/Login";
+import type {
+  CheckinErrorDetail,
+  CheckinPhase,
+  CheckinResponse,
+} from "./types";
 
 interface EventResponse {
   id: string;
@@ -20,25 +25,8 @@ interface EventResponse {
   hasBoothImage: boolean;
 }
 
-interface CheckinSuccessDetail {
-  title: string;
-  name: string;
-}
-
-interface CheckinErrorDetail {
-  reason: string;
-}
-
-interface CheckinResponse {
-  success: boolean;
-  detail: CheckinSuccessDetail | CheckinErrorDetail;
-}
-
-type CheckinPhase = "idle" | "loading" | "success" | "error";
-
 export default function Scanner() {
-  const location = useLocation();
-  const eventId = location.pathname.split("/").filter(Boolean)[1];
+  const { eventId } = useParams({ from: "/full-page/events/$eventId/scanner" });
   const api = useApi();
 
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);

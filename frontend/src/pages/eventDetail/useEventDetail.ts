@@ -26,16 +26,19 @@ export interface EventPutPayload {
 export function useEventDetail(eventId: string) {
   const api = useApi();
   const queryClient = useQueryClient();
+  const enabled = !!eventId;
 
   const eventQuery = useQuery<EventItem>({
     queryKey: ["event", eventId],
     queryFn: () => api.get(`/api/events/${eventId}`),
+    enabled,
   });
 
   const attendeesQuery = useQuery<AttendeeItem[]>({
     queryKey: ["attendees", eventId],
     queryFn: () => api.get(`/api/events/${eventId}/attendees`),
     refetchInterval: 30_000,
+    enabled,
   });
 
   const updateEventMutation = useMutation({

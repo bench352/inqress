@@ -74,6 +74,7 @@ const bulkTicketDeliveryRoute = createRoute({
   getParentRoute: () => appShellLayout,
   path: "/events/$eventId/bulkTicketDelivery",
   component: BulkTicketDelivery,
+  staticData: { fullWidth: true },
 });
 
 const settingsRoute = createRoute({
@@ -100,5 +101,8 @@ export const router = createRouter({ routeTree });
 declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
+  }
+  interface StaticDataRouteOption {
+    fullWidth?: boolean;
   }
 }

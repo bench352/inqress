@@ -1,14 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Box,
   Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Divider,
   IconButton,
   LinearProgress,
@@ -26,15 +21,18 @@ import EmailIcon from "@mui/icons-material/Email";
 import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import SendIcon from "@mui/icons-material/Send";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useApi } from "../../api";
+import ConflictDialog from "@/components/ConflictDialog";
+import DOMPurify from "dompurify";
+import { ApiError, useApi } from "../../api";
 import type { AttendeeItem } from "../eventDetail/useEventDetail";
 import type { EventItem } from "../eventsList/useEvents";
 
 export default function BulkTicketDelivery() {
-  const location = useLocation();
-  const eventId = location.pathname.split("/").filter(Boolean)[1];
+  const { eventId } = useParams({
+    from: "/app-shell/events/$eventId/bulkTicketDelivery",
+  });
   const navigate = useNavigate();
   const api = useApi();
   const queryClient = useQueryClient();
@@ -42,11 +40,13 @@ export default function BulkTicketDelivery() {
   const eventQuery = useQuery<EventItem>({
     queryKey: ["event", eventId],
     queryFn: () => api.get(`/api/events/${eventId}`),
+    enabled: !!eventId,
   });
 
   const attendeesQuery = useQuery<AttendeeItem[]>({
     queryKey: ["attendees", eventId],
     queryFn: () => api.get(`/api/events/${eventId}/attendees`),
+    enabled: !!eventId,
   });
 
   const undeliveredReady = useMemo(
@@ -58,10 +58,6 @@ export default function BulkTicketDelivery() {
   );
 
   const [previewIndex, setPreviewIndex] = useState(0);
-  const [previewResult, setPreviewResult] = useState<{
-    attendeeId: string;
-    html: string | null;
-  } | null>(null);
   const [conflictDetail, setConflictDetail] = useState<string | null>(null);
 
   const clampedIndex = Math.min(
@@ -70,35 +66,17 @@ export default function BulkTicketDelivery() {
   );
   const currentAttendee = undeliveredReady[clampedIndex] ?? null;
 
-  useEffect(() => {
-    if (!currentAttendee) return;
-    let cancelled = false;
-    const attendeeId = currentAttendee.id;
-    api
-      .getText(`/api/events/${eventId}/attendees/${attendeeId}/email/preview`)
-      .then((html) => {
-        if (!cancelled) {
-          setPreviewResult({ attendeeId, html });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPreviewResult({ attendeeId, html: null });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentAttendee, eventId, api]);
+  const previewQuery = useQuery({
+    queryKey: ["emailPreview", eventId, currentAttendee?.id],
+    queryFn: () =>
+      api.getText(
+        `/api/events/${eventId}/attendees/${currentAttendee!.id}/email/preview`,
+      ),
+    enabled: !!currentAttendee,
+  });
 
-  const previewLoading =
-    !!currentAttendee && previewResult?.attendeeId !== currentAttendee.id;
-  const displayHtml =
-    currentAttendee &&
-    previewResult?.attendeeId === currentAttendee.id &&
-    previewResult.html
-      ? previewResult.html
-      : null;
+  const previewLoading = !!currentAttendee && previewQuery.isLoading;
+  const displayHtml = previewQuery.data ?? null;
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -113,8 +91,8 @@ export default function BulkTicketDelivery() {
       queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
       navigate({ to: "/events/$eventId", params: { eventId } });
     },
-    onError: (err: { status?: number; detail?: string }) => {
-      if (err?.status === 409) {
+    onError: (err: ApiError) => {
+      if (err.status === 409) {
         setConflictDetail(err.detail ?? null);
       }
     },
@@ -298,7 +276,11 @@ export default function BulkTicketDelivery() {
                     </Box>
                   )}
                   {!previewLoading && displayHtml && (
-                    <Box dangerouslySetInnerHTML={{ __html: displayHtml }} />
+                    <Box
+                      dangerouslySetInnerHTML={{
+                        __html: DOMPurify.sanitize(displayHtml),
+                      }}
+                    />
                   )}
                   {!previewLoading && !displayHtml && (
                     <Typography color="text.secondary">
@@ -326,15 +308,12 @@ export default function BulkTicketDelivery() {
         </Box>
       </Box>
 
-      <Dialog open={!!conflictDetail} onClose={() => setConflictDetail(null)}>
-        <DialogTitle>Email sending in progress</DialogTitle>
-        <DialogContent>
-          <DialogContentText>{conflictDetail}</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConflictDetail(null)}>Dismiss</Button>
-        </DialogActions>
-      </Dialog>
+      <ConflictDialog
+        open={!!conflictDetail}
+        title="Email sending in progress"
+        detail={conflictDetail}
+        onClose={() => setConflictDetail(null)}
+      />
     </Box>
   );
 }

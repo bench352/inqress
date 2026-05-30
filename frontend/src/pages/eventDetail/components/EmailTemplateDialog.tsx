@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Box,
   Button,
@@ -11,7 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import Editor from "@monaco-editor/react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../../api";
 
 interface Props {
@@ -23,26 +23,17 @@ interface Props {
 export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
   const api = useApi();
   const queryClient = useQueryClient();
-  const [template, setTemplate] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .get<{ text: string }>(`/api/events/${eventId}/emailTemplate`)
-      .then((data) => {
-        if (!cancelled) {
-          setTemplate(data.text);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId, api]);
+  const templateQuery = useQuery({
+    queryKey: ["emailTemplate", eventId],
+    queryFn: () =>
+      api.get<{ text: string }>(`/api/events/${eventId}/emailTemplate`),
+    enabled: open,
+  });
+
+  const [editedTemplate, setEditedTemplate] = useState<string | null>(null);
+
+  const template = editedTemplate ?? templateQuery.data?.text ?? null;
 
   const saveMutation = useMutation({
     mutationFn: async (text: string) => {
@@ -93,7 +84,7 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
             </Typography>
           ))}
         </Box>
-        {loading ? (
+        {templateQuery.isLoading ? (
           <CircularProgress
             sx={{ display: "flex", justifyContent: "center", mt: 4 }}
           />
@@ -103,7 +94,7 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
               height="400px"
               defaultLanguage="html"
               value={template}
-              onChange={(value) => setTemplate(value ?? "")}
+              onChange={(value) => setEditedTemplate(value ?? "")}
               options={{ minimap: { enabled: false }, fontSize: 14 }}
             />
           </Paper>

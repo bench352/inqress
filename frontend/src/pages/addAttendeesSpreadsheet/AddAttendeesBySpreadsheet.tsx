@@ -4,11 +4,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   MenuItem,
   Paper,
   Select,
@@ -24,9 +19,10 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import ConflictDialog from "@/components/ConflictDialog";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { ApiError, useApi } from "../../api";
 import TabIcon from "@mui/icons-material/Tab";
 
@@ -65,15 +61,18 @@ interface ExcelImportRequest {
 }
 
 export default function AddAttendeesBySpreadsheet() {
-  const location = useLocation();
-  const eventId = location.pathname.split("/").filter(Boolean)[1];
+  const { eventId } = useParams({
+    from: "/app-shell/events/$eventId/addAttendeesBySpreadsheet",
+  });
   const navigate = useNavigate();
   const api = useApi();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const eventQuery = useQuery<{ name: string }>({
     queryKey: ["event", eventId],
     queryFn: () => api.get(`/api/events/${eventId}`),
+    enabled: !!eventId,
   });
   const eventName = eventQuery.data?.name ?? "...";
 
@@ -92,6 +91,7 @@ export default function AddAttendeesBySpreadsheet() {
       await api.post(`/api/events/${eventId}/excelImport`, payload);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
       navigate({ to: "/events/$eventId", params: { eventId } });
     },
     onError: (err: unknown) => {
@@ -147,11 +147,13 @@ export default function AddAttendeesBySpreadsheet() {
     setColumnMapping((prev) => {
       const next = { ...prev };
       if (field !== "(Ignore)") {
-        Object.keys(next).forEach((col) => {
-          if (next[col] === field && col !== columnName) {
-            next[col] = "(Ignore)";
-          }
-        });
+        Object.keys(next)
+          .sort()
+          .forEach((col) => {
+            if (next[col] === field && col !== columnName) {
+              next[col] = "(Ignore)";
+            }
+          });
       }
       next[columnName] = field;
       return next;
@@ -210,9 +212,8 @@ export default function AddAttendeesBySpreadsheet() {
       {uploadError && <Typography color="error">{uploadError}</Typography>}
 
       {activeStep === 0 && (
-        <Stack spacing={2} alignItems="center">
+        <Stack spacing={2}>
           <Box
-            onClick={() => !uploading && fileInputRef.current?.click()}
             sx={{
               p: 6,
               textAlign: "center",
@@ -228,12 +229,13 @@ export default function AddAttendeesBySpreadsheet() {
                 ? {}
                 : { borderColor: "primary.main", bgcolor: "action.hover" },
             }}
+            onClick={() => !uploading && fileInputRef.current?.click()}
           >
             {uploading ? (
               <>
                 <CircularProgress size={40} sx={{ mb: 1 }} />
                 <Typography variant="body1" sx={{ mb: 1 }}>
-                  Uploading and parsing file...
+                  Uploading and analysing file...
                 </Typography>
               </>
             ) : (
@@ -337,7 +339,7 @@ export default function AddAttendeesBySpreadsheet() {
           <Typography variant="subtitle1">
             <strong>{selectedSheet}</strong> - Use the dropdown to map your
             spreadsheet columns to corresponding attendee information. The first
-            5 data entrires are shown for preview.
+            5 data entries are shown for preview.
           </Typography>
           {preview.sheets[selectedSheet].columns.length > 0 ? (
             <>
@@ -345,48 +347,52 @@ export default function AddAttendeesBySpreadsheet() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      {preview.sheets[selectedSheet].columns.map((col) => {
-                        const assigned = columnMapping[col] || "(Ignore)";
+                      {(() => {
                         const usedFields = new Set(
                           Object.values(columnMapping).filter(
                             (f) => f !== "(Ignore)",
                           ),
                         );
-                        return (
-                          <TableCell
-                            key={col}
-                            sx={{ verticalAlign: "top", pb: 1 }}
-                          >
-                            <Select
-                              value={assigned}
-                              onChange={(
-                                ev: SelectChangeEvent<AttendeeField>,
-                              ) =>
-                                handleColumnMappingChange(
-                                  col,
-                                  ev.target.value as AttendeeField,
-                                )
-                              }
-                              size="small"
-                              sx={{ minWidth: 100 }}
-                            >
-                              {ATTENDEE_FIELDS.map((f) => (
-                                <MenuItem
-                                  key={f}
-                                  value={f}
-                                  disabled={
-                                    f !== "(Ignore)" &&
-                                    f !== assigned &&
-                                    usedFields.has(f)
+                        return preview.sheets[selectedSheet].columns.map(
+                          (col) => {
+                            const assigned = columnMapping[col] || "(Ignore)";
+                            return (
+                              <TableCell
+                                key={col}
+                                sx={{ verticalAlign: "top", pb: 1 }}
+                              >
+                                <Select
+                                  value={assigned}
+                                  onChange={(
+                                    ev: SelectChangeEvent<AttendeeField>,
+                                  ) =>
+                                    handleColumnMappingChange(
+                                      col,
+                                      ev.target.value as AttendeeField,
+                                    )
                                   }
+                                  size="small"
+                                  sx={{ minWidth: 100 }}
                                 >
-                                  {f}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </TableCell>
+                                  {ATTENDEE_FIELDS.map((f) => (
+                                    <MenuItem
+                                      key={f}
+                                      value={f}
+                                      disabled={
+                                        f !== "(Ignore)" &&
+                                        f !== assigned &&
+                                        usedFields.has(f)
+                                      }
+                                    >
+                                      {f}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </TableCell>
+                            );
+                          },
                         );
-                      })}
+                      })()}
                     </TableRow>
                     <TableRow>
                       {preview.sheets[selectedSheet].columns.map((col) => (
@@ -426,15 +432,12 @@ export default function AddAttendeesBySpreadsheet() {
         </Stack>
       )}
 
-      <Dialog open={!!conflictDetail} onClose={() => setConflictDetail(null)}>
-        <DialogTitle>Import in progress</DialogTitle>
-        <DialogContent>
-          <DialogContentText>{conflictDetail}</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConflictDetail(null)}>Dismiss</Button>
-        </DialogActions>
-      </Dialog>
+      <ConflictDialog
+        open={!!conflictDetail}
+        title="Import in progress"
+        detail={conflictDetail}
+        onClose={() => setConflictDetail(null)}
+      />
     </Stack>
   );
 }

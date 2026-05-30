@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthContext } from "./useAuth";
 
 const USERNAME_KEY = "admin.username";
@@ -38,11 +38,10 @@ export default function BasicAuthProvider({ children }: PropsWithChildren) {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{ isAuthenticated, username, password, login, logout }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ isAuthenticated, username, password, login, logout }),
+    [isAuthenticated, username, password, login, logout],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

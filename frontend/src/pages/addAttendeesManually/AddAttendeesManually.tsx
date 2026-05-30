@@ -1,12 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Box,
   Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   IconButton,
   MenuItem,
   Paper,
@@ -23,9 +18,11 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { useSnackbar } from "notistack";
 import { ApiError, useApi } from "../../api";
+import ConflictDialog from "@/components/ConflictDialog";
 
 const TITLE_OPTIONS = ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof."];
 
@@ -37,25 +34,38 @@ interface AttendeeInput {
   rawPhone: string;
 }
 
-let nextKey = 0;
-
-function newRow(): AttendeeInput {
-  return { key: ++nextKey, title: "Mr.", name: "", email: "", rawPhone: "" };
-}
-
 export default function AddAttendeesManually() {
-  const location = useLocation();
-  const eventId = location.pathname.split("/").filter(Boolean)[1];
+  const { eventId } = useParams({
+    from: "/app-shell/events/$eventId/addAttendeesManually",
+  });
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
   const api = useApi();
+  const queryClient = useQueryClient();
+  const nextKeyRef = useRef(0);
+
+  function newRow(): AttendeeInput {
+    return {
+      key: ++nextKeyRef.current,
+      title: "Mr.",
+      name: "",
+      email: "",
+      rawPhone: "",
+    };
+  }
 
   const eventQuery = useQuery<{ name: string }>({
     queryKey: ["event", eventId],
     queryFn: () => api.get(`/api/events/${eventId}`),
+    enabled: !!eventId,
   });
   const eventName = eventQuery.data?.name ?? "...";
 
-  const [rows, setRows] = useState<AttendeeInput[]>([newRow()]);
+  // eslint-disable-next-line react-hooks/refs -- Counter ref used for generating unique list keys
+  const [rows, setRows] = useState<AttendeeInput[]>(() => {
+    const key = ++nextKeyRef.current;
+    return [{ key, title: "Mr.", name: "", email: "", rawPhone: "" }];
+  });
   const [rowErrors, setRowErrors] = useState<
     Record<number, Record<string, string>>
   >({});
@@ -73,11 +83,16 @@ export default function AddAttendeesManually() {
       await api.post(`/api/events/${eventId}/attendees`, payload);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
       navigate({ to: "/events/$eventId", params: { eventId } });
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError && err.status === 409) {
         setConflictDetail(err.detail);
+      } else {
+        const message =
+          err instanceof Error ? err.message : "Failed to add attendees";
+        enqueueSnackbar(message, { variant: "error" });
       }
     },
   });
@@ -268,15 +283,12 @@ export default function AddAttendeesManually() {
         )}
       </Box>
 
-      <Dialog open={!!conflictDetail} onClose={() => setConflictDetail(null)}>
-        <DialogTitle>Import in progress</DialogTitle>
-        <DialogContent>
-          <DialogContentText>{conflictDetail}</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConflictDetail(null)}>Dismiss</Button>
-        </DialogActions>
-      </Dialog>
+      <ConflictDialog
+        open={!!conflictDetail}
+        title="Import in progress"
+        detail={conflictDetail}
+        onClose={() => setConflictDetail(null)}
+      />
     </Stack>
   );
 }

@@ -13,7 +13,7 @@ import {
 import ImageIcon from "@mui/icons-material/Image";
 import QrCodeIcon from "@mui/icons-material/QrCode";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../../api";
 
 interface Props {
@@ -34,21 +34,43 @@ export default function BoothImageConfigDialog({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const didFetch = useRef(false);
 
   useEffect(() => {
-    if (!open || didFetch.current) return;
+    if (!open) {
+      didFetch.current = false;
+      return;
+    }
+    if (didFetch.current) return;
     didFetch.current = true;
 
     if (!hasBoothImage) return;
 
+    let cancelled = false;
+    let blobUrl: string | null = null;
     api
       .getBlob(`/api/events/${eventId}/boothImage`)
-      .then((blob) => setImageUrl(URL.createObjectURL(blob)))
-      .catch(() => setImageUrl(null));
+      .then((blob) => {
+        if (cancelled) return;
+        blobUrl = URL.createObjectURL(blob);
+        setImageUrl(blobUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setImageUrl(null);
+      });
+
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
   }, [open, hasBoothImage, api, eventId]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -58,21 +80,25 @@ export default function BoothImageConfigDialog({
     setPreviewUrl(URL.createObjectURL(file));
   };
 
-  const handleSubmit = async () => {
-    if (!selectedFile) return;
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-    try {
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
       await api.postFormData(`/api/events/${eventId}/boothImage`, formData);
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event", eventId] });
       onClose();
-    } finally {
-      setIsUploading(false);
-    }
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!selectedFile) return;
+    uploadMutation.mutate(selectedFile);
   };
 
   const displayUrl = previewUrl || imageUrl;
+  const isUploading = uploadMutation.isPending;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -107,12 +133,12 @@ export default function BoothImageConfigDialog({
                   sx={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />
               ) : (
-                <Stack alignItems="center" spacing={1}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                   <ImageIcon sx={{ fontSize: 64, color: "grey.400" }} />
                   <Typography variant="body2" color="text.secondary">
                     No image
                   </Typography>
-                </Stack>
+                </Box>
               )}
             </Box>
             <Box

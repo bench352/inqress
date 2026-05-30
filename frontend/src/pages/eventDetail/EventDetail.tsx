@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Button,
   Card,
   Chip,
-  Grid,
   LinearProgress,
   Stack,
   ToggleButton,
@@ -14,11 +13,10 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import EditIcon from "@mui/icons-material/Edit";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEventDetail } from "./useEventDetail";
 import AddAttendeesSpeedDial from "./components/AddAttendeesSpeedDial";
 import ActionsSection from "./components/ActionsSection";
-import AttendeeCard from "./components/AttendeeCard";
 import AttendeeDetailsDialog from "./components/AttendeeDetailsDialog";
 import AttendanceSummary from "./components/AttendanceSummary";
 import CheckinNotificationDialog from "./components/CheckinNotificationDialog";
@@ -26,11 +24,11 @@ import DateDialog from "./components/DateDialog";
 import ImportResultDialog from "./components/ImportResultDialog";
 import ModeDialog from "./components/ModeDialog";
 import ModifyEventsDialog from "./components/ModifyEventsDialog";
+import AttendeeGrid from "@/components/AttendeeGrid";
 import { useEventStream } from "../../hooks/useEventStream";
 
 export default function EventDetail() {
-  const location = useLocation();
-  const eventId = location.pathname.split("/").filter(Boolean)[1];
+  const { eventId } = useParams({ from: "/app-shell/events/$eventId" });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const {
@@ -136,7 +134,17 @@ export default function EventDetail() {
     !!sendEmailProgress?.inProgress ||
     !!generateTicketQrProgress?.inProgress;
 
-  if (isEventLoading || !event) {
+  const eventData = useMemo(() => {
+    if (!event) return null;
+    return {
+      name: event.name,
+      description: event.description,
+      date: event.date,
+      hasBoothImage: event.hasBoothImage,
+    };
+  }, [event]);
+
+  if (isEventLoading || !event || !eventData) {
     return <LinearProgress />;
   }
 
@@ -235,51 +243,27 @@ export default function EventDetail() {
       {isAttendeesLoading && <LinearProgress />}
 
       {attended.length > 0 && (
-        <>
-          <Typography variant="subtitle1">Attended</Typography>
-          <Grid container spacing={2}>
-            {attended.map((a) => (
-              <Grid key={a.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                <AttendeeCard
-                  attendee={a}
-                  onClick={() => setSelectedAttendeeId(a.id)}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </>
+        <AttendeeGrid
+          attendees={attended}
+          title="Attended"
+          onClick={(id) => setSelectedAttendeeId(id)}
+        />
       )}
 
       {notAttended.length > 0 && (
-        <>
-          <Typography variant="subtitle1">Not Attended</Typography>
-          <Grid container spacing={2}>
-            {notAttended.map((a) => (
-              <Grid key={a.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                <AttendeeCard
-                  attendee={a}
-                  onClick={() => setSelectedAttendeeId(a.id)}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </>
+        <AttendeeGrid
+          attendees={notAttended}
+          title="Not Attended"
+          onClick={(id) => setSelectedAttendeeId(id)}
+        />
       )}
 
       {ticketUndelivered.length > 0 && (
-        <>
-          <Typography variant="subtitle1">Ticket Undelivered</Typography>
-          <Grid container spacing={2}>
-            {ticketUndelivered.map((a) => (
-              <Grid key={a.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                <AttendeeCard
-                  attendee={a}
-                  onClick={() => setSelectedAttendeeId(a.id)}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </>
+        <AttendeeGrid
+          attendees={ticketUndelivered}
+          title="Ticket Undelivered"
+          onClick={(id) => setSelectedAttendeeId(id)}
+        />
       )}
 
       {attendees.length === 0 && !isAttendeesLoading && (
@@ -324,12 +308,7 @@ export default function EventDetail() {
 
       <ModifyEventsDialog
         open={settingsDialogOpen}
-        event={{
-          name: event.name,
-          description: event.description,
-          date: event.date,
-          hasBoothImage: event.hasBoothImage,
-        }}
+        event={eventData}
         eventId={eventId}
         isUpdating={isUpdating}
         isDeleting={isDeleting}

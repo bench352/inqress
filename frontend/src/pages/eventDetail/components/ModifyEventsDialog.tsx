@@ -70,6 +70,7 @@ export default function ModifyEventsDialog({
       name: editName,
       description: editDescription,
       date: editDate.format("YYYY-MM-DD"),
+      hasBoothImage: event.hasBoothImage,
     });
     setView("settings");
   };
