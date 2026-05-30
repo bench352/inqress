@@ -94,11 +94,11 @@ class AttendanceLog(Base):
     attendee: Mapped["Attendee"] = relationship(back_populates="attendance_logs")
 
 
-Attendee.attended = column_property(
-    select(AttendanceLog.id)
+Attendee.checkedInAt = column_property(
+    select(AttendanceLog.checked_in_at)
     .where(AttendanceLog.attendee_id == Attendee.id)
     .correlate_except(AttendanceLog)
-    .exists()
+    .scalar_subquery()
 )
 
 Attendee.isTicketReady = column_property(Attendee.ticket_img.isnot(None))

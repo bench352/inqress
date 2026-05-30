@@ -2,15 +2,46 @@ import datetime
 import logging
 import uuid
 
-from sqlalchemy import select, insert
+from sqlalchemy import insert, select
 
 from schema.enum import EventMode
 from schema.orm import Attendee, AttendanceLog, Event
-from schema.rest import CheckinResponse, CheckinSuccessDetail, CheckinErrorDetail
+from schema.rest import CheckinErrorDetail, CheckinResponse, CheckinSuccessDetail
+from schema.sse import (
+    AttendanceNotificationData,
+    SseEvent,
+    SseEventType,
+    SseType,
+)
 from service.db import get_session
+from service.event_stream import EventStreamManager
 from service.ticket import verify_ticket
 
 logger = logging.getLogger(__name__)
+
+
+def _emit_attendance(
+    event_id: uuid.UUID,
+    attendee_id: uuid.UUID,
+    title: str,
+    name: str,
+    method: str,
+    checked_in_at: str,
+) -> None:
+    EventStreamManager().send(
+        event_id,
+        SseEvent[AttendanceNotificationData](
+            event_type=SseEventType.ATTENDANCE,
+            type=SseType.NOTIFICATION,
+            data=AttendanceNotificationData(
+                attendee_id=str(attendee_id),
+                title=title,
+                name=name,
+                check_in_method=method,
+                check_in_at=checked_in_at,
+            ),
+        ),
+    )
 
 
 def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> CheckinResponse:
@@ -78,16 +109,26 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> CheckinResponse:
             )
 
         is_test = 1 if event.mode == EventMode.TEST else 0
+        checked_in_at = datetime.datetime.now().isoformat()
         session.execute(
             insert(AttendanceLog).values(
                 id=uuid.uuid4(),
                 event_id=event_id,
                 attendee_id=payload.attendee_id,
-                checked_in_at=datetime.datetime.now().isoformat(),
+                checked_in_at=checked_in_at,
                 method="scan",
                 device_info=None,
                 is_test=is_test,
             )
+        )
+
+        _emit_attendance(
+            event_id,
+            payload.attendee_id,
+            attendee.title,
+            attendee.name,
+            "scan",
+            checked_in_at,
         )
 
         return CheckinResponse(
@@ -161,16 +202,26 @@ def checkin_by_phone(
             )
 
         is_test = 1 if event.mode == EventMode.TEST else 0
+        checked_in_at = datetime.datetime.now().isoformat()
         session.execute(
             insert(AttendanceLog).values(
                 id=uuid.uuid4(),
                 event_id=event_id,
                 attendee_id=attendee.id,
-                checked_in_at=datetime.datetime.now().isoformat(),
+                checked_in_at=checked_in_at,
                 method="phone",
                 device_info=None,
                 is_test=is_test,
             )
+        )
+
+        _emit_attendance(
+            event_id,
+            attendee.id,
+            attendee.title,
+            attendee.name,
+            "phone",
+            checked_in_at,
         )
 
         return CheckinResponse(
@@ -230,16 +281,26 @@ def checkin_manual(event_id: uuid.UUID, attendee_id: uuid.UUID) -> CheckinRespon
             )
 
         is_test = 1 if event.mode == EventMode.TEST else 0
+        checked_in_at = datetime.datetime.now().isoformat()
         session.execute(
             insert(AttendanceLog).values(
                 id=uuid.uuid4(),
                 event_id=event_id,
                 attendee_id=attendee_id,
-                checked_in_at=datetime.datetime.now().isoformat(),
+                checked_in_at=checked_in_at,
                 method="manual",
                 device_info=None,
                 is_test=is_test,
             )
+        )
+
+        _emit_attendance(
+            event_id,
+            attendee_id,
+            attendee.title,
+            attendee.name,
+            "manual",
+            checked_in_at,
         )
 
         return CheckinResponse(

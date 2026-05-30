@@ -10,6 +10,7 @@ from schema.rest import (
     ScanRequest,
 )
 from service import checkin as checkin_service
+from service import events as events_service
 
 router_public = APIRouter(tags=["checkin"])
 router_authed = APIRouter(tags=["checkin"])
@@ -38,6 +39,4 @@ def checkin_manual(
 
 @router_authed.get("/events/{event_id}/phones/countryCodes")
 def get_country_codes(event_id: uuid.UUID) -> CountryCodesResponse:
-    from service import events as events_service
-
     return events_service.get_unique_country_codes(event_id)

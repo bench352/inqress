@@ -1,4 +1,7 @@
+import datetime
 import logging
+import math
+import time
 import uuid
 
 import phonenumbers
@@ -13,7 +16,16 @@ from schema.rest import (
     BulkCreateResponse,
     BulkDeleteResponse,
 )
+from schema.sse import (
+    CreateAttendeeErrorData,
+    CreateAttendeeProgressData,
+    CreateAttendeeSuccessData,
+    SseEvent,
+    SseEventType,
+    SseType,
+)
 from service.db import get_session
+from service.event_stream import EventStreamManager
 from service import ticket
 
 logger = logging.getLogger(__name__)
@@ -155,3 +167,200 @@ def bulk_delete(event_id: uuid.UUID, ids: list[uuid.UUID]) -> BulkDeleteResponse
             delete(Attendee).where(Attendee.event_id == event_id, Attendee.id.in_(ids))
         )
         return BulkDeleteResponse(num_deleted=result.rowcount)
+
+
+def bulk_create_task(
+    event_id: uuid.UUID,
+    payload: list[AttendeeCreate],
+) -> BulkCreateResponse:
+    manager = EventStreamManager()
+    settings = ServerSettings()
+    default_region = settings.default_country_code
+
+    created: list[AttendeeResponse] = []
+    skipped: list[AttendeeCreate] = []
+    errors: list[BulkCreateError] = []
+    num_total = len(payload)
+    start_time = time.monotonic()
+
+    def _send_progress():
+        num_completed = len(created) + len(skipped) + len(errors)
+        est = None
+        if num_completed > 0:
+            elapsed = time.monotonic() - start_time
+            est_sec = (elapsed / num_completed) * (num_total - num_completed)
+            est = max(1, math.ceil(est_sec / 60))
+        manager.send(
+            event_id,
+            SseEvent[CreateAttendeeProgressData](
+                event_type=SseEventType.CREATE_ATTENDEE,
+                type=SseType.PROGRESS,
+                data=CreateAttendeeProgressData(
+                    in_progress=True,
+                    num_completed=num_completed,
+                    num_total=num_total,
+                    est_remain_min=est,
+                    num_errors=len(errors),
+                ),
+            ),
+            sticky=True,
+        )
+
+    try:
+        for i, p in enumerate(payload):
+            _send_progress()
+
+            try:
+                parsed = phonenumbers.parse(p.raw_phone, default_region)
+            except phonenumbers.NumberParseException:
+                err = BulkCreateError(attendee=p, reason="Invalid phone number")
+                errors.append(err)
+                continue
+
+            if not phonenumbers.is_valid_number(parsed):
+                err = BulkCreateError(attendee=p, reason="Invalid phone number")
+                errors.append(err)
+                continue
+
+            country_code = f"+{parsed.country_code}"
+            phone = str(parsed.national_number)
+
+            with get_session() as session:
+                existing = (
+                    session.execute(
+                        select(Attendee).where(
+                            Attendee.event_id == event_id,
+                            (Attendee.email == p.email) | (Attendee.phone == phone),
+                        )
+                    )
+                    .scalars()
+                    .first()
+                )
+
+                if existing:
+                    skipped.append(p)
+                else:
+                    try:
+                        attendee_id = uuid.uuid4()
+                        token_str = ticket.generate_ticket(event_id, attendee_id)
+                        result = session.execute(
+                            insert(Attendee)
+                            .values(
+                                id=attendee_id,
+                                event_id=event_id,
+                                title=p.title,
+                                name=p.name,
+                                email=p.email,
+                                raw_phone=p.raw_phone,
+                                country_code=country_code,
+                                phone=phone,
+                                ticket_token=token_str,
+                            )
+                            .returning(Attendee)
+                        )
+                        created.append(
+                            AttendeeResponse.model_validate(result.scalars().one())
+                        )
+                    except Exception as e:
+                        logger.exception("Failed to create attendee")
+                        err = BulkCreateError(
+                            attendee=p, reason=f"Failed to create: {e}"
+                        )
+                        errors.append(err)
+
+        result = BulkCreateResponse(created=created, skipped=skipped, errors=errors)
+        return result
+
+    except Exception as e:
+        logger.exception("Bulk create attendees task failed for event %s", event_id)
+
+        manager.send(
+            event_id,
+            SseEvent[CreateAttendeeProgressData](
+                event_type=SseEventType.CREATE_ATTENDEE,
+                type=SseType.PROGRESS,
+                data=CreateAttendeeProgressData(
+                    in_progress=False,
+                    num_completed=len(created) + len(skipped) + len(errors),
+                    num_total=num_total,
+                    num_errors=len(errors),
+                ),
+            ),
+            sticky=True,
+        )
+
+        manager.send(
+            event_id,
+            SseEvent[CreateAttendeeErrorData](
+                event_type=SseEventType.CREATE_ATTENDEE,
+                type=SseType.NOTIFICATION,
+                data=CreateAttendeeErrorData(detail=str(e)),
+            ),
+        )
+
+        raise
+
+
+def bulk_create_and_notify(event_id: uuid.UUID, payload: list[AttendeeCreate]) -> None:
+    manager = EventStreamManager()
+    try:
+        result = bulk_create_task(event_id, payload)
+
+        manager.send(
+            event_id,
+            SseEvent[CreateAttendeeProgressData](
+                event_type=SseEventType.CREATE_ATTENDEE,
+                type=SseType.PROGRESS,
+                data=CreateAttendeeProgressData(
+                    in_progress=False,
+                    num_completed=len(payload),
+                    num_total=len(payload),
+                    num_errors=len(result.errors),
+                ),
+            ),
+            sticky=True,
+        )
+
+        result_id = uuid.uuid4()
+        manager.store_result(result_id, result)
+        expire_on = (
+            datetime.datetime.now() + datetime.timedelta(minutes=30)
+        ).isoformat()
+
+        # Workaround for manual attendee creation. An artificial delay
+        # is the easiest way to let frontend resume SSE stream and receive
+        # the import result after a manual attendee creation
+        time.sleep(1)
+
+        manager.send(
+            event_id,
+            SseEvent[CreateAttendeeSuccessData](
+                event_type=SseEventType.CREATE_ATTENDEE,
+                type=SseType.NOTIFICATION,
+                data=CreateAttendeeSuccessData(
+                    expire_on=expire_on,
+                    result_id=str(result_id),
+                ),
+            ),
+        )
+
+        if result.created:
+            try:
+                ticket.generate_qrs_task(event_id, [a.id for a in result.created])
+            except Exception:
+                logger.exception("Ticket generation failed for event %s", event_id)
+
+    except Exception:
+        logger.exception("Background task failed for event %s", event_id)
+
+        manager.send(
+            event_id,
+            SseEvent[CreateAttendeeErrorData](
+                event_type=SseEventType.CREATE_ATTENDEE,
+                type=SseType.NOTIFICATION,
+                data=CreateAttendeeErrorData(detail="Import task failed"),
+            ),
+        )
+
+    finally:
+        manager.mark_job_done(event_id, "import")
