@@ -4,35 +4,26 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile, status
 
+from api.deps import check_event_exists
 from schema.rest import (
-    BulkCreateResponse,
     ExcelImportRequest,
     ExcelPreviewResponse,
     SheetPreview,
 )
 from service import attendees as attendees_service
-from service import events as events_service
 from service import excel as excel_service
-from service.ticket import generate_ticket_images
+from service.event_stream import EventStreamManager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/events/{event_id}", tags=["excel"])
 
 
-def _check_event(event_id: uuid.UUID):
-    event = events_service.get_event(event_id)
-    if event is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
-        )
-
-
 @router.post("/excelPreview")
 def excel_preview(
     event_id: uuid.UUID, file: UploadFile = File(...)
 ) -> ExcelPreviewResponse:
-    _check_event(event_id)
+    check_event_exists(event_id)
     try:
         workbook = excel_service.parse_workbook(
             file.file.read(), file.filename or "upload.xlsx"
@@ -60,11 +51,14 @@ def excel_preview(
     )
 
 
-@router.post("/excelImport")
+@router.post("/excelImport", status_code=status.HTTP_202_ACCEPTED)
 def excel_import(
-    event_id: uuid.UUID, payload: ExcelImportRequest, background_tasks: BackgroundTasks
-) -> BulkCreateResponse:
-    _check_event(event_id)
+    event_id: uuid.UUID,
+    payload: ExcelImportRequest,
+    background_tasks: BackgroundTasks,
+) -> dict:
+    check_event_exists(event_id)
+
     workbook = excel_service.get_workbook(payload.task_id)
     if workbook is None:
         raise HTTPException(
@@ -76,6 +70,7 @@ def excel_import(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Sheet '{payload.sheet_name}' not found in workbook",
         )
+
     mapped = excel_service.map_rows(
         workbook,
         payload.sheet_name,
@@ -84,7 +79,15 @@ def excel_import(
         payload.row_mapping.raw_phone_column,
         payload.row_mapping.email_column,
     )
-    result = attendees_service.bulk_create(event_id, mapped)
-    if result.created:
-        background_tasks.add_task(generate_ticket_images, event_id)
-    return result
+
+    manager = EventStreamManager()
+    if not manager.mark_job_active(event_id, "import"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An import is already in progress for this event",
+        )
+
+    background_tasks.add_task(
+        attendees_service.bulk_create_and_notify, event_id, mapped
+    )
+    return {"message": "Import started"}

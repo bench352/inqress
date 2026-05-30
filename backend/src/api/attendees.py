@@ -1,38 +1,28 @@
 import logging
-import time
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, status
 from fastapi.responses import HTMLResponse, Response
 
-from env import SmtpSettings
+from api.deps import check_event_exists
 from schema.rest import (
     AttendeeCreate,
     AttendeeResponse,
-    BulkCreateResponse,
     BulkDeleteResponse,
 )
 from service import attendees as attendees_service
 from service import checkin as checkin_service
 from service import email as email_service
 from service import events as events_service
-from service.ticket import generate_ticket_images
+from service import ticket as ticket_service
+from service.event_stream import EventStreamManager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/events/{event_id}/attendees", tags=["attendees"])
 
 
-def _check_event(event_id: uuid.UUID):
-    event = events_service.get_event(event_id)
-    if event is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
-        )
-    return event
-
-
-def _check_attendee(event_id: uuid.UUID, attendee_id: uuid.UUID) -> None:
+def check_attendee_exists(event_id: uuid.UUID, attendee_id: uuid.UUID) -> None:
     if attendees_service.get_attendee(event_id, attendee_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Attendee not found"
@@ -41,26 +31,33 @@ def _check_attendee(event_id: uuid.UUID, attendee_id: uuid.UUID) -> None:
 
 @router.get("")
 def list_attendees(event_id: uuid.UUID) -> list[AttendeeResponse]:
-    _check_event(event_id)
+    check_event_exists(event_id)
     return attendees_service.list_attendees(event_id)
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_202_ACCEPTED)
 def bulk_create_attendees(
     event_id: uuid.UUID,
     payload: list[AttendeeCreate],
     background_tasks: BackgroundTasks,
-) -> BulkCreateResponse:
-    _check_event(event_id)
-    result = attendees_service.bulk_create(event_id, payload)
-    if result.created:
-        background_tasks.add_task(generate_ticket_images, event_id)
-    return result
+) -> dict:
+    check_event_exists(event_id)
+
+    if not EventStreamManager().mark_job_active(event_id, "import"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An import is already in progress for this event",
+        )
+
+    background_tasks.add_task(
+        attendees_service.bulk_create_and_notify, event_id, payload
+    )
+    return {"message": "Import started"}
 
 
 @router.get("/{attendee_id}")
 def get_attendee(event_id: uuid.UUID, attendee_id: uuid.UUID) -> AttendeeResponse:
-    _check_event(event_id)
+    check_event_exists(event_id)
     attendee = attendees_service.get_attendee(event_id, attendee_id)
     if attendee is None:
         raise HTTPException(
@@ -73,7 +70,7 @@ def get_attendee(event_id: uuid.UUID, attendee_id: uuid.UUID) -> AttendeeRespons
 def bulk_delete_attendees(
     event_id: uuid.UUID, payload: list[uuid.UUID]
 ) -> BulkDeleteResponse:
-    _check_event(event_id)
+    check_event_exists(event_id)
     return attendees_service.bulk_delete(event_id, payload)
 
 
@@ -92,7 +89,7 @@ def preview_email(
     event_id: uuid.UUID,
     attendee_id: uuid.UUID,
 ) -> HTMLResponse:
-    event = _check_event(event_id)
+    event = check_event_exists(event_id)
     attendee = attendees_service.get_attendee(event_id, attendee_id)
     if attendee is None:
         raise HTTPException(
@@ -123,7 +120,7 @@ def send_email(
     event_id: uuid.UUID,
     attendee_id: uuid.UUID,
 ) -> Response:
-    event = _check_event(event_id)
+    event = check_event_exists(event_id)
     attendee = attendees_service.get_attendee(event_id, attendee_id)
     if attendee is None:
         raise HTTPException(
@@ -163,8 +160,8 @@ def mark_ticket_delivered(
     event_id: uuid.UUID,
     attendee_id: uuid.UUID,
 ) -> Response:
-    _check_event(event_id)
-    _check_attendee(event_id, attendee_id)
+    check_event_exists(event_id)
+    check_attendee_exists(event_id, attendee_id)
     attendees_service.mark_ticket_delivered(event_id, attendee_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -172,89 +169,50 @@ def mark_ticket_delivered(
 bulk_email_router = APIRouter(prefix="/events/{event_id}", tags=["bulk-email"])
 
 
-def _bulk_send_emails_task(
-    event_id: uuid.UUID, attendee_ids: list[uuid.UUID]
-) -> None:
-    event = events_service.get_event(event_id)
-    if event is None:
-        logger.error("Event %s not found during bulk email task", event_id)
-        return
-
-    template = events_service.get_email_template(event_id)
-    if template is None:
-        logger.error("Email template not found for event %s", event_id)
-        return
-
-    smtp_settings = SmtpSettings()
-    total = len(attendee_ids)
-
-    for i, attendee_id in enumerate(attendee_ids):
-        try:
-            attendee = attendees_service.get_attendee(event_id, attendee_id)
-            if attendee is None:
-                logger.warning(
-                    "Attendee %s not found, skipping (%d/%d)",
-                    attendee_id,
-                    i + 1,
-                    total,
-                )
-                continue
-
-            qr_bytes = checkin_service.get_ticket_image(event_id, attendee_id)
-            if qr_bytes is None:
-                logger.warning(
-                    "Ticket image not ready for attendee %s, skipping (%d/%d)",
-                    attendee_id,
-                    i + 1,
-                    total,
-                )
-                continue
-
-            subject = f"[Ticket] {event.name}"
-            email_service.send_ticket_email(
-                attendee.email,
-                subject,
-                template.text,
-                attendee.title,
-                attendee.name,
-                event.name,
-                qr_bytes,
-            )
-            if not attendees_service.mark_ticket_delivered(event_id, attendee_id):
-                logger.warning(
-                    "Failed to mark ticket delivered for attendee %s in event %s",
-                    attendee_id,
-                    event_id,
-                )
-            logger.info(
-                "Sent email to %s (%d/%d)", attendee.email, i + 1, total
-            )
-        except Exception:
-            logger.exception(
-                "Failed to send email to attendee %s (%d/%d)",
-                attendee_id,
-                i + 1,
-                total,
-            )
-
-        if i < total - 1:
-            time.sleep(smtp_settings.email_wait_between_delivery_second)
-
-    logger.info(
-        "Bulk email sending completed for event %s (%d attendees)",
-        event_id,
-        total,
-    )
-
-
-@bulk_email_router.post("/emails", status_code=status.HTTP_201_CREATED)
+@bulk_email_router.post("/emails", status_code=status.HTTP_202_ACCEPTED)
 def bulk_send_email(
     event_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     payload: list[uuid.UUID] = Body(...),
 ) -> dict:
-    _check_event(event_id)
+    check_event_exists(event_id)
     for attendee_id in payload:
-        _check_attendee(event_id, attendee_id)
-    background_tasks.add_task(_bulk_send_emails_task, event_id, payload)
+        check_attendee_exists(event_id, attendee_id)
+
+    if not EventStreamManager().mark_job_active(event_id, "bulk_email"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Bulk email sending is already in progress for this event",
+        )
+
+    background_tasks.add_task(
+        email_service.bulk_send_and_notify,
+        event_id,
+        payload,
+        events_service.get_event,
+        events_service.get_email_template,
+        attendees_service.get_attendee,
+        checkin_service.get_ticket_image,
+        attendees_service.mark_ticket_delivered,
+    )
     return {"message": "Bulk email sending started"}
+
+
+@bulk_email_router.post("/ticketQRs", status_code=status.HTTP_202_ACCEPTED)
+def bulk_generate_ticket_qrs(
+    event_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    payload: list[uuid.UUID] = Body(...),
+) -> dict:
+    check_event_exists(event_id)
+    for attendee_id in payload:
+        check_attendee_exists(event_id, attendee_id)
+
+    if not EventStreamManager().mark_job_active(event_id, "ticket_qr"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ticket QR generation is already in progress for this event",
+        )
+
+    background_tasks.add_task(ticket_service.generate_qrs_and_notify, event_id, payload)
+    return {"message": "Ticket QR generation started"}

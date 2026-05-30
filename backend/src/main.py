@@ -10,6 +10,7 @@ import api.checkin
 import api.events
 import api.excel
 import api.health
+import api.streams
 import env
 from schema.orm import Base
 from service.auth import verify_basic_auth
@@ -54,6 +55,7 @@ app.include_router(
 app.include_router(
     api.excel.router, prefix="/api", dependencies=[Depends(verify_basic_auth)]
 )
+app.include_router(api.streams.router, prefix="/api")
 
 if __name__ == "__main__":
     server_settings = env.ServerSettings()

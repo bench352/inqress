@@ -66,7 +66,7 @@ class AttendeeResponse(RestModel):
     phone: str
     is_ticket_delivered: bool
     is_ticket_ready: bool
-    attended: bool
+    checked_in_at: str | None = None
 
 
 class ScanRequest(RestModel):

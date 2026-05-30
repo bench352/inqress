@@ -113,12 +113,18 @@ def map_rows(
 
     result: list[AttendeeCreate] = []
     for row in rows:
-        title = _get(row, idx_by_field["title"]).strip() if "title" in idx_by_field else ""
+        title = (
+            _get(row, idx_by_field["title"]).strip() if "title" in idx_by_field else ""
+        )
         name = _get(row, idx_by_field["name"]).strip() if "name" in idx_by_field else ""
         raw_phone = (
-            _get(row, idx_by_field["raw_phone"]).strip() if "raw_phone" in idx_by_field else ""
+            _get(row, idx_by_field["raw_phone"]).strip()
+            if "raw_phone" in idx_by_field
+            else ""
         )
-        email = _get(row, idx_by_field["email"]).strip() if "email" in idx_by_field else ""
+        email = (
+            _get(row, idx_by_field["email"]).strip() if "email" in idx_by_field else ""
+        )
         if not name:
             continue
         result.append(
