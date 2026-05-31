@@ -58,7 +58,7 @@ export interface UseEventStreamReturn {
   createAttendeeProgress: ProgressState | null;
   sendEmailProgress: ProgressState | null;
   generateTicketQrProgress: ProgressState | null;
-  resultDialog: { resultId: string; expireOn: string } | null;
+  resultDialog: { resultId: string } | null;
   dismissResultDialog: () => void;
   attendanceDialog: AttendanceDialogEntry | null;
   dismissAttendanceDialog: () => void;
@@ -98,7 +98,6 @@ export function useEventStream(
     useState<ProgressState | null>(null);
   const [resultDialog, setResultDialog] = useState<{
     resultId: string;
-    expireOn: string;
   } | null>(null);
   const [attendanceDialog, setAttendanceDialog] =
     useState<AttendanceDialogEntry | null>(null);
@@ -161,9 +160,8 @@ export function useEventStream(
       const handleNotificationSuccess = (
         message: string,
         resultId?: string,
-        expireOn?: string,
       ) => {
-        if (resultId && expireOn) {
+        if (resultId) {
           enqueueSnackbarRef.current(message, {
             variant: "success",
             action: (key) => (
@@ -171,7 +169,7 @@ export function useEventStream(
                 size="small"
                 sx={{ color: "white" }}
                 onClick={() => {
-                  setResultDialog({ resultId, expireOn });
+                  setResultDialog({ resultId });
                   closeSnackbarRef.current(key);
                 }}
               >
@@ -205,7 +203,6 @@ export function useEventStream(
             handleNotificationSuccess(
               "Attendee import completed",
               successData.resultId,
-              successData.expireOn,
             );
           } else if (data.type === "error") {
             const errorData = data as SseErrorData;

@@ -168,7 +168,6 @@ export default function EventDetail() {
           <ImportResultDialog
             eventId={eventId}
             resultId={resultDialog.resultId}
-            expireOn={resultDialog.expireOn}
             onClose={dismissResultDialog}
           />
         )}
@@ -328,7 +327,6 @@ export default function EventDetail() {
         <ImportResultDialog
           eventId={eventId}
           resultId={resultDialog.resultId}
-          expireOn={resultDialog.expireOn}
           onClose={dismissResultDialog}
         />
       )}
