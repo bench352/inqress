@@ -11,7 +11,15 @@ from schema.rest import (
     EventPut,
     EventResponse,
 )
+from schema.sse import (
+    ChangeModeData,
+    ControlCommandData,
+    SseEvent,
+    SseEventType,
+    SseType,
+)
 from service import events as events_service
+from api.booth import booth_manager
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -53,6 +61,15 @@ def update_event_mode(event_id: uuid.UUID, payload: EventModeUpdate) -> EventRes
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
         )
+    booth_manager.send(
+        event_id,
+        SseEvent[ChangeModeData](
+            event_type=SseEventType.CHANGE_MODE,
+            type=SseType.COMMAND,
+            data=ChangeModeData(value=payload.mode),
+        ),
+        sticky=True,
+    )
     return event
 
 
@@ -108,4 +125,12 @@ def upload_booth_image(event_id: uuid.UUID, file: UploadFile = File(...)) -> Res
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
         )
+    booth_manager.send(
+        event_id,
+        SseEvent[ControlCommandData](
+            event_type=SseEventType.CONTROL,
+            type=SseType.COMMAND,
+            data=ControlCommandData(command="REFRESH"),
+        ),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

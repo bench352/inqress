@@ -5,7 +5,9 @@ import dotenv
 import uvicorn
 from fastapi import FastAPI, Depends
 
+import api.admin
 import api.attendees
+import api.booth
 import api.checkin
 import api.events
 import api.excel
@@ -56,6 +58,8 @@ app.include_router(
     api.excel.router, prefix="/api", dependencies=[Depends(verify_basic_auth)]
 )
 app.include_router(api.streams.router, prefix="/api")
+app.include_router(api.booth.router, prefix="/api")
+app.include_router(api.admin.router, prefix="/api")
 
 if __name__ == "__main__":
     server_settings = env.ServerSettings()

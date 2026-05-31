@@ -118,7 +118,7 @@ export default function CheckinByPhoneDialog({
             alignItems: "center",
             justifyContent: "center",
             gap: 4,
-            p: 6,
+            p: 9,
             bgcolor: "grey.100",
           }}
         >
@@ -129,8 +129,8 @@ export default function CheckinByPhoneDialog({
             variant="h3"
             sx={{
               textAlign: "center",
-              maxWidth: DIAL_PAD_MAX_WIDTH * 1.5,
               pt: 4,
+              fontSize: 46,
             }}
           >
             Enter the phone number you registered for this event
