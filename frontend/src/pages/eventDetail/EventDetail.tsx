@@ -67,8 +67,10 @@ export default function EventDetail() {
   } = useEventStream(eventId, queryClient);
 
   const matches = useMatches();
-  const isChildRouteActive = matches.some((m) =>
-    m.pathname?.includes("/addAttendeesBySpreadsheet"),
+  const isChildRouteActive = matches.some(
+    (m) =>
+      m.pathname?.includes("/addAttendeesBySpreadsheet") ||
+      m.pathname?.includes("/addAttendeesManually"),
   );
 
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
