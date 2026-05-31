@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Button,
   Chip,
@@ -55,26 +55,19 @@ interface ImportResultData {
 interface Props {
   eventId: string;
   resultId: string;
-  expireOn: string;
   onClose: () => void;
 }
 
 export default function ImportResultDialog({
   eventId,
   resultId,
-  expireOn,
   onClose,
 }: Props) {
   const api = useApi();
   const [open, setOpen] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleClose = useCallback(() => {
     setOpen(false);
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
     onClose();
   }, [onClose]);
 
@@ -83,22 +76,6 @@ export default function ImportResultDialog({
     queryFn: () => api.get(`/api/events/${eventId}/importResult/${resultId}`),
     enabled: open,
   });
-
-  useEffect(() => {
-    if (!open) return;
-    const remaining = new Date(expireOn).getTime() - Date.now();
-    if (remaining <= 0) {
-      timerRef.current = setTimeout(handleClose, 0);
-      return;
-    }
-    timerRef.current = setTimeout(handleClose, remaining);
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [expireOn, open, handleClose]);
 
   const data = resultQuery.data;
 

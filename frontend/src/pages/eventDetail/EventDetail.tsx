@@ -13,7 +13,12 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import EditIcon from "@mui/icons-material/Edit";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import {
+  Outlet,
+  useMatches,
+  useNavigate,
+  useParams,
+} from "@tanstack/react-router";
 import { useSnackbar } from "notistack";
 import { useEventDetail } from "./useEventDetail";
 import AddAttendeesSpeedDial from "./components/AddAttendeesSpeedDial";
@@ -60,6 +65,13 @@ export default function EventDetail() {
     attendanceDialog,
     dismissAttendanceDialog,
   } = useEventStream(eventId, queryClient);
+
+  const matches = useMatches();
+  const isChildRouteActive = matches.some(
+    (m) =>
+      m.pathname?.includes("/addAttendeesBySpreadsheet") ||
+      m.pathname?.includes("/addAttendeesManually"),
+  );
 
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [modeDialogOpen, setModeDialogOpen] = useState(false);
@@ -147,6 +159,28 @@ export default function EventDetail() {
       hasBoothImage: event.hasBoothImage,
     };
   }, [event]);
+
+  if (isChildRouteActive) {
+    return (
+      <>
+        <Outlet />
+        {resultDialog && (
+          <ImportResultDialog
+            eventId={eventId}
+            resultId={resultDialog.resultId}
+            onClose={dismissResultDialog}
+          />
+        )}
+        {attendanceDialog && (
+          <CheckinNotificationDialog
+            key={attendanceDialog.attendeeId}
+            dialog={attendanceDialog}
+            onDismiss={dismissAttendanceDialog}
+          />
+        )}
+      </>
+    );
+  }
 
   if (isEventLoading || !event || !eventData) {
     return <LinearProgress />;
@@ -293,7 +327,6 @@ export default function EventDetail() {
         <ImportResultDialog
           eventId={eventId}
           resultId={resultDialog.resultId}
-          expireOn={resultDialog.expireOn}
           onClose={dismissResultDialog}
         />
       )}

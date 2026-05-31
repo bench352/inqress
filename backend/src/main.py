@@ -1,10 +1,11 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import dotenv
 import uvicorn
-from fastapi import FastAPI, Depends
-
+from fastapi import FastAPI, Depends, Request
+from fastapi.staticfiles import StaticFiles
 import api.admin
 import api.attendees
 import api.booth
@@ -60,6 +61,20 @@ app.include_router(
 app.include_router(api.streams.router, prefix="/api")
 app.include_router(api.booth.router, prefix="/api")
 app.include_router(api.admin.router, prefix="/api")
+
+frontend_dir = os.getenv("FRONTEND_DIR")
+if frontend_dir:
+    logger.info("Mounting frontend from %s", frontend_dir)
+    static = StaticFiles(directory=frontend_dir, html=True)
+
+    @app.get("/{path:path}")
+    async def frontend_spa(path: str, request: Request):
+        path = path.lstrip("/")
+        full_path, stat_path = static.lookup_path(path)
+        if stat_path is not None:
+            return await static.get_response(path, request.scope)
+        return await static.get_response("index.html", request.scope)
+
 
 if __name__ == "__main__":
     server_settings = env.ServerSettings()

@@ -327,11 +327,6 @@ def bulk_create_and_notify(event_id: uuid.UUID, payload: list[AttendeeCreate]) -
             datetime.datetime.now() + datetime.timedelta(minutes=30)
         ).isoformat()
 
-        # Workaround for manual attendee creation. An artificial delay
-        # is the easiest way to let frontend resume SSE stream and receive
-        # the import result after a manual attendee creation
-        time.sleep(1)
-
         manager.send(
             event_id,
             SseEvent[CreateAttendeeSuccessData](

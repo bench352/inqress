@@ -59,14 +59,14 @@ const eventDetailRoute = createRoute({
 });
 
 const addAttendeesManuallyRoute = createRoute({
-  getParentRoute: () => appShellLayout,
-  path: "/events/$eventId/addAttendeesManually",
+  getParentRoute: () => eventDetailRoute,
+  path: "/addAttendeesManually",
   component: AddAttendeesManually,
 });
 
 const addAttendeesSpreadsheetRoute = createRoute({
-  getParentRoute: () => appShellLayout,
-  path: "/events/$eventId/addAttendeesBySpreadsheet",
+  getParentRoute: () => eventDetailRoute,
+  path: "/addAttendeesBySpreadsheet",
   component: AddAttendeesBySpreadsheet,
 });
 
@@ -88,10 +88,11 @@ const routeTree = rootRoute.addChildren([
   appShellLayout.addChildren([
     indexRoute,
     eventsRoute,
-    addAttendeesManuallyRoute,
-    addAttendeesSpreadsheetRoute,
     bulkTicketDeliveryRoute,
-    eventDetailRoute,
+    eventDetailRoute.addChildren([
+      addAttendeesSpreadsheetRoute,
+      addAttendeesManuallyRoute,
+    ]),
     settingsRoute,
   ]),
 ]);
