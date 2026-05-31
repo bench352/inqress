@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AppBar,
   Box,
+  Collapse,
   Container,
   Divider,
   Drawer,
@@ -10,6 +11,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Stack,
   Toolbar,
   Typography,
 } from "@mui/material";
@@ -26,12 +28,16 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useAuth } from "../providers/useAuth";
+import { useAdminStream } from "../hooks/useAdminStream";
+import BoothControlPanel from "../components/BoothControlPanel";
+import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 
 const DRAWER_WIDTH = 240;
 
 function DrawerContent() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { activeBooths } = useAdminStream();
 
   return (
     <Box>
@@ -45,6 +51,29 @@ function DrawerContent() {
         </ListItemButton>
       </List>
       <Divider />
+      <Collapse in={activeBooths.length > 0}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            justifyContent: "center",
+            alignItems: "center",
+            py: 1,
+          }}
+        >
+          <QrCodeScannerIcon />
+          <Typography variant="h6">Booth control</Typography>
+        </Stack>
+        {activeBooths.map((booth) => (
+          <BoothControlPanel
+            key={booth.eventId}
+            eventId={booth.eventId}
+            eventName={booth.eventName}
+          />
+        ))}
+        <Divider />
+      </Collapse>
+
       <List>
         <ListItemButton onClick={() => navigate({ to: "/settings" })}>
           <ListItemIcon>

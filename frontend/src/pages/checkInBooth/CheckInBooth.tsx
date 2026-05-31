@@ -1,15 +1,17 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import { Box, Button, Typography } from "@mui/material";
-import QrCodeIcon from "@mui/icons-material/QrCode";
+import LoginIcon from "@mui/icons-material/Login";
 import { useParams } from "@tanstack/react-router";
-import { Scanner as QrScanner } from "@yudiel/react-qr-scanner";
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "../../api";
+import { useBoothStream } from "../../hooks/useBoothStream";
 import BoothImage from "./components/BoothImage";
+import CameraPreview from "./components/CameraPreview";
 import CheckinResultDialog from "./components/CheckinResultDialog";
 import CheckinByPhoneDialog from "./components/CheckinByPhoneDialog";
 import EventDisabledDialog from "./components/EventDisabledDialog";
-import LoginIcon from "@mui/icons-material/Login";
+import BoothRejectedDialog from "./components/BoothRejectedDialog";
+import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import type {
   CheckinErrorDetail,
   CheckinPhase,
@@ -25,8 +27,18 @@ interface EventResponse {
   hasBoothImage: boolean;
 }
 
-export default function Scanner() {
-  const { eventId } = useParams({ from: "/full-page/events/$eventId/scanner" });
+function showCameraReducer(state: boolean, action: string) {
+  switch (action) {
+    case "SHOW_CAMERA_PREVIEW":
+      return true;
+    case "HIDE_CAMERA_PREVIEW":
+      return false;
+    default:
+      return state;
+  }
+}
+
+function ScannerInner({ eventId }: { eventId: string }) {
   const api = useApi();
 
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
@@ -35,14 +47,44 @@ export default function Scanner() {
   const [checkinResult, setCheckinResult] = useState<CheckinResponse | null>(
     null,
   );
+  const [showCamera, dispatchCamera] = useReducer(showCameraReducer, false);
+
+  const {
+    mode: boothMode,
+    controlCommand,
+    dismissCommand,
+    connectionRejected,
+  } = useBoothStream(eventId);
 
   const scannerPaused = checkinPhase !== "idle" || phoneDialogOpen;
 
   const { data: event } = useQuery<EventResponse>({
     queryKey: ["event", eventId],
     queryFn: () => api.get<EventResponse>(`/api/events/${eventId}`),
-    refetchInterval: 3000,
   });
+
+  useEffect(() => {
+    if (!controlCommand) return;
+    switch (controlCommand.command) {
+      case "SHOW_CAMERA_PREVIEW":
+      case "HIDE_CAMERA_PREVIEW":
+        dispatchCamera(controlCommand.command);
+        dismissCommand();
+        break;
+      case "REFRESH":
+        window.location.reload();
+        break;
+      case "CLOSE":
+        if (window.opener) {
+          window.close();
+        } else {
+          window.location.href = `/full-page/events/${eventId}`;
+        }
+        break;
+    }
+  }, [controlCommand, dismissCommand, eventId]);
+
+  const finalMode = boothMode ?? event?.mode ?? null;
 
   const handleScan = useCallback(
     (detectedCodes: { rawValue: string }[]) => {
@@ -71,6 +113,7 @@ export default function Scanner() {
   const handleScanDismiss = useCallback(() => {
     setCheckinPhase("idle");
     setCheckinResult(null);
+    dispatchCamera("HIDE_CAMERA_PREVIEW");
   }, []);
 
   const handlePhoneOpen = useCallback(() => {
@@ -82,24 +125,32 @@ export default function Scanner() {
     setPhoneDialogOpen(false);
   }, []);
 
-  if (!event) return null;
+  if (connectionRejected) {
+    return <BoothRejectedDialog eventId={eventId} />;
+  }
 
-  if (event.mode === "disabled") {
+  if (finalMode === "disabled" && boothMode !== null) {
     return <EventDisabledDialog />;
   }
 
-  const savedDeviceId =
-    localStorage.getItem("settings.webcamDeviceId") || undefined;
+  if (!event) return null;
+
+  if (!boothMode && event.mode === "disabled") {
+    return <EventDisabledDialog />;
+  }
 
   return (
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <Box
         sx={{
-          flex: 1,
+          height: "100%", // Full height of viewport
+          aspectRatio: "1 / 1", // Perfect 1:1 square
+          flexShrink: 0, // Don't shrink
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           bgcolor: "grey.200",
+          overflow: "hidden",
         }}
       >
         <BoothImage
@@ -111,7 +162,7 @@ export default function Scanner() {
       </Box>
       <Box
         sx={{
-          flex: 1,
+          width: "50%",
           display: "flex",
           flexDirection: "column",
           height: "100%",
@@ -119,26 +170,36 @@ export default function Scanner() {
       >
         <Box
           sx={{
-            position: "fixed",
-            left: -9999,
-            width: 1,
-            height: 1,
-            opacity: 0,
-            pointerEvents: "none",
+            aspectRatio: "16 / 9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: showCamera ? "black" : "grey.100",
+            overflow: "hidden",
+            position: "relative",
           }}
         >
-          <QrScanner
-            paused={scannerPaused}
-            onScan={handleScan}
-            constraints={{ deviceId: savedDeviceId }}
-            components={{
-              finder: false,
-              torch: false,
-              onOff: false,
-              zoom: false,
-            }}
-            sound={false}
-          />
+          {showCamera ? (
+            <CameraPreview paused={scannerPaused} onScan={handleScan} />
+          ) : (
+            <>
+              <QrCodeScannerIcon
+                sx={{ fontSize: 120, color: "primary.main" }}
+              />
+              <Box
+                sx={{
+                  position: "fixed",
+                  left: -9999,
+                  width: 1,
+                  height: 1,
+                  opacity: 0,
+                  pointerEvents: "none",
+                }}
+              >
+                <CameraPreview paused={scannerPaused} onScan={handleScan} />
+              </Box>
+            </>
+          )}
         </Box>
         <Box
           sx={{
@@ -147,27 +208,24 @@ export default function Scanner() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 3,
+            gap: 8,
             p: 4,
           }}
         >
-          <QrCodeIcon sx={{ fontSize: 120, color: "primary.main" }} />
           <Typography
             variant="h3"
             color="text.secondary"
-            sx={{ textAlign: "center", fontSize: 40, maxWidth: 450, pt: 6 }}
+            sx={{ textAlign: "center", fontSize: 46, maxWidth: 540 }}
           >
             Present your QR code ticket to the camera to check in
           </Typography>
-        </Box>
-        <Box sx={{ p: 4, display: "flex", justifyContent: "center" }}>
           <Button
             variant="contained"
             size="large"
             onClick={handlePhoneOpen}
             sx={{ py: 2, px: 4, fontSize: "1.8rem" }}
           >
-            <LoginIcon sx={{ fontSize: 50, pr: 2 }} />
+            <LoginIcon sx={{ fontSize: 46, pr: 2 }} />
             Check-in without QR Code
           </Button>
         </Box>
@@ -188,4 +246,32 @@ export default function Scanner() {
       )}
     </Box>
   );
+}
+
+export default function CheckInBooth() {
+  const { eventId } = useParams({
+    from: "/full-page/events/$eventId/checkInBooth",
+  });
+  const api = useApi();
+
+  const [statusChecked, setStatusChecked] = useState(false);
+  const [boothRejected, setBoothRejected] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ connected: boolean }>(`/api/events/${eventId}/checkInBooth/status`)
+      .then((res) => {
+        if (res.connected) {
+          setBoothRejected(true);
+        }
+        setStatusChecked(true);
+      })
+      .catch(() => setStatusChecked(true));
+  }, [eventId, api]);
+
+  if (!statusChecked) return null;
+
+  if (boothRejected) return <BoothRejectedDialog eventId={eventId} />;
+
+  return <ScannerInner eventId={eventId} />;
 }

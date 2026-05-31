@@ -14,7 +14,8 @@ import ImageIcon from "@mui/icons-material/Image";
 import QrCodeIcon from "@mui/icons-material/QrCode";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApi } from "../../../api";
+import { useSnackbar } from "notistack";
+import { ApiError, useApi } from "../../../api";
 
 interface Props {
   open: boolean;
@@ -31,21 +32,14 @@ export default function BoothImageConfigDialog({
 }: Props) {
   const api = useApi();
   const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const didFetch = useRef(false);
 
   useEffect(() => {
-    if (!open) {
-      didFetch.current = false;
-      return;
-    }
-    if (didFetch.current) return;
-    didFetch.current = true;
-
-    if (!hasBoothImage) return;
+    if (!open || !hasBoothImage) return;
 
     let cancelled = false;
     let blobUrl: string | null = null;
@@ -90,6 +84,11 @@ export default function BoothImageConfigDialog({
       queryClient.invalidateQueries({ queryKey: ["event", eventId] });
       onClose();
     },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof ApiError ? err.detail : "Failed to upload booth image";
+      enqueueSnackbar(message, { variant: "error" });
+    },
   });
 
   const handleSubmit = () => {
@@ -133,7 +132,7 @@ export default function BoothImageConfigDialog({
                   sx={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />
               ) : (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Box sx={{ gap: 2 }}>
                   <ImageIcon sx={{ fontSize: 64, color: "grey.400" }} />
                   <Typography variant="body2" color="text.secondary">
                     No image

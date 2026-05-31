@@ -14,6 +14,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useSnackbar } from "notistack";
 import { useEventDetail } from "./useEventDetail";
 import AddAttendeesSpeedDial from "./components/AddAttendeesSpeedDial";
 import ActionsSection from "./components/ActionsSection";
@@ -25,12 +26,15 @@ import ImportResultDialog from "./components/ImportResultDialog";
 import ModeDialog from "./components/ModeDialog";
 import ModifyEventsDialog from "./components/ModifyEventsDialog";
 import AttendeeGrid from "@/components/AttendeeGrid";
+import { useApi } from "../../api";
 import { useEventStream } from "../../hooks/useEventStream";
 
 export default function EventDetail() {
   const { eventId } = useParams({ from: "/app-shell/events/$eventId" });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const api = useApi();
+  const { enqueueSnackbar } = useSnackbar();
   const {
     event,
     isEventLoading,
@@ -159,8 +163,21 @@ export default function EventDetail() {
           <Button
             variant="contained"
             startIcon={<QrCodeScannerIcon />}
-            onClick={() => {
-              const url = `/events/${eventId}/scanner`;
+            onClick={async () => {
+              try {
+                const status = await api.get<{ connected: boolean }>(
+                  `/api/events/${eventId}/checkInBooth/status`,
+                );
+                if (status.connected) {
+                  enqueueSnackbar("Booth is already open", {
+                    variant: "warning",
+                  });
+                  return;
+                }
+              } catch {
+                // fall through to open booth anyway
+              }
+              const url = `/events/${eventId}/checkInBooth`;
               const popup = window.open(
                 url,
                 "checkinBooth",
@@ -168,7 +185,7 @@ export default function EventDetail() {
               );
               if (!popup) {
                 navigate({
-                  to: "/events/$eventId/scanner",
+                  to: "/events/$eventId/checkInBooth",
                   params: { eventId },
                 });
               }

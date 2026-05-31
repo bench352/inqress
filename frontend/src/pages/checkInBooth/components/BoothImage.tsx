@@ -45,8 +45,8 @@ export default function BoothImage({
   return (
     <Box
       sx={{
+        width: "100%",
         aspectRatio: "1 / 1",
-        height: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

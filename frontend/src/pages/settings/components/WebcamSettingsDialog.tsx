@@ -7,11 +7,13 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
   Snackbar,
   Stack,
+  Switch,
 } from "@mui/material";
 import { Scanner, useDevices } from "@yudiel/react-qr-scanner";
 
@@ -24,7 +26,10 @@ export default function WebcamSettingsDialog({ open, onClose }: Props) {
   const devices = useDevices();
   const videoDevices = devices.filter((d) => d.kind === "videoinput");
   const savedDeviceId = localStorage.getItem("settings.webcamDeviceId") || "";
+  const savedMirrorPreview =
+    localStorage.getItem("settings.webcamMirrorPreview") === "true";
   const [deviceId, setDeviceId] = useState(savedDeviceId);
+  const [mirrorPreview, setMirrorPreview] = useState(savedMirrorPreview);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarKey, setSnackbarKey] = useState(0);
@@ -39,6 +44,7 @@ export default function WebcamSettingsDialog({ open, onClose }: Props) {
 
   const handleSave = () => {
     localStorage.setItem("settings.webcamDeviceId", deviceId);
+    localStorage.setItem("settings.webcamMirrorPreview", String(mirrorPreview));
     onClose();
   };
 
@@ -47,20 +53,39 @@ export default function WebcamSettingsDialog({ open, onClose }: Props) {
       <DialogTitle>Webcam Settings</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ height: "100%", mt: 1 }}>
-          <FormControl fullWidth>
-            <InputLabel>Camera</InputLabel>
-            <Select
-              value={deviceId}
-              label="Camera"
-              onChange={(e) => setDeviceId(e.target.value)}
-            >
-              {videoDevices.map((d) => (
-                <MenuItem key={d.deviceId} value={d.deviceId}>
-                  {d.label || `Camera (${d.deviceId.slice(0, 8)}...)`}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <FormControl fullWidth>
+              <InputLabel>Camera</InputLabel>
+              <Select
+                value={deviceId}
+                label="Camera"
+                onChange={(e) => setDeviceId(e.target.value)}
+              >
+                {videoDevices.map((d) => (
+                  <MenuItem key={d.deviceId} value={d.deviceId}>
+                    {d.label || `Camera (${d.deviceId.slice(0, 8)}...)`}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={mirrorPreview}
+                  onChange={(e) => setMirrorPreview(e.target.checked)}
+                />
+              }
+              label="Mirror preview"
+              sx={{ ml: 0, width: "auto" }}
+            />
+          </Stack>
           <Box
             sx={{
               flex: 1,
@@ -77,7 +102,11 @@ export default function WebcamSettingsDialog({ open, onClose }: Props) {
             <Scanner
               key={deviceId || "default"}
               onScan={handleScan}
-              constraints={{ deviceId: deviceId || undefined }}
+              constraints={{
+                deviceId: deviceId || undefined,
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              }}
               components={{
                 finder: false,
                 torch: false,
@@ -97,6 +126,7 @@ export default function WebcamSettingsDialog({ open, onClose }: Props) {
                   width: "100%",
                   height: "100%",
                   objectFit: "contain",
+                  ...(mirrorPreview ? { transform: "scaleX(-1)" } : {}),
                 },
               }}
             />

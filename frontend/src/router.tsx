@@ -8,7 +8,7 @@ import AppShell from "./layouts/AppShell";
 import Login from "./pages/login/Login";
 import EventsList from "./pages/eventsList/EventsList";
 import EventDetail from "./pages/eventDetail/EventDetail";
-import Scanner from "./pages/scanner/Scanner";
+import CheckInBooth from "./pages/checkInBooth/CheckInBooth";
 import Settings from "./pages/settings/Settings";
 import AddAttendeesManually from "./pages/addAttendeesManually/AddAttendeesManually";
 import AddAttendeesBySpreadsheet from "./pages/addAttendeesSpreadsheet/AddAttendeesBySpreadsheet";
@@ -34,10 +34,10 @@ const loginRoute = createRoute({
   component: Login,
 });
 
-const scannerRoute = createRoute({
+const checkInBoothRoute = createRoute({
   getParentRoute: () => fullPageLayout,
-  path: "/events/$eventId/scanner",
-  component: Scanner,
+  path: "/events/$eventId/checkInBooth",
+  component: CheckInBooth,
 });
 
 const indexRoute = createRoute({
@@ -84,7 +84,7 @@ const settingsRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-  fullPageLayout.addChildren([loginRoute, scannerRoute]),
+  fullPageLayout.addChildren([loginRoute, checkInBoothRoute]),
   appShellLayout.addChildren([
     indexRoute,
     eventsRoute,

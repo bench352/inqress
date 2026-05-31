@@ -1,6 +1,7 @@
 from enum import StrEnum
 from typing import Generic, TypeVar
 
+from schema.booth import BoothLifecycleStatus
 from schema.rest import RestModel
 
 T = TypeVar("T")
@@ -11,11 +12,15 @@ class SseEventType(StrEnum):
     SEND_EMAIL = "SEND_EMAIL"
     ATTENDANCE = "ATTENDANCE"
     GENERATE_TICKET_QR = "GENERATE_TICKET_QR"
+    CHANGE_MODE = "CHANGE_MODE"
+    CONTROL = "CONTROL"
+    BOOTH_LIFECYCLE = "BOOTH_LIFECYCLE"
 
 
 class SseType(StrEnum):
     PROGRESS = "PROGRESS"
     NOTIFICATION = "NOTIFICATION"
+    COMMAND = "COMMAND"
 
 
 class SseEvent(RestModel, Generic[T]):
@@ -83,3 +88,18 @@ class GenerateTicketQrSuccessData(RestModel):
 class GenerateTicketQrErrorData(RestModel):
     type: str = "error"
     detail: str
+
+
+class ChangeModeData(RestModel):
+    value: str
+
+
+class ControlCommandData(RestModel):
+    command: str
+    params: dict = {}
+
+
+class BoothLifecycleData(RestModel):
+    event_id: str
+    event_name: str
+    status: BoothLifecycleStatus
