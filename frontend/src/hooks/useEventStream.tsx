@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@mui/material";
 import type { QueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { apiUrl } from "../api";
@@ -68,13 +69,14 @@ export function useEventStream(
   queryClient: QueryClient,
 ): UseEventStreamReturn {
   const { username, password } = useAuth();
-  const { enqueueSnackbar } = useSnackbar();
+  const { enqueueSnackbar, closeSnackbar } = useSnackbar();
   const stoppedRef = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const queryClientRef = useRef(queryClient);
   const enqueueSnackbarRef = useRef(enqueueSnackbar);
+  const closeSnackbarRef = useRef(closeSnackbar);
 
   useEffect(() => {
     queryClientRef.current = queryClient;
@@ -83,6 +85,10 @@ export function useEventStream(
   useEffect(() => {
     enqueueSnackbarRef.current = enqueueSnackbar;
   }, [enqueueSnackbar]);
+
+  useEffect(() => {
+    closeSnackbarRef.current = closeSnackbar;
+  }, [closeSnackbar]);
 
   const [createAttendeeProgress, setCreateAttendeeProgress] =
     useState<ProgressState | null>(null);
@@ -157,12 +163,24 @@ export function useEventStream(
         resultId?: string,
         expireOn?: string,
       ) => {
-        enqueueSnackbarRef.current(message, { variant: "success" });
         if (resultId && expireOn) {
-          setResultDialog({
-            resultId: resultId,
-            expireOn: expireOn,
+          enqueueSnackbarRef.current(message, {
+            variant: "success",
+            action: (key) => (
+              <Button
+                size="small"
+                sx={{ color: "white" }}
+                onClick={() => {
+                  setResultDialog({ resultId, expireOn });
+                  closeSnackbarRef.current(key);
+                }}
+              >
+                View Result
+              </Button>
+            ),
           });
+        } else {
+          enqueueSnackbarRef.current(message, { variant: "success" });
         }
         queryClientRef.current.invalidateQueries({
           queryKey: ["attendees", eventId],
