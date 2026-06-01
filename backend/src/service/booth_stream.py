@@ -46,7 +46,7 @@ class BoothStreamManager:
 
     def send(
         self, event_id: uuid.UUID, event: SseEvent, *, sticky: bool = False
-    ) -> None:
+    ) -> bool:
         with self._lock:
             if sticky:
                 self._sticky.setdefault(event_id, {})[event.event_type] = event
@@ -54,8 +54,10 @@ class BoothStreamManager:
             if q is not None:
                 try:
                     q.put_nowait(event)
+                    return True
                 except queue.Full:
                     pass
+            return False
 
     def is_connected(self, event_id: uuid.UUID) -> bool:
         with self._lock:

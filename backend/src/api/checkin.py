@@ -3,6 +3,8 @@ import uuid
 from fastapi import APIRouter
 
 from schema.rest import (
+    AssistedCheckinRequest,
+    AssistedCheckinResponse,
     CheckinResponse,
     CountryCodesResponse,
     ManualCheckinRequest,
@@ -35,6 +37,13 @@ def checkin_manual(
     event_id: uuid.UUID, payload: ManualCheckinRequest
 ) -> CheckinResponse:
     return checkin_service.checkin_manual(event_id, payload.attendee_id)
+
+
+@router_authed.post("/events/{event_id}/checkin/assisted")
+def checkin_assisted(
+    event_id: uuid.UUID, payload: AssistedCheckinRequest
+) -> AssistedCheckinResponse:
+    return checkin_service.checkin_assisted(event_id, payload.attendee_id)
 
 
 @router_authed.get("/events/{event_id}/phones/countryCodes")

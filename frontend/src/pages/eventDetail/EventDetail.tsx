@@ -373,6 +373,7 @@ export default function EventDetail() {
           attendee={selectedAttendee}
           eventId={eventId}
           eventName={event.name}
+          eventMode={event.mode}
           onClose={() => setSelectedAttendeeId(null)}
         />
       )}
