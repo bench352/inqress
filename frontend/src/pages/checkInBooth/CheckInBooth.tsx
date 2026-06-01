@@ -11,12 +11,22 @@ import CheckinResultDialog from "./components/CheckinResultDialog";
 import CheckinByPhoneDialog from "./components/CheckinByPhoneDialog";
 import EventDisabledDialog from "./components/EventDisabledDialog";
 import BoothRejectedDialog from "./components/BoothRejectedDialog";
+import AssistedConfirmationDialog from "./components/AssistedConfirmationDialog";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import type {
   CheckinErrorDetail,
   CheckinPhase,
   CheckinResponse,
 } from "./types";
+
+interface AssistedConfirmationData {
+  attendeeId: string;
+  title: string;
+  name: string;
+  countryCode: string;
+  phone: string;
+  email: string;
+}
 
 interface EventResponse {
   id: string;
@@ -38,6 +48,24 @@ function showCameraReducer(state: boolean, action: string) {
   }
 }
 
+type AssistedConfirmationAction =
+  | { type: "SET"; payload: AssistedConfirmationData }
+  | { type: "CLEAR" };
+
+function assistedConfirmationReducer(
+  state: AssistedConfirmationData | null,
+  action: AssistedConfirmationAction,
+): AssistedConfirmationData | null {
+  switch (action.type) {
+    case "SET":
+      return action.payload;
+    case "CLEAR":
+      return null;
+    default:
+      return state;
+  }
+}
+
 function ScannerInner({ eventId }: { eventId: string }) {
   const api = useApi();
 
@@ -48,6 +76,10 @@ function ScannerInner({ eventId }: { eventId: string }) {
     null,
   );
   const [showCamera, dispatchCamera] = useReducer(showCameraReducer, false);
+  const [assistedConfirmation, dispatchAssisted] = useReducer(
+    assistedConfirmationReducer,
+    null,
+  );
 
   const {
     mode: boothMode,
@@ -56,7 +88,8 @@ function ScannerInner({ eventId }: { eventId: string }) {
     connectionRejected,
   } = useBoothStream(eventId);
 
-  const scannerPaused = checkinPhase !== "idle" || phoneDialogOpen;
+  const scannerPaused =
+    checkinPhase !== "idle" || phoneDialogOpen || assistedConfirmation !== null;
 
   const { data: event } = useQuery<EventResponse>({
     queryKey: ["event", eventId],
@@ -80,6 +113,20 @@ function ScannerInner({ eventId }: { eventId: string }) {
         } else {
           window.location.href = `/full-page/events/${eventId}`;
         }
+        break;
+      case "SHOW_CONFIRMATION":
+        dispatchAssisted({
+          type: "SET",
+          payload: {
+            attendeeId: controlCommand.params.attendeeId as string,
+            title: controlCommand.params.title as string,
+            name: controlCommand.params.name as string,
+            countryCode: controlCommand.params.countryCode as string,
+            phone: controlCommand.params.phone as string,
+            email: controlCommand.params.email as string,
+          },
+        });
+        dismissCommand();
         break;
     }
   }, [controlCommand, dismissCommand, eventId]);
@@ -242,6 +289,19 @@ function ScannerInner({ eventId }: { eventId: string }) {
           open={phoneDialogOpen}
           eventId={eventId}
           onClose={handlePhoneClose}
+        />
+      )}
+      {assistedConfirmation && (
+        <AssistedConfirmationDialog
+          open
+          eventId={eventId}
+          attendeeId={assistedConfirmation.attendeeId}
+          title={assistedConfirmation.title}
+          name={assistedConfirmation.name}
+          countryCode={assistedConfirmation.countryCode}
+          phone={assistedConfirmation.phone}
+          email={assistedConfirmation.email}
+          onClose={() => dispatchAssisted({ type: "CLEAR" })}
         />
       )}
     </Box>

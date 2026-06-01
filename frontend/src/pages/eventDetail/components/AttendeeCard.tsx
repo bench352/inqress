@@ -9,23 +9,13 @@ import EmailIcon from "@mui/icons-material/Email";
 import PhoneIcon from "@mui/icons-material/Phone";
 import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
 import type { AttendeeItem } from "../useEventDetail";
+import { maskEmail, maskPhone } from "@/utils/masking";
 
 function getTicketStatus(attendee: AttendeeItem): string {
   if (attendee.checkedInAt != null) return "Checked in";
   if (!attendee.isTicketReady) return "Generating...";
   if (!attendee.isTicketDelivered) return "Undelivered";
   return "Delivered";
-}
-
-function maskEmail(email: string): string {
-  const at = email.indexOf("@");
-  if (at <= 3) return email;
-  return email.substring(0, 3) + "***" + email.substring(at);
-}
-
-function maskPhone(phone: string): string {
-  if (phone.length <= 3) return phone;
-  return phone.substring(0, 3) + "***";
 }
 
 interface Props {

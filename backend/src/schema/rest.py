@@ -96,6 +96,14 @@ class ManualCheckinRequest(RestModel):
     attendee_id: uuid.UUID
 
 
+class AssistedCheckinRequest(RestModel):
+    attendee_id: uuid.UUID
+
+
+class AssistedCheckinResponse(RestModel):
+    success: bool
+
+
 class BulkCreateError(RestModel):
     attendee: AttendeeCreate
     reason: str

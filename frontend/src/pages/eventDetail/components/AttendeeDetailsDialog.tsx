@@ -12,24 +12,28 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EmailIcon from "@mui/icons-material/Email";
+import HowToRegIcon from "@mui/icons-material/HowToReg";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import PhoneIcon from "@mui/icons-material/Phone";
 import QrCodeIcon from "@mui/icons-material/QrCode";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSnackbar } from "notistack";
 import { useApi } from "../../../api";
 import type { AttendeeItem } from "../useEventDetail";
 import PreviewTicketDialog from "./PreviewTicketDialog";
 import EmailTicketDialog from "./EmailTicketDialog";
 
-type SubView = "main" | "preview" | "email" | "deliver" | "delete";
+type SubView = "main" | "preview" | "email" | "deliver" | "attend" | "delete";
 
 interface Props {
   open: boolean;
   attendee: AttendeeItem;
   eventId: string;
   eventName: string;
+  eventMode: string;
   onClose: () => void;
 }
 
@@ -38,10 +42,12 @@ export default function AttendeeDetailsDialog({
   attendee,
   eventId,
   eventName,
+  eventMode,
   onClose,
 }: Props) {
   const api = useApi();
   const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
   const [subView, setSubView] = useState<SubView>("main");
 
   const deliverMutation = useMutation({
@@ -52,6 +58,45 @@ export default function AttendeeDetailsDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+    },
+  });
+
+  const checkinMutation = useMutation({
+    mutationFn: async () => {
+      const data = await api.post<{
+        success: boolean;
+        detail: { reason?: string } | Record<string, unknown>;
+      }>(`/api/events/${eventId}/checkin/manual`, {
+        attendeeId: attendee.id,
+      });
+      if (!data.success) {
+        throw new Error(
+          "reason" in data.detail && typeof data.detail.reason === "string"
+            ? data.detail.reason
+            : "Check-in failed",
+        );
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+      onClose();
+    },
+  });
+
+  const assistedMutation = useMutation({
+    mutationFn: async () => {
+      await api.post(`/api/events/${eventId}/checkin/assisted`, {
+        attendeeId: attendee.id,
+      });
+    },
+    onSuccess: () => {
+      onClose();
+    },
+    onError: (err: Error & { status?: number; detail?: string }) => {
+      const message =
+        err.detail || err.message || "Failed to send confirmation to booth";
+      enqueueSnackbar(message, { variant: "error" });
     },
   });
 
@@ -71,6 +116,10 @@ export default function AttendeeDetailsDialog({
     deliverMutation.mutate(undefined, {
       onSuccess: () => setSubView("main"),
     });
+  };
+
+  const handleAttendConfirm = () => {
+    checkinMutation.mutate();
   };
 
   const handleDeleteConfirm = () => deleteMutation.mutate();
@@ -133,6 +182,35 @@ export default function AttendeeDetailsDialog({
     );
   }
 
+  if (subView === "attend") {
+    return (
+      <Dialog open onClose={() => setSubView("main")}>
+        <DialogTitle>Mark Attended</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Mark {attendee.title} {attendee.name} as attended? This will check
+            in this attendee immediately.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setSubView("main")}
+            disabled={checkinMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAttendConfirm}
+            variant="contained"
+            loading={checkinMutation.isPending}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
+
   if (subView === "delete") {
     return (
       <Dialog open onClose={() => setSubView("main")}>
@@ -183,6 +261,18 @@ export default function AttendeeDetailsDialog({
               </Typography>
             </Stack>
           </Stack>
+
+          {eventMode !== "disabled" && (
+            <Button
+              variant="contained"
+              startIcon={<HowToRegIcon />}
+              onClick={() => assistedMutation.mutate()}
+              loading={assistedMutation.isPending}
+              fullWidth
+            >
+              Confirm at Booth
+            </Button>
+          )}
 
           <List disablePadding>
             <ListItemButton
@@ -236,6 +326,24 @@ export default function AttendeeDetailsDialog({
                     : attendee.isTicketDelivered
                       ? "Already marked as delivered"
                       : undefined
+                }
+              />
+            </ListItemButton>
+            <ListItemButton
+              onClick={() => setSubView("attend")}
+              disabled={
+                attendee.checkedInAt != null || checkinMutation.isPending
+              }
+            >
+              <ListItemIcon>
+                <CheckCircleIcon />
+              </ListItemIcon>
+              <ListItemText
+                primary="Mark attended"
+                secondary={
+                  attendee.checkedInAt != null
+                    ? "Already checked in"
+                    : undefined
                 }
               />
             </ListItemButton>
