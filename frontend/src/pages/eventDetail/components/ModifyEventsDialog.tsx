@@ -16,11 +16,11 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import EmailIcon from "@mui/icons-material/Email";
-import ImageIcon from "@mui/icons-material/Image";
+import CropOriginalIcon from "@mui/icons-material/CropOriginal";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { useNavigate } from "@tanstack/react-router";
 import dayjs from "dayjs";
 import EmailTemplateDialog from "./EmailTemplateDialog";
-import BoothImageConfigDialog from "./BoothImageConfigDialog";
 
 interface EventData {
   name: string;
@@ -40,7 +40,7 @@ interface Props {
   onDelete: () => void;
 }
 
-type DialogView = "settings" | "edit" | "email" | "delete" | "booth";
+type DialogView = "settings" | "edit" | "email" | "delete";
 
 export default function ModifyEventsDialog({
   open,
@@ -56,6 +56,8 @@ export default function ModifyEventsDialog({
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editDate, setEditDate] = useState<dayjs.Dayjs | null>(null);
+
+  const navigate = useNavigate();
 
   const openEdit = () => {
     setEditName(event.name);
@@ -163,17 +165,6 @@ export default function ModifyEventsDialog({
     );
   }
 
-  if (view === "booth") {
-    return (
-      <BoothImageConfigDialog
-        open
-        eventId={eventId}
-        hasBoothImage={event.hasBoothImage}
-        onClose={() => setView("settings")}
-      />
-    );
-  }
-
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle>Modify Events</DialogTitle>
@@ -190,11 +181,19 @@ export default function ModifyEventsDialog({
           </ListItemIcon>
           <ListItemText primary="Edit email template" />
         </ListItemButton>
-        <ListItemButton onClick={() => setView("booth")}>
+        <ListItemButton
+          onClick={() => {
+            handleClose();
+            navigate({
+              to: "/events/$eventId/customizeBooth",
+              params: { eventId },
+            });
+          }}
+        >
           <ListItemIcon>
-            <ImageIcon />
+            <CropOriginalIcon />
           </ListItemIcon>
-          <ListItemText primary="Configure Check-in Booth image" />
+          <ListItemText primary="Customize check-in booth" />
         </ListItemButton>
         <ListItemButton onClick={() => setView("delete")}>
           <ListItemIcon>

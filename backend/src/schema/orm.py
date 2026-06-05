@@ -39,6 +39,9 @@ class Event(Base):
     email_template: Mapped[str] = mapped_column(Text, nullable=False)
     booth_image: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     booth_image_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    accent_color: Mapped[str] = mapped_column(
+        String, nullable=False, default="#000000", server_default="#000000"
+    )
 
     attendees: Mapped[list["Attendee"]] = relationship(back_populates="event")
     attendance_logs: Mapped[list["AttendanceLog"]] = relationship(

@@ -84,9 +84,8 @@ dependencies = [
     { name = "jinja2" },
     { name = "openpyxl" },
     { name = "phonenumbers" },
-    { name = "pydantic-settings" },
     { name = "pyseto" },
-    { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "qrcode", extra = ["pil"] },
     { name = "sqlalchemy" },
 ]
@@ -102,9 +101,8 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "phonenumbers", specifier = ">=9.0.30" },
-    { name = "pydantic-settings", specifier = ">=2.14.1" },
     { name = "pyseto", specifier = ">=1.9.3" },
-    { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "qrcode", extras = ["pil"], specifier = ">=8.2" },
     { name = "sqlalchemy", specifier = ">=2.0.49" },
 ]

@@ -14,7 +14,7 @@ from schema.rest import (
     EventResponse,
 )
 from service.db import get_session
-from env import ServerSettings
+from config import get_config
 
 _DEFAULT_TEMPLATE_PATH = (
     Path(__file__).resolve().parent.parent / "assets" / "default_email_template.html"
@@ -139,6 +139,21 @@ def set_booth_image(event_id: uuid.UUID, image_bytes: bytes, content_type: str) 
         return result.rowcount > 0
 
 
+def get_accent_color(event_id: uuid.UUID) -> str | None:
+    with get_session() as session:
+        result = session.execute(select(Event.accent_color).where(Event.id == event_id))
+        row = result.scalars().first()
+        return row
+
+
+def set_accent_color(event_id: uuid.UUID, color_code: str) -> bool:
+    with get_session() as session:
+        result = session.execute(
+            update(Event).where(Event.id == event_id).values(accent_color=color_code)
+        )
+        return result.rowcount > 0
+
+
 def get_unique_country_codes(event_id: uuid.UUID) -> CountryCodesResponse:
     with get_session() as session:
         result = session.execute(
@@ -148,9 +163,9 @@ def get_unique_country_codes(event_id: uuid.UUID) -> CountryCodesResponse:
         )
         options = [row[0] for row in result.all() if row[0]]
 
-    settings = ServerSettings()
+    cfg = get_config()
     try:
-        cc = phonenumbers.country_code_for_region(settings.default_country_code)
+        cc = phonenumbers.country_code_for_region(cfg.app.default_country_code)
         default = f"+{cc}"
     except Exception:
         default = options[0] if options else ""

@@ -4,18 +4,18 @@ import secrets
 from fastapi import Depends, HTTPException, Header, Query, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from env import ServerSettings
+from config import get_config
 
 security = HTTPBasic(auto_error=False)
 
 
 def validate_basic_credentials(username: str, password: str) -> bool:
-    settings = ServerSettings()
+    cfg = get_config()
     correct_username = secrets.compare_digest(
-        username.encode(), settings.admin_username.encode()
+        username.encode(), cfg.auth.admin_username.encode()
     )
     correct_password = secrets.compare_digest(
-        password.encode(), settings.admin_password.encode()
+        password.encode(), cfg.auth.admin_password.encode()
     )
     return correct_username and correct_password
 

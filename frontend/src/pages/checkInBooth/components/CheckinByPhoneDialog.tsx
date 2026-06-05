@@ -4,7 +4,6 @@ import {
   Button,
   Dialog,
   FormControl,
-  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -14,7 +13,6 @@ import {
 } from "@mui/material";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import QrCode2Icon from "@mui/icons-material/QrCode2";
-import BackspaceIcon from "@mui/icons-material/Backspace";
 import { useQuery } from "@tanstack/react-query";
 import PhoneDialPad, { DIAL_BUTTON_HEIGHT } from "./PhoneDialPad";
 import CheckinResultDisplay from "./CheckinResultDisplay";
@@ -24,6 +22,7 @@ import type { CheckinResponse } from "../types";
 interface Props {
   open: boolean;
   eventId: string;
+  accentColor: string;
   onClose: () => void;
 }
 
@@ -41,6 +40,7 @@ const PHONE_NO_FONT_SIZE = 22;
 export default function CheckinByPhoneDialog({
   open,
   eventId,
+  accentColor,
   onClose,
 }: Props) {
   const api = useApi();
@@ -123,7 +123,7 @@ export default function CheckinByPhoneDialog({
           }}
         >
           <PhoneAndroidIcon
-            sx={{ fontSize: PHONE_ICON_SIZE, color: "primary.main" }}
+            sx={{ fontSize: PHONE_ICON_SIZE, color: accentColor }}
           />
           <Typography
             variant="h3"
@@ -178,15 +178,6 @@ export default function CheckinByPhoneDialog({
                 input: {
                   readOnly: true,
                   sx: { fontSize: PHONE_NO_FONT_SIZE },
-                  endAdornment: phoneNo ? (
-                    <IconButton
-                      onClick={handleBackspace}
-                      edge="end"
-                      size="small"
-                    >
-                      <BackspaceIcon />
-                    </IconButton>
-                  ) : undefined,
                 },
               }}
               placeholder="Phone number"
@@ -199,6 +190,7 @@ export default function CheckinByPhoneDialog({
             onSubmit={handleSubmit}
             disabled={false}
             submitDisabled={!phoneNo}
+            accentColor={accentColor}
           />
           <Button
             variant="outlined"
@@ -209,6 +201,8 @@ export default function CheckinByPhoneDialog({
               width: "100%",
               height: DIAL_BUTTON_HEIGHT,
               fontSize: "1.3rem",
+              borderColor: accentColor,
+              color: accentColor,
             }}
           >
             Return to QR check-in

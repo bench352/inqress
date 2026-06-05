@@ -12,6 +12,7 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import QueryClientProvider from "./providers/QueryClientProvider";
 import BasicAuthProvider from "./providers/BasicAuthProvider";
+import AppInfoProvider from "./providers/AppInfoProvider";
 import { router } from "./router";
 
 const theme = createTheme({
@@ -30,7 +31,9 @@ createRoot(document.getElementById("root")!).render(
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <QueryClientProvider>
             <BasicAuthProvider>
-              <RouterProvider router={router} />
+              <AppInfoProvider>
+                <RouterProvider router={router} />
+              </AppInfoProvider>
             </BasicAuthProvider>
           </QueryClientProvider>
         </LocalizationProvider>

@@ -1,7 +1,8 @@
 import datetime
+import re
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 import schema.enum
@@ -46,6 +47,21 @@ class EmailTemplateResponse(RestModel):
 
 class EmailTemplateRequest(RestModel):
     text: str
+
+
+class AccentColorRequest(RestModel):
+    color_code: str
+
+    @field_validator("color_code")
+    @classmethod
+    def validate_hex_color(cls, v: str) -> str:
+        if not re.match(r"^#[0-9a-fA-F]{6}$", v):
+            raise ValueError("color_code must be a valid hex color (e.g., #FF0000)")
+        return v
+
+
+class AccentColorResponse(RestModel):
+    color_code: str
 
 
 class AttendeeCreate(RestModel):
@@ -147,3 +163,8 @@ class ExcelImportRequest(RestModel):
     task_id: uuid.UUID
     sheet_name: str
     row_mapping: RowMapping
+
+
+class InfoResponse(RestModel):
+    org_name: str | None
+    send_via_email: str

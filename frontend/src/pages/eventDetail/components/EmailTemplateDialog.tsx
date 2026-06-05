@@ -72,6 +72,10 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
             { code: "{{ title }}", desc: "Honorific (e.g. Mr, Mrs, Dr)" },
             { code: "{{ fullName }}", desc: "Full name of the attendee" },
             { code: "{{ eventName }}", desc: "Name of the event" },
+            {
+              code: "{{ senderName }}",
+              desc: 'Organization name, or "Event Organizer" if not set',
+            },
             { code: "{{ ticketQR }}", desc: "Embedded QR code ticket image" },
           ].map(({ code, desc }) => (
             <Typography

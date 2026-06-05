@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "prettier:write": "prettier . --write",
+    "format": "prettier . --write",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,6 +24,7 @@
     "@yudiel/react-qr-scanner": "^2.6.0",
     "dayjs": "^1.11.20",
     "dompurify": "^3.4.7",
+    "mui-color-input": "^9.0.0",
     "notistack": "^3.0.2",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
