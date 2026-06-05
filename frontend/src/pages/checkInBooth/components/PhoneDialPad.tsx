@@ -9,6 +9,7 @@ interface Props {
   onSubmit: () => void;
   disabled: boolean;
   submitDisabled: boolean;
+  accentColor: string;
 }
 
 const digits = [
@@ -28,6 +29,7 @@ export default function PhoneDialPad({
   onSubmit,
   disabled,
   submitDisabled,
+  accentColor,
 }: Props) {
   return (
     <Grid container spacing={1} sx={{ maxWidth: 360 }}>
@@ -42,6 +44,8 @@ export default function PhoneDialPad({
               sx={{
                 height: DIAL_BUTTON_HEIGHT,
                 fontSize: DIAL_DIGIT_FONT_SIZE,
+                bgcolor: accentColor,
+                "&:hover": { bgcolor: accentColor },
               }}
             >
               {digit}
@@ -55,7 +59,12 @@ export default function PhoneDialPad({
           variant="outlined"
           disabled={disabled}
           onClick={onBackspace}
-          sx={{ height: DIAL_BUTTON_HEIGHT, fontSize: DIAL_ACTION_FONT_SIZE }}
+          sx={{
+            height: DIAL_BUTTON_HEIGHT,
+            fontSize: DIAL_ACTION_FONT_SIZE,
+            borderColor: accentColor,
+            color: accentColor,
+          }}
         >
           <BackspaceIcon />
         </Button>

@@ -7,7 +7,7 @@ import uuid
 import phonenumbers
 from sqlalchemy import delete, insert, select, update
 
-from env import ServerSettings
+from config import get_config
 from schema.orm import Attendee
 from schema.rest import (
     AttendeeCreate,
@@ -56,8 +56,8 @@ def bulk_create(
     if not payloads:
         return BulkCreateResponse(created=[], skipped=[], errors=[])
 
-    settings = ServerSettings()
-    default_region = settings.default_country_code
+    cfg = get_config()
+    default_region = cfg.app.default_country_code
 
     parsed_entries: list[dict] = []
     all_emails: set[str] = set()
@@ -174,8 +174,8 @@ def bulk_create_task(
     payload: list[AttendeeCreate],
 ) -> BulkCreateResponse:
     manager = EventStreamManager()
-    settings = ServerSettings()
-    default_region = settings.default_country_code
+    cfg = get_config()
+    default_region = cfg.app.default_country_code
 
     created: list[AttendeeResponse] = []
     skipped: list[AttendeeCreate] = []

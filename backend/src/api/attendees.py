@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, status
 from fastapi.responses import HTMLResponse, Response
 
 from api.deps import check_event_exists
+from config import get_config
 from schema.rest import (
     AttendeeCreate,
     AttendeeResponse,
@@ -105,11 +106,14 @@ def preview_email(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Email template not found"
         )
+    cfg = get_config()
+    sender_name = cfg.app.organization_name or "Event Organizer"
     html = email_service.render_preview_html(
         template.text,
         attendee.title,
         attendee.name,
         event.name,
+        sender_name,
         qr_bytes,
     )
     return HTMLResponse(content=html)

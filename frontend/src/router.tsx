@@ -13,6 +13,7 @@ import Settings from "./pages/settings/Settings";
 import AddAttendeesManually from "./pages/addAttendeesManually/AddAttendeesManually";
 import AddAttendeesBySpreadsheet from "./pages/addAttendeesSpreadsheet/AddAttendeesBySpreadsheet";
 import BulkTicketDelivery from "./pages/bulkTicketDelivery/BulkTicketDelivery";
+import CustomizeBooth from "./pages/customizeBooth/CustomizeBooth";
 
 const rootRoute = createRootRoute();
 
@@ -77,6 +78,13 @@ const bulkTicketDeliveryRoute = createRoute({
   staticData: { fullWidth: true },
 });
 
+const customizeBoothRoute = createRoute({
+  getParentRoute: () => appShellLayout,
+  path: "/events/$eventId/customizeBooth",
+  component: CustomizeBooth,
+  staticData: { fullWidth: true },
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => appShellLayout,
   path: "/settings",
@@ -89,6 +97,7 @@ const routeTree = rootRoute.addChildren([
     indexRoute,
     eventsRoute,
     bulkTicketDeliveryRoute,
+    customizeBoothRoute,
     eventDetailRoute.addChildren([
       addAttendeesSpreadsheetRoute,
       addAttendeesManuallyRoute,

@@ -10,7 +10,7 @@ from email.mime.text import MIMEText
 
 from jinja2 import Template
 
-from env import SmtpSettings
+from config import get_config
 from schema.sse import (
     SendEmailErrorData,
     SendEmailProgressData,
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def _render_template(
-    template_str: str, title: str, full_name: str, event_name: str
+    template_str: str, title: str, full_name: str, event_name: str, sender_name: str
 ) -> str:
     template = Template(template_str)
     ticket_qr = (
@@ -35,7 +35,11 @@ def _render_template(
         "</p>"
     )
     return template.render(
-        title=title, fullName=full_name, eventName=event_name, ticketQR=ticket_qr
+        title=title,
+        fullName=full_name,
+        eventName=event_name,
+        ticketQR=ticket_qr,
+        senderName=sender_name,
     )
 
 
@@ -44,9 +48,10 @@ def render_preview_html(
     title: str,
     full_name: str,
     event_name: str,
+    sender_name: str,
     qr_image_bytes: bytes,
 ) -> str:
-    html = _render_template(template_str, title, full_name, event_name)
+    html = _render_template(template_str, title, full_name, event_name, sender_name)
     qr_base64 = base64.b64encode(qr_image_bytes).decode()
     return html.replace("cid:qr_code", f"data:image/png;base64,{qr_base64}")
 
@@ -58,17 +63,18 @@ def send_ticket_email(
     title: str,
     full_name: str,
     event_name: str,
+    sender_name: str,
     qr_image_bytes: bytes,
 ) -> None:
-    settings = SmtpSettings()
-    if not settings.smtp_server:
+    cfg = get_config()
+    if not cfg.email_smtp.host:
         raise RuntimeError("SMTP is not configured")
 
-    html = _render_template(template_str, title, full_name, event_name)
+    html = _render_template(template_str, title, full_name, event_name, sender_name)
 
     msg = MIMEMultipart("related")
     msg["Subject"] = subject
-    msg["From"] = settings.smtp_username
+    msg["From"] = cfg.email_smtp.display_email or cfg.email_smtp.username
     msg["To"] = to_email
 
     msg.attach(MIMEText(html, "html"))
@@ -79,16 +85,16 @@ def send_ticket_email(
     msg.attach(img)
 
     with smtplib.SMTP_SSL(
-        settings.smtp_server, settings.smtp_port, timeout=30
+        cfg.email_smtp.host, cfg.email_smtp.port, timeout=30
     ) as server:
         logger.info(
             "Logging in to SMTP server [%s] as [%s]",
-            settings.smtp_server,
-            settings.smtp_username,
+            cfg.email_smtp.host,
+            cfg.email_smtp.username,
         )
-        server.login(settings.smtp_username, settings.smtp_password)
+        server.login(cfg.email_smtp.username, cfg.email_smtp.password)
         logger.info("Sending ticket email to [%s]", to_email)
-        server.sendmail(settings.smtp_username, to_email, msg.as_string())
+        server.sendmail(cfg.email_smtp.username, to_email, msg.as_string())
 
     logger.info("Sent ticket email to %s", to_email)
 
@@ -129,7 +135,9 @@ def bulk_send_task(
         )
         return
 
-    smtp_settings = SmtpSettings()
+    cfg = get_config()
+    sender_name = cfg.app.organization_name or "Event Organizer"
+    smtp_cfg = cfg.email_smtp
     total = len(attendee_ids)
     num_completed = 0
     num_errors = 0
@@ -208,6 +216,7 @@ def bulk_send_task(
                     attendee.title,
                     attendee.name,
                     event.name,
+                    sender_name,
                     qr_bytes,
                 )
                 if not mark_ticket_delivered(event_id, attendee_id):
@@ -230,7 +239,7 @@ def bulk_send_task(
             num_completed += 1
 
             if i < total - 1:
-                time.sleep(smtp_settings.email_wait_between_delivery_second)
+                time.sleep(smtp_cfg.wait_between_delivery_second)
 
         manager.send(
             event_id,

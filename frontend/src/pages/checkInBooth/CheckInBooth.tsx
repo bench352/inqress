@@ -96,6 +96,11 @@ function ScannerInner({ eventId }: { eventId: string }) {
     queryFn: () => api.get<EventResponse>(`/api/events/${eventId}`),
   });
 
+  const { data: accentColorData } = useQuery<{ colorCode: string }>({
+    queryKey: ["accentColor", eventId],
+    queryFn: () => api.get(`/api/events/${eventId}/accentColor`),
+  });
+
   useEffect(() => {
     if (!controlCommand) return;
     switch (controlCommand.command) {
@@ -132,6 +137,7 @@ function ScannerInner({ eventId }: { eventId: string }) {
   }, [controlCommand, dismissCommand, eventId]);
 
   const finalMode = boothMode ?? event?.mode ?? null;
+  const accentColor = accentColorData?.colorCode ?? "#000000";
 
   const handleScan = useCallback(
     (detectedCodes: { rawValue: string }[]) => {
@@ -230,9 +236,7 @@ function ScannerInner({ eventId }: { eventId: string }) {
             <CameraPreview paused={scannerPaused} onScan={handleScan} />
           ) : (
             <>
-              <QrCodeScannerIcon
-                sx={{ fontSize: 120, color: "primary.main" }}
-              />
+              <QrCodeScannerIcon sx={{ fontSize: 120, color: accentColor }} />
               <Box
                 sx={{
                   position: "fixed",
@@ -270,7 +274,13 @@ function ScannerInner({ eventId }: { eventId: string }) {
             variant="contained"
             size="large"
             onClick={handlePhoneOpen}
-            sx={{ py: 2, px: 4, fontSize: "1.8rem" }}
+            sx={{
+              py: 2,
+              px: 4,
+              fontSize: "1.8rem",
+              bgcolor: accentColor,
+              "&:hover": { bgcolor: accentColor },
+            }}
           >
             <LoginIcon sx={{ fontSize: 46, pr: 2 }} />
             Check-in without QR Code
@@ -288,6 +298,7 @@ function ScannerInner({ eventId }: { eventId: string }) {
           key={phoneDialogKey}
           open={phoneDialogOpen}
           eventId={eventId}
+          accentColor={accentColor}
           onClose={handlePhoneClose}
         />
       )}

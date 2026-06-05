@@ -14,8 +14,11 @@ import AddEventDialog from "./components/AddEventDialog";
 import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
 
+import { useAppInfo } from "../../providers/useAppInfo";
+
 export default function EventsList() {
   const { events, isLoading, createEvent, isCreating, isError } = useEvents();
+  const { orgName } = useAppInfo();
   const [dialogOpen, setDialogOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -26,8 +29,11 @@ export default function EventsList() {
 
   return (
     <>
-      <Typography variant="h3" component="h1" sx={{ mb: 3 }}>
-        Events
+      <Typography variant="h3" component="h1" sx={{ mb: 1 }}>
+        {orgName ? `Welcome, ${orgName}!` : "Welcome!"}
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        Here's your upcoming events.
       </Typography>
 
       {isError && <Alert severity="error">Cannot load event</Alert>}

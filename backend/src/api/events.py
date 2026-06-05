@@ -4,6 +4,8 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
 
 from schema.rest import (
+    AccentColorRequest,
+    AccentColorResponse,
     EmailTemplateRequest,
     EmailTemplateResponse,
     EventCreate,
@@ -121,6 +123,34 @@ def upload_booth_image(event_id: uuid.UUID, file: UploadFile = File(...)) -> Res
     updated = events_service.set_booth_image(
         event_id, file.file.read(), file.content_type or "image/png"
     )
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
+        )
+    booth_manager.send(
+        event_id,
+        SseEvent[ControlCommandData](
+            event_type=SseEventType.CONTROL,
+            type=SseType.COMMAND,
+            data=ControlCommandData(command="REFRESH"),
+        ),
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{event_id}/accentColor")
+def get_accent_color(event_id: uuid.UUID) -> AccentColorResponse:
+    color = events_service.get_accent_color(event_id)
+    if color is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
+        )
+    return AccentColorResponse(color_code=color)
+
+
+@router.put("/{event_id}/accentColor", status_code=status.HTTP_204_NO_CONTENT)
+def set_accent_color(event_id: uuid.UUID, payload: AccentColorRequest) -> Response:
+    updated = events_service.set_accent_color(event_id, payload.color_code)
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
