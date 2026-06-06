@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import os
 
 import fastapi.staticfiles
 import uvicorn
@@ -72,7 +73,7 @@ app.include_router(
     dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
 )
 
-frontend_dir = cfg.server.frontend_dir
+frontend_dir = os.environ.get("FRONTEND_DIR")
 if frontend_dir:
     logger.info("Mounting frontend from %s", frontend_dir)
     static = fastapi.staticfiles.StaticFiles(directory=frontend_dir, html=True)
