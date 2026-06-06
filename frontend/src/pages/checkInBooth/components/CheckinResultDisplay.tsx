@@ -24,8 +24,8 @@ export default function CheckinResultDisplay({
   errorMessage = "",
   onDismiss,
 }: Props) {
-  const [playSuccess] = useSound(successSound, { volume: 0.5 });
-  const [playFail] = useSound(failSound, { volume: 0.5 });
+  const [playSuccess] = useSound(successSound);
+  const [playFail] = useSound(failSound);
 
   useEffect(() => {
     if (phase === "success") playSuccess();
