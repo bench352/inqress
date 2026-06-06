@@ -8,7 +8,7 @@ import useSound from "use-sound";
 import successSound from "../../../assets/soundEffects/checkin_success.aac";
 import multipleParticipantsSound from "../../../assets/soundEffects/multiple_participants.aac";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApi } from "../../../api";
+import { useApi } from "@/api.ts";
 import { maskEmail, maskPhone } from "@/utils/masking";
 
 const INITIAL_TIMEOUT_S = 60;
@@ -127,10 +127,10 @@ export default function MultipleParticipantsCheckInDialog({
   return (
     <Dialog open={open} scroll="body" fullScreen>
       <Stack
-        fullwidth
         direction="column"
         spacing={3}
         sx={{
+          width: "100%",
           justifyContent: "center",
           alignItems: "center",
           p: 4,
