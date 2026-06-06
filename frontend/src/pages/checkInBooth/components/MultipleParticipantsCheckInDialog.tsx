@@ -1,19 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Dialog,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, Button, Card, Dialog, Stack, Typography } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EmailIcon from "@mui/icons-material/Email";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PhoneIcon from "@mui/icons-material/Phone";
 import useSound from "use-sound";
 import successSound from "../../../assets/soundEffects/checkin_success.aac";
+import multipleParticipantsSound from "../../../assets/soundEffects/multiple_participants.aac";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../../api";
 import { maskEmail, maskPhone } from "@/utils/masking";
@@ -49,7 +42,8 @@ export default function MultipleParticipantsCheckInDialog({
   const api = useApi();
   const queryClient = useQueryClient();
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
-  const [playSuccess] = useSound(successSound, { volume: 0.5 });
+  const [playSuccess] = useSound(successSound);
+  const [playMultiple] = useSound(multipleParticipantsSound);
   const [countdown, setCountdown] = useState(INITIAL_TIMEOUT_S);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef(INITIAL_TIMEOUT_S);
@@ -93,6 +87,12 @@ export default function MultipleParticipantsCheckInDialog({
     };
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (open) {
+      playMultiple();
+    }
+  }, [open, playMultiple]);
+
   const checkinMutation = useMutation({
     mutationFn: async (participantId: string) => {
       const data = await api.post<{
@@ -125,15 +125,14 @@ export default function MultipleParticipantsCheckInDialog({
   };
 
   return (
-    <Dialog open={open} fullScreen>
-      <Box
+    <Dialog open={open} scroll="body" fullScreen>
+      <Stack
+        fullwidth
+        direction="column"
+        spacing={3}
         sx={{
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
           justifyContent: "center",
-          gap: 3,
+          alignItems: "center",
           p: 4,
         }}
       >
@@ -144,68 +143,69 @@ export default function MultipleParticipantsCheckInDialog({
         <Typography variant="h5" color="text.secondary">
           Select the correct participant to check in
         </Typography>
-        <Stack spacing={2} sx={{ width: "100%", maxWidth: 800, mt: 2 }}>
-          {participants.map((p) => {
-            const isCheckedIn = p.checkedInAt != null || checkedInIds.has(p.id);
-            return (
-              <Card key={p.id} variant="outlined">
-                <CardContent>
+
+        {participants.map((p) => {
+          const isCheckedIn = p.checkedInAt != null || checkedInIds.has(p.id);
+          return (
+            <Card
+              key={p.id}
+              variant="outlined"
+              sx={{ minWidth: "800px", p: 3 }}
+            >
+              <Stack
+                direction="row"
+                spacing={3}
+                sx={{
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Stack spacing={1}>
+                  <Typography variant="h5">
+                    {p.title ? `${p.title} ` : ""}
+                    {p.name}
+                  </Typography>
                   <Stack
                     direction="row"
-                    spacing={3}
-                    sx={{
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
+                    spacing={1}
+                    sx={{ alignItems: "center" }}
                   >
-                    <Stack spacing={1}>
-                      <Typography variant="h5">
-                        {p.title ? `${p.title} ` : ""}
-                        {p.name}
-                      </Typography>
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        sx={{ alignItems: "center" }}
-                      >
-                        <PhoneIcon sx={{ fontSize: 28 }} color="action" />
-                        <Typography variant="h6" color="text.secondary">
-                          {p.countryCode && p.phone
-                            ? `${p.countryCode} ${maskPhone(p.phone)}`
-                            : "(No phone number)"}
-                        </Typography>
-                      </Stack>
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        sx={{ alignItems: "center" }}
-                      >
-                        <EmailIcon sx={{ fontSize: 28 }} color="action" />
-                        <Typography variant="h6" color="text.secondary">
-                          {p.email ? maskEmail(p.email) : "(No email address)"}
-                        </Typography>
-                      </Stack>
-                    </Stack>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      startIcon={<CheckCircleIcon sx={{ fontSize: 40 }} />}
-                      onClick={() => handleCheckin(p.id)}
-                      disabled={isCheckedIn || checkinMutation.isPending}
-                      loading={
-                        checkinMutation.isPending &&
-                        checkinMutation.variables === p.id
-                      }
-                      sx={{ py: 2, px: 2, fontSize: "1.6rem", width: "220px" }}
-                    >
-                      {isCheckedIn ? "Checked in" : "Check in"}
-                    </Button>
+                    <PhoneIcon sx={{ fontSize: 28 }} color="action" />
+                    <Typography variant="h6" color="text.secondary">
+                      {p.countryCode && p.phone
+                        ? `${p.countryCode} ${maskPhone(p.phone)}`
+                        : "(No phone number)"}
+                    </Typography>
                   </Stack>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Stack>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ alignItems: "center" }}
+                  >
+                    <EmailIcon sx={{ fontSize: 28 }} color="action" />
+                    <Typography variant="h6" color="text.secondary">
+                      {p.email ? maskEmail(p.email) : "(No email address)"}
+                    </Typography>
+                  </Stack>
+                </Stack>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleIcon sx={{ fontSize: 40 }} />}
+                  onClick={() => handleCheckin(p.id)}
+                  disabled={isCheckedIn || checkinMutation.isPending}
+                  loading={
+                    checkinMutation.isPending &&
+                    checkinMutation.variables === p.id
+                  }
+                  sx={{ py: 1, px: 2, fontSize: "1.6rem", width: "230px" }}
+                >
+                  {isCheckedIn ? "Checked in" : "Check in"}
+                </Button>
+              </Stack>
+            </Card>
+          );
+        })}
         <Box sx={{ mt: 2 }}>
           <Button
             onClick={onClose}
@@ -220,7 +220,7 @@ export default function MultipleParticipantsCheckInDialog({
             Close ({countdown}s)
           </Button>
         </Box>
-      </Box>
+      </Stack>
     </Dialog>
   );
 }
