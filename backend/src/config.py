@@ -11,7 +11,6 @@ class ServerConfig(pydantic.BaseModel):
     host: str = "localhost"
     port: int = 8000
     debug: bool = False
-    frontend_dir: str | None = None
 
 
 class AppConfig(pydantic.BaseModel):
