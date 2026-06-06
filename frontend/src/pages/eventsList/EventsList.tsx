@@ -81,7 +81,7 @@ export default function EventsList() {
       </Grid>
 
       <Fab
-        color="primary"
+        color="secondary"
         variant="extended"
         onClick={() => setDialogOpen(true)}
         sx={{ position: "fixed", bottom: 24, right: 24 }}

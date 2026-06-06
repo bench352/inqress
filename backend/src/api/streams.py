@@ -4,36 +4,36 @@ import uuid
 from collections.abc import Iterable
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.sse import EventSourceResponse, ServerSentEvent
+import fastapi
+import fastapi.sse
 
-from api.deps import check_event_exists
-from schema.rest import BulkCreateResponse
-from service.auth import verify_basic_auth, verify_basic_auth_query
-from service.event_stream import EventStreamManager
+import api.utils
+import schema.rest
+import service.auth
+import service.event_stream
 
 logger = logging.getLogger(__name__)
 
-manager = EventStreamManager()
-router = APIRouter(prefix="/events/{event_id}", tags=["streams"])
+manager = service.event_stream.event_stream_manager
+router = fastapi.APIRouter(prefix="/events/{event_id}", tags=["Streams"])
 
 
-@router.get("/streams", response_class=EventSourceResponse)
+@router.get("/streams", response_class=fastapi.sse.EventSourceResponse)
 def stream_events(
     event_id: uuid.UUID,
-    token: Annotated[str | None, Query()] = None,
-) -> Iterable[ServerSentEvent]:
-    verify_basic_auth_query(token=token)
-    check_event_exists(event_id)
+    token: Annotated[str | None, fastapi.Query()] = None,
+) -> Iterable[fastapi.sse.ServerSentEvent]:
+    service.auth.verify_basic_auth_query(token=token)
+    api.utils.check_event_exists(event_id)
 
     q: queue.Queue = manager.subscribe(event_id)
     try:
         while True:
             try:
                 event = q.get(timeout=15)
-                yield ServerSentEvent(data=event.model_dump(by_alias=True))
+                yield fastapi.sse.ServerSentEvent(data=event.model_dump(by_alias=True))
             except queue.Empty:
-                yield ServerSentEvent(comment="")
+                yield fastapi.sse.ServerSentEvent(comment="")
     except GeneratorExit:
         pass
     finally:
@@ -44,13 +44,13 @@ def stream_events(
 def get_import_result(
     event_id: uuid.UUID,
     result_id: uuid.UUID,
-    _: str = Depends(verify_basic_auth),
-) -> BulkCreateResponse:
-    check_event_exists(event_id)
+    _: str = fastapi.Depends(service.auth.verify_basic_auth),
+) -> schema.rest.BulkCreateResponse:
+    api.utils.check_event_exists(event_id)
     result = manager.get_result(result_id)
     if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
             detail="Result not found or expired",
         )
     return result

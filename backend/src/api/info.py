@@ -1,16 +1,16 @@
-from fastapi import APIRouter
+import fastapi
 
-from config import get_config
-from schema.rest import InfoResponse
+import config
+import schema.rest
 
-router = APIRouter(prefix="/info", tags=["info"])
+router = fastapi.APIRouter(prefix="/info", tags=["Info"])
 
 
-@router.get("", response_model=InfoResponse)
-def get_info() -> InfoResponse:
-    cfg = get_config()
+@router.get("", response_model=schema.rest.InfoResponse)
+def get_info() -> schema.rest.InfoResponse:
+    cfg = config.get_config()
     send_via_email = cfg.email_smtp.display_email or cfg.email_smtp.username
-    return InfoResponse(
+    return schema.rest.InfoResponse(
         org_name=cfg.app.organization_name,
         send_via_email=send_via_email,
     )

@@ -14,14 +14,14 @@ import { useApi } from "../../../api";
 interface Props {
   open: boolean;
   eventId: string;
-  attendeeId: string;
+  participantId: string;
   onClose: () => void;
 }
 
 export default function PreviewTicketDialog({
   open,
   eventId,
-  attendeeId,
+  participantId,
   onClose,
 }: Props) {
   const api = useApi();
@@ -29,10 +29,10 @@ export default function PreviewTicketDialog({
   const blobUrlRef = useRef<string | null>(null);
 
   const ticketQuery = useQuery({
-    queryKey: ["ticketPreview", eventId, attendeeId],
+    queryKey: ["ticketPreview", eventId, participantId],
     queryFn: () =>
       api.getBlob(
-        `/api/events/${eventId}/attendees/${attendeeId}/ticket/preview`,
+        `/api/events/${eventId}/participants/${participantId}/ticket/preview`,
       ),
     enabled: open,
   });
@@ -61,7 +61,7 @@ export default function PreviewTicketDialog({
     if (!imageUrl) return;
     const a = document.createElement("a");
     a.href = imageUrl;
-    a.download = `ticket-${attendeeId}.png`;
+    a.download = `ticket-${participantId}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

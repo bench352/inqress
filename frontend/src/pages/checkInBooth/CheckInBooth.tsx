@@ -20,12 +20,12 @@ import type {
 } from "./types";
 
 interface AssistedConfirmationData {
-  attendeeId: string;
-  title: string;
+  participantId: string;
+  title: string | null;
   name: string;
-  countryCode: string;
-  phone: string;
-  email: string;
+  countryCode: string | null;
+  phone: string | null;
+  email: string | null;
 }
 
 interface EventResponse {
@@ -123,12 +123,12 @@ function ScannerInner({ eventId }: { eventId: string }) {
         dispatchAssisted({
           type: "SET",
           payload: {
-            attendeeId: controlCommand.params.attendeeId as string,
-            title: controlCommand.params.title as string,
+            participantId: controlCommand.params.participantId as string,
+            title: controlCommand.params.title as string | null,
             name: controlCommand.params.name as string,
-            countryCode: controlCommand.params.countryCode as string,
-            phone: controlCommand.params.phone as string,
-            email: controlCommand.params.email as string,
+            countryCode: controlCommand.params.countryCode as string | null,
+            phone: controlCommand.params.phone as string | null,
+            email: controlCommand.params.email as string | null,
           },
         });
         dismissCommand();
@@ -196,9 +196,9 @@ function ScannerInner({ eventId }: { eventId: string }) {
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <Box
         sx={{
-          height: "100%", // Full height of viewport
-          aspectRatio: "1 / 1", // Perfect 1:1 square
-          flexShrink: 0, // Don't shrink
+          height: "100%",
+          aspectRatio: "1 / 1",
+          flexShrink: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -306,7 +306,7 @@ function ScannerInner({ eventId }: { eventId: string }) {
         <AssistedConfirmationDialog
           open
           eventId={eventId}
-          attendeeId={assistedConfirmation.attendeeId}
+          participantId={assistedConfirmation.participantId}
           title={assistedConfirmation.title}
           name={assistedConfirmation.name}
           countryCode={assistedConfirmation.countryCode}

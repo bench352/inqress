@@ -1,16 +1,16 @@
 import base64
 import secrets
 
-from fastapi import Depends, HTTPException, Header, Query, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import fastapi
+import fastapi.security
 
-from config import get_config
+import config
 
-security = HTTPBasic(auto_error=False)
+security = fastapi.security.HTTPBasic(auto_error=False)
 
 
 def validate_basic_credentials(username: str, password: str) -> bool:
-    cfg = get_config()
+    cfg = config.get_config()
     correct_username = secrets.compare_digest(
         username.encode(), cfg.auth.admin_username.encode()
     )
@@ -21,26 +21,28 @@ def validate_basic_credentials(username: str, password: str) -> bool:
 
 
 def verify_basic_auth(
-    credentials: HTTPBasicCredentials = Depends(security),
+    credentials: fastapi.security.HTTPBasicCredentials = fastapi.Depends(security),
 ) -> str:
     if not credentials or not validate_basic_credentials(
         credentials.username, credentials.password
     ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
         )
     return credentials.username
 
 
 def verify_basic_auth_query(
-    credentials: HTTPBasicCredentials | None = Depends(security),
-    token: str | None = Query(None),
-    authorization: str | None = Header(None),
+    credentials: fastapi.security.HTTPBasicCredentials | None = fastapi.Depends(
+        security
+    ),
+    token: str | None = fastapi.Query(None),
+    authorization: str | None = fastapi.Header(None),
 ) -> str:
-    if isinstance(credentials, HTTPBasicCredentials) and validate_basic_credentials(
-        credentials.username, credentials.password
-    ):
+    if isinstance(
+        credentials, fastapi.security.HTTPBasicCredentials
+    ) and validate_basic_credentials(credentials.username, credentials.password):
         return credentials.username
 
     auth_token = token
@@ -60,7 +62,7 @@ def verify_basic_auth_query(
         except Exception:
             pass
 
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
+    raise fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
         detail="Invalid credentials",
     )

@@ -144,8 +144,8 @@ export default function ModifyEventsDialog({
         <DialogContent>
           <Typography>
             Are you sure you want to delete &ldquo;{event.name}&rdquo;? This
-            action cannot be undone. All attendees and attendance records will
-            be permanently removed.
+            action cannot be undone. All participants and attendance records
+            will be permanently removed.
           </Typography>
         </DialogContent>
         <DialogActions>

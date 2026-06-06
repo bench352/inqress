@@ -21,16 +21,16 @@ import {
 } from "@tanstack/react-router";
 import { useSnackbar } from "notistack";
 import { useEventDetail } from "./useEventDetail";
-import AddAttendeesSpeedDial from "./components/AddAttendeesSpeedDial";
+import AddParticipantsSpeedDial from "./components/AddParticipantsSpeedDial";
 import ActionsSection from "./components/ActionsSection";
-import AttendeeDetailsDialog from "./components/AttendeeDetailsDialog";
+import ParticipantDetailsDialog from "./components/ParticipantDetailsDialog";
 import AttendanceSummary from "./components/AttendanceSummary";
 import CheckinNotificationDialog from "./components/CheckinNotificationDialog";
 import DateDialog from "./components/DateDialog";
 import ImportResultDialog from "./components/ImportResultDialog";
 import ModeDialog from "./components/ModeDialog";
 import ModifyEventsDialog from "./components/ModifyEventsDialog";
-import AttendeeGrid from "@/components/AttendeeGrid";
+import ParticipantGrid from "@/components/ParticipantGrid";
 import { useApi } from "../../api";
 import { useEventStream } from "../../hooks/useEventStream";
 
@@ -43,11 +43,12 @@ export default function EventDetail() {
   const {
     event,
     isEventLoading,
-    attendees,
+    participants,
     attended,
     notAttended,
     ticketUndelivered,
-    isAttendeesLoading,
+    notDelivered,
+    isParticipantsLoading,
     updateEvent,
     isUpdating,
     updateMode,
@@ -57,7 +58,7 @@ export default function EventDetail() {
   } = useEventDetail(eventId);
 
   const {
-    createAttendeeProgress,
+    createParticipantProgress,
     sendEmailProgress,
     generateTicketQrProgress,
     resultDialog,
@@ -69,20 +70,20 @@ export default function EventDetail() {
   const matches = useMatches();
   const isChildRouteActive = matches.some(
     (m) =>
-      m.pathname?.includes("/addAttendeesBySpreadsheet") ||
-      m.pathname?.includes("/addAttendeesManually"),
+      m.pathname?.includes("/addParticipantsBySpreadsheet") ||
+      m.pathname?.includes("/addParticipantsManually"),
   );
 
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [modeDialogOpen, setModeDialogOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<string | null>(null);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [selectedAttendeeId, setSelectedAttendeeId] = useState<string | null>(
-    null,
-  );
+  const [selectedParticipantId, setSelectedParticipantId] = useState<
+    string | null
+  >(null);
 
-  const selectedAttendee = selectedAttendeeId
-    ? (attendees.find((a) => a.id === selectedAttendeeId) ?? null)
+  const selectedParticipant = selectedParticipantId
+    ? (participants.find((a) => a.id === selectedParticipantId) ?? null)
     : null;
 
   const handleModeChange = (
@@ -134,19 +135,19 @@ export default function EventDetail() {
     });
   };
 
-  const totalCount = attendees.length;
+  const totalCount = participants.length;
   const attendedCount = attended.length;
-  const undeliveredReadyCount = attendees.filter(
-    (a) => a.isTicketReady && !a.isTicketDelivered,
+  const undeliveredReadyCount = participants.filter(
+    (a) => a.isTicketReady && !a.isTicketDelivered && a.email,
   ).length;
-  const notReadyAttendees = attendees.filter((a) => !a.isTicketReady);
-  const notReadyCount = notReadyAttendees.length;
-  const notReadyIds = notReadyAttendees.map((a) => a.id);
+  const notReadyParticipants = participants.filter((a) => !a.isTicketReady);
+  const notReadyCount = notReadyParticipants.length;
+  const notReadyIds = notReadyParticipants.map((a) => a.id);
 
   const hasActionsContent =
     undeliveredReadyCount > 0 ||
     notReadyCount > 0 ||
-    !!createAttendeeProgress?.inProgress ||
+    !!createParticipantProgress?.inProgress ||
     !!sendEmailProgress?.inProgress ||
     !!generateTicketQrProgress?.inProgress;
 
@@ -173,7 +174,7 @@ export default function EventDetail() {
         )}
         {attendanceDialog && (
           <CheckinNotificationDialog
-            key={attendanceDialog.attendeeId}
+            key={attendanceDialog.participantId}
             dialog={attendanceDialog}
             onDismiss={dismissAttendanceDialog}
           />
@@ -285,43 +286,51 @@ export default function EventDetail() {
           undeliveredReadyCount={undeliveredReadyCount}
           notReadyCount={notReadyCount}
           notReadyIds={notReadyIds}
-          createAttendeeProgress={createAttendeeProgress}
+          createParticipantProgress={createParticipantProgress}
           sendEmailProgress={sendEmailProgress}
           generateTicketQrProgress={generateTicketQrProgress}
         />
       )}
 
-      {isAttendeesLoading && <LinearProgress />}
+      {isParticipantsLoading && <LinearProgress />}
 
       {attended.length > 0 && (
-        <AttendeeGrid
-          attendees={attended}
+        <ParticipantGrid
+          participants={attended}
           title="Attended"
-          onClick={(id) => setSelectedAttendeeId(id)}
+          onClick={(id) => setSelectedParticipantId(id)}
         />
       )}
 
       {notAttended.length > 0 && (
-        <AttendeeGrid
-          attendees={notAttended}
+        <ParticipantGrid
+          participants={notAttended}
           title="Not Attended"
-          onClick={(id) => setSelectedAttendeeId(id)}
+          onClick={(id) => setSelectedParticipantId(id)}
+        />
+      )}
+
+      {notDelivered.length > 0 && (
+        <ParticipantGrid
+          participants={notDelivered}
+          title="Not Delivered"
+          onClick={(id) => setSelectedParticipantId(id)}
         />
       )}
 
       {ticketUndelivered.length > 0 && (
-        <AttendeeGrid
-          attendees={ticketUndelivered}
+        <ParticipantGrid
+          participants={ticketUndelivered}
           title="Ticket Undelivered"
-          onClick={(id) => setSelectedAttendeeId(id)}
+          onClick={(id) => setSelectedParticipantId(id)}
         />
       )}
 
-      {attendees.length === 0 && !isAttendeesLoading && (
-        <Typography color="text.secondary">No attendees yet.</Typography>
+      {participants.length === 0 && !isParticipantsLoading && (
+        <Typography color="text.secondary">No participants yet.</Typography>
       )}
 
-      <AddAttendeesSpeedDial eventId={eventId} />
+      <AddParticipantsSpeedDial eventId={eventId} />
 
       {resultDialog && (
         <ImportResultDialog
@@ -333,7 +342,7 @@ export default function EventDetail() {
 
       {attendanceDialog && (
         <CheckinNotificationDialog
-          key={attendanceDialog.attendeeId}
+          key={attendanceDialog.participantId}
           dialog={attendanceDialog}
           onDismiss={dismissAttendanceDialog}
         />
@@ -367,14 +376,14 @@ export default function EventDetail() {
         onDelete={handleDeleteEvent}
       />
 
-      {selectedAttendee && (
-        <AttendeeDetailsDialog
+      {selectedParticipant && (
+        <ParticipantDetailsDialog
           open
-          attendee={selectedAttendee}
+          participant={selectedParticipant}
           eventId={eventId}
           eventName={event.name}
           eventMode={event.mode}
-          onClose={() => setSelectedAttendeeId(null)}
+          onClose={() => setSelectedParticipantId(null)}
         />
       )}
     </Stack>

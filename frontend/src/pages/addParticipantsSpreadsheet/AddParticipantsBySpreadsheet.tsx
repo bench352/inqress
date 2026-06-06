@@ -20,30 +20,30 @@ import {
   Typography,
 } from "@mui/material";
 import ConflictDialog from "@/components/ConflictDialog";
+import DataHandlingStep from "@/components/DataHandlingStep";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { ApiError, useApi } from "../../api";
+import { ApiError, useApi } from "@/api.ts";
 import TabIcon from "@mui/icons-material/Tab";
 
-const ATTENDEE_FIELDS = [
+const PARTICIPANT_FIELDS = [
   "(Ignore)",
   "Title",
   "Name",
   "Phone",
   "Email",
 ] as const;
-type AttendeeField = (typeof ATTENDEE_FIELDS)[number];
+type ParticipantField = (typeof PARTICIPANT_FIELDS)[number];
 
 interface SheetPreview {
   columns: string[];
   heads: string[][];
 }
 
-interface ExcelPreviewResponse {
+interface SpreadsheetPreviewResponse {
   taskId: string;
   expireIn: string;
-  sheetNames: string[];
   sheets: Record<string, SheetPreview>;
 }
 
@@ -54,15 +54,17 @@ interface RowMapping {
   emailColumn?: string | null;
 }
 
-interface ExcelImportRequest {
+interface SpreadsheetImportRequest {
   taskId: string;
   sheetName: string;
+  strategy: string;
+  nameMatchMode: string;
   rowMapping: RowMapping;
 }
 
-export default function AddAttendeesBySpreadsheet() {
+export default function AddParticipantsBySpreadsheet() {
   const { eventId } = useParams({
-    from: "/app-shell/events/$eventId/addAttendeesBySpreadsheet",
+    from: "/app-shell/events/$eventId/addParticipantsBySpreadsheet",
   });
   const navigate = useNavigate();
   const api = useApi();
@@ -77,26 +79,30 @@ export default function AddAttendeesBySpreadsheet() {
   const eventName = eventQuery.data?.name ?? "...";
 
   const [activeStep, setActiveStep] = useState(0);
-  const [preview, setPreview] = useState<ExcelPreviewResponse | null>(null);
+  const [preview, setPreview] = useState<SpreadsheetPreviewResponse | null>(
+    null,
+  );
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
   const [columnMapping, setColumnMapping] = useState<
-    Record<string, AttendeeField>
+    Record<string, ParticipantField>
   >({});
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [conflictDetail, setConflictDetail] = useState<string | null>(null);
+  const [strategy, setStrategy] = useState("smartMerge");
+  const [nameMatchMode, setNameMatchMode] = useState("exact");
 
   const importMutation = useMutation({
-    mutationFn: async (payload: ExcelImportRequest) => {
-      await api.post(`/api/events/${eventId}/excelImport`, payload);
+    mutationFn: async (payload: SpreadsheetImportRequest) => {
+      await api.post(`/api/events/${eventId}/spreadsheetImport`, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
       navigate({ to: "/events/$eventId", params: { eventId } });
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError && err.status === 409) {
-        setConflictDetail(err.detail);
+        setConflictDetail(typeof err.detail === "string" ? err.detail : null);
       }
     },
   });
@@ -111,13 +117,14 @@ export default function AddAttendeesBySpreadsheet() {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        const data = await api.postFormData<ExcelPreviewResponse>(
-          `/api/events/${eventId}/excelPreview`,
+        const data = await api.postFormData<SpreadsheetPreviewResponse>(
+          `/api/events/${eventId}/spreadsheetPreview`,
           formData,
         );
         setPreview(data);
-        if (data.sheetNames.length === 1) {
-          setSelectedSheet(data.sheetNames[0]);
+        const sheetNames = Object.keys(data.sheets);
+        if (sheetNames.length === 1) {
+          setSelectedSheet(sheetNames[0]);
           setActiveStep(2);
         } else {
           setActiveStep(1);
@@ -142,7 +149,7 @@ export default function AddAttendeesBySpreadsheet() {
 
   const handleColumnMappingChange = (
     columnName: string,
-    field: AttendeeField,
+    field: ParticipantField,
   ) => {
     setColumnMapping((prev) => {
       const next = { ...prev };
@@ -160,7 +167,7 @@ export default function AddAttendeesBySpreadsheet() {
     });
   };
 
-  const getMappingAssignment = (field: AttendeeField): string | null => {
+  const getMappingAssignment = (field: ParticipantField): string | null => {
     if (field === "(Ignore)") return null;
     return (
       Object.entries(columnMapping).find(([, f]) => f === field)?.[0] ?? null
@@ -181,21 +188,19 @@ export default function AddAttendeesBySpreadsheet() {
     importMutation.mutate({
       taskId: preview.taskId,
       sheetName: selectedSheet,
+      strategy,
+      nameMatchMode,
       rowMapping,
     });
   };
 
-  const isImportDisabled =
-    !getMappingAssignment("Title") ||
-    !getMappingAssignment("Name") ||
-    !getMappingAssignment("Phone") ||
-    !getMappingAssignment("Email");
+  const isImportDisabled = !getMappingAssignment("Name");
 
   return (
     <Stack spacing={3}>
       <Typography variant="h4">{eventName}</Typography>
 
-      <Typography variant="h5">Add Attendees from Spreadsheet</Typography>
+      <Typography variant="h5">Add Participants from Spreadsheet</Typography>
 
       <Stepper activeStep={activeStep}>
         <Step>
@@ -205,7 +210,10 @@ export default function AddAttendeesBySpreadsheet() {
           <StepLabel>Select sheet</StepLabel>
         </Step>
         <Step>
-          <StepLabel>Map columns to attendees' details</StepLabel>
+          <StepLabel>Map columns to participant details</StepLabel>
+        </Step>
+        <Step>
+          <StepLabel>Choose how data is handled</StepLabel>
         </Step>
       </Stepper>
 
@@ -264,13 +272,13 @@ export default function AddAttendeesBySpreadsheet() {
         </Stack>
       )}
 
-      {activeStep === 1 && preview && preview.sheetNames.length > 1 && (
+      {activeStep === 1 && preview && (
         <Stack spacing={2}>
           <Typography variant="subtitle1">
-            There're multiple sheets in your uploaded file. Choose the one that
-            has the data you want to import!
+            There are multiple sheets in your uploaded file. Choose the one that
+            has the data you want to import.
           </Typography>
-          {preview.sheetNames.map((name) => {
+          {Object.keys(preview.sheets).map((name) => {
             const sheet = preview.sheets[name];
             return (
               <Paper
@@ -337,98 +345,121 @@ export default function AddAttendeesBySpreadsheet() {
       {activeStep === 2 && preview && selectedSheet && (
         <Stack spacing={2}>
           <Typography variant="subtitle1">
-            <strong>{selectedSheet}</strong> - Use the dropdown to map your
-            spreadsheet columns to corresponding attendee information. The first
-            5 data entries are shown for preview.
+            <strong>{selectedSheet}</strong> — Use the dropdown to map your
+            spreadsheet columns to corresponding participant information. The
+            first 5 data entries are shown for preview.
           </Typography>
+
           {preview.sheets[selectedSheet].columns.length > 0 ? (
-            <>
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      {(() => {
-                        const usedFields = new Set(
-                          Object.values(columnMapping).filter(
-                            (f) => f !== "(Ignore)",
-                          ),
-                        );
-                        return preview.sheets[selectedSheet].columns.map(
-                          (col) => {
-                            const assigned = columnMapping[col] || "(Ignore)";
-                            return (
-                              <TableCell
-                                key={col}
-                                sx={{ verticalAlign: "top", pb: 1 }}
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    {(() => {
+                      const usedFields = new Set(
+                        Object.values(columnMapping).filter(
+                          (f) => f !== "(Ignore)",
+                        ),
+                      );
+                      return preview.sheets[selectedSheet].columns.map(
+                        (col) => {
+                          const assigned = columnMapping[col] || "(Ignore)";
+                          return (
+                            <TableCell
+                              key={col}
+                              sx={{ verticalAlign: "top", pb: 1 }}
+                            >
+                              <Select
+                                value={assigned}
+                                onChange={(
+                                  ev: SelectChangeEvent<ParticipantField>,
+                                ) =>
+                                  handleColumnMappingChange(
+                                    col,
+                                    ev.target.value as ParticipantField,
+                                  )
+                                }
+                                size="small"
+                                sx={{ minWidth: 100 }}
                               >
-                                <Select
-                                  value={assigned}
-                                  onChange={(
-                                    ev: SelectChangeEvent<AttendeeField>,
-                                  ) =>
-                                    handleColumnMappingChange(
-                                      col,
-                                      ev.target.value as AttendeeField,
-                                    )
-                                  }
-                                  size="small"
-                                  sx={{ minWidth: 100 }}
-                                >
-                                  {ATTENDEE_FIELDS.map((f) => (
-                                    <MenuItem
-                                      key={f}
-                                      value={f}
-                                      disabled={
-                                        f !== "(Ignore)" &&
-                                        f !== assigned &&
-                                        usedFields.has(f)
-                                      }
-                                    >
-                                      {f}
-                                    </MenuItem>
-                                  ))}
-                                </Select>
-                              </TableCell>
-                            );
-                          },
-                        );
-                      })()}
-                    </TableRow>
-                    <TableRow>
-                      {preview.sheets[selectedSheet].columns.map((col) => (
-                        <TableCell key={col} sx={{ fontWeight: 600, pt: 1 }}>
-                          {col}
-                        </TableCell>
+                                {PARTICIPANT_FIELDS.map((f) => (
+                                  <MenuItem
+                                    key={f}
+                                    value={f}
+                                    disabled={
+                                      f !== "(Ignore)" &&
+                                      f !== assigned &&
+                                      usedFields.has(f)
+                                    }
+                                  >
+                                    {f === "Name" ? "Name *" : f}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </TableCell>
+                          );
+                        },
+                      );
+                    })()}
+                  </TableRow>
+                  <TableRow>
+                    {preview.sheets[selectedSheet].columns.map((col) => (
+                      <TableCell key={col} sx={{ fontWeight: 600, pt: 1 }}>
+                        {col}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {preview.sheets[selectedSheet].heads.map((row, ri) => (
+                    <TableRow key={ri}>
+                      {preview.sheets[selectedSheet].columns.map((_, ci) => (
+                        <TableCell key={ci}>{row[ci] ?? ""}</TableCell>
                       ))}
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {preview.sheets[selectedSheet].heads.map((row, ri) => (
-                      <TableRow key={ri}>
-                        {preview.sheets[selectedSheet].columns.map((_, ci) => (
-                          <TableCell key={ci}>{row[ci] ?? ""}</TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              <Box>
-                <Button
-                  variant="contained"
-                  onClick={handleImport}
-                  loading={importMutation.isPending}
-                  disabled={isImportDisabled}
-                >
-                  Import Attendees
-                </Button>
-              </Box>
-            </>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           ) : (
             <Typography variant="body2" color="text.secondary">
               This sheet is empty.
             </Typography>
           )}
+
+          <Box>
+            <Button
+              variant="contained"
+              onClick={() => setActiveStep(3)}
+              disabled={isImportDisabled}
+            >
+              Next
+            </Button>
+          </Box>
+        </Stack>
+      )}
+
+      {activeStep === 3 && (
+        <Stack spacing={3}>
+          <DataHandlingStep
+            strategy={strategy}
+            onStrategyChange={setStrategy}
+            nameMatchMode={nameMatchMode}
+            onNameMatchModeChange={setNameMatchMode}
+          />
+
+          <Stack direction="row" spacing={2}>
+            <Button variant="outlined" onClick={() => setActiveStep(2)}>
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleImport}
+              loading={importMutation.isPending}
+            >
+              Import Participants
+            </Button>
+          </Stack>
         </Stack>
       )}
 

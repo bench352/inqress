@@ -9,9 +9,10 @@ function basicAuth(username: string, password: string): string {
 
 export class ApiError extends Error {
   status: number;
-  detail: string;
-  constructor(status: number, detail: string) {
-    super(detail || `${status}`);
+  detail: unknown;
+
+  constructor(status: number, detail: unknown) {
+    super(typeof detail === "string" ? detail : `${status}`);
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
@@ -20,7 +21,7 @@ export class ApiError extends Error {
 
 async function parseApiError(res: Response): Promise<ApiError> {
   const body = await res.json().catch(() => null);
-  return new ApiError(res.status, body?.detail || `${res.status}`);
+  return new ApiError(res.status, body?.detail ?? `${res.status}`);
 }
 
 export function useApi() {

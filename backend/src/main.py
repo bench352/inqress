@@ -1,77 +1,84 @@
+import contextlib
 import logging
-from contextlib import asynccontextmanager
 
+import fastapi.staticfiles
 import uvicorn
-from fastapi import FastAPI, Depends, Request
-from fastapi.staticfiles import StaticFiles
-from sqlalchemy import inspect, text
+
 import api.admin
-import api.attendees
 import api.booth
 import api.checkin
 import api.events
-import api.excel
 import api.health
 import api.info
+import api.participants
+import api.spreadsheet
 import api.streams
-from config import get_config
-from schema.orm import Base
-from service.auth import verify_basic_auth
-from service.db import ENGINE
-from service.ticket import init_keys
+import config
+import schema.orm
+import service.auth
+import service.db
+import service.ticket
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-cfg = get_config()
+cfg = config.get_config()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+@contextlib.asynccontextmanager
+async def lifespan(app: fastapi.FastAPI):
     logger.info("Initializing DB schema")
-    Base.metadata.create_all(ENGINE)
+    schema.orm.Base.metadata.create_all(service.db.ENGINE)
     logger.info("Initializing ticket keys")
-    init_keys()
+    service.ticket.init_keys()
     yield
 
 
-app = FastAPI(title="InQRess", lifespan=lifespan)
+app = fastapi.FastAPI(title="InQRess", lifespan=lifespan)
 
 app.include_router(api.health.router, prefix="/api")
 app.include_router(api.checkin.router_public, prefix="/api")
 app.include_router(
-    api.events.router, prefix="/api", dependencies=[Depends(verify_basic_auth)]
-)
-app.include_router(
-    api.attendees.router, prefix="/api", dependencies=[Depends(verify_basic_auth)]
-)
-app.include_router(
-    api.attendees.bulk_email_router,
+    api.events.router,
     prefix="/api",
-    dependencies=[Depends(verify_basic_auth)],
+    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
+)
+app.include_router(
+    api.participants.router,
+    prefix="/api",
+    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
+)
+app.include_router(
+    api.participants.bulk_email_router,
+    prefix="/api",
+    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
 )
 app.include_router(
     api.checkin.router_authed,
     prefix="/api",
-    dependencies=[Depends(verify_basic_auth)],
+    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
 )
 app.include_router(
-    api.excel.router, prefix="/api", dependencies=[Depends(verify_basic_auth)]
+    api.spreadsheet.router,
+    prefix="/api",
+    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
 )
 app.include_router(api.streams.router, prefix="/api")
 app.include_router(api.booth.router, prefix="/api")
 app.include_router(api.admin.router, prefix="/api")
 app.include_router(
-    api.info.router, prefix="/api", dependencies=[Depends(verify_basic_auth)]
+    api.info.router,
+    prefix="/api",
+    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
 )
 
 frontend_dir = cfg.server.frontend_dir
 if frontend_dir:
     logger.info("Mounting frontend from %s", frontend_dir)
-    static = StaticFiles(directory=frontend_dir, html=True)
+    static = fastapi.staticfiles.StaticFiles(directory=frontend_dir, html=True)
 
-    @app.get("/{path:path}")
-    async def frontend_spa(path: str, request: Request):
+    @app.get("/{path:path}", include_in_schema=False)
+    async def frontend_spa(path: str, request: fastapi.Request):
         path = path.lstrip("/")
         full_path, stat_path = static.lookup_path(path)
         if stat_path is not None:

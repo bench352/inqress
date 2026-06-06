@@ -20,35 +20,37 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "../../../api";
 
-interface AttendeeResult {
-  title: string;
+interface ParticipantResult {
+  title: string | null;
   name: string;
-  email: string;
-  rawPhone: string;
-  countryCode: string;
-  phone: string;
+  email: string | null;
+  rawPhone: string | null;
+  countryCode: string | null;
+  phone: string | null;
 }
 
 interface SkippedResult {
-  title: string;
+  title: string | null;
   name: string;
-  email: string;
-  rawPhone: string;
+  email: string | null;
+  rawPhone: string | null;
 }
 
 interface ErrorResult {
-  attendee: {
-    title: string;
+  participant: {
+    title: string | null;
     name: string;
-    email: string;
-    rawPhone: string;
+    email: string | null;
+    rawPhone: string | null;
   };
   reason: string;
 }
 
 interface ImportResultData {
-  created: AttendeeResult[];
+  created: ParticipantResult[];
   skipped: SkippedResult[];
+  overwritten: ParticipantResult[];
+  merged: ParticipantResult[];
   errors: ErrorResult[];
 }
 
@@ -112,12 +114,98 @@ export default function ImportResultDialog({
                       <TableBody>
                         {data.created.map((a, i) => (
                           <TableRow key={i}>
-                            <TableCell>{a.title}</TableCell>
+                            <TableCell>{a.title ?? "—"}</TableCell>
                             <TableCell>{a.name}</TableCell>
                             <TableCell>
-                              {a.countryCode} {a.phone}
+                              {a.countryCode && a.phone
+                                ? `${a.countryCode} ${a.phone}`
+                                : "—"}
                             </TableCell>
-                            <TableCell>{a.email}</TableCell>
+                            <TableCell>{a.email ?? "—"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Stack>
+              </Paper>
+            )}
+
+            {data.overwritten.length > 0 && (
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Stack spacing={1}>
+                  <Typography variant="subtitle1" color="info.main">
+                    <Chip
+                      label={data.overwritten.length}
+                      color="info"
+                      size="small"
+                      sx={{ mr: 1 }}
+                    />
+                    Overwritten
+                  </Typography>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Title</TableCell>
+                          <TableCell>Name</TableCell>
+                          <TableCell>Phone</TableCell>
+                          <TableCell>Email</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {data.overwritten.map((a, i) => (
+                          <TableRow key={i}>
+                            <TableCell>{a.title ?? "—"}</TableCell>
+                            <TableCell>{a.name}</TableCell>
+                            <TableCell>
+                              {a.countryCode && a.phone
+                                ? `${a.countryCode} ${a.phone}`
+                                : "—"}
+                            </TableCell>
+                            <TableCell>{a.email ?? "—"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Stack>
+              </Paper>
+            )}
+
+            {data.merged.length > 0 && (
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Stack spacing={1}>
+                  <Typography variant="subtitle1" color="primary.main">
+                    <Chip
+                      label={data.merged.length}
+                      color="primary"
+                      size="small"
+                      sx={{ mr: 1 }}
+                    />
+                    Merged
+                  </Typography>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Title</TableCell>
+                          <TableCell>Name</TableCell>
+                          <TableCell>Phone</TableCell>
+                          <TableCell>Email</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {data.merged.map((a, i) => (
+                          <TableRow key={i}>
+                            <TableCell>{a.title ?? "—"}</TableCell>
+                            <TableCell>{a.name}</TableCell>
+                            <TableCell>
+                              {a.countryCode && a.phone
+                                ? `${a.countryCode} ${a.phone}`
+                                : "—"}
+                            </TableCell>
+                            <TableCell>{a.email ?? "—"}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -152,10 +240,10 @@ export default function ImportResultDialog({
                       <TableBody>
                         {data.skipped.map((a, i) => (
                           <TableRow key={i}>
-                            <TableCell>{a.title}</TableCell>
+                            <TableCell>{a.title ?? "—"}</TableCell>
                             <TableCell>{a.name}</TableCell>
-                            <TableCell>{a.rawPhone}</TableCell>
-                            <TableCell>{a.email}</TableCell>
+                            <TableCell>{a.rawPhone ?? "—"}</TableCell>
+                            <TableCell>{a.email ?? "—"}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -189,8 +277,8 @@ export default function ImportResultDialog({
                       <TableBody>
                         {data.errors.map((e, i) => (
                           <TableRow key={i}>
-                            <TableCell>{e.attendee.title}</TableCell>
-                            <TableCell>{e.attendee.name}</TableCell>
+                            <TableCell>{e.participant.title ?? "—"}</TableCell>
+                            <TableCell>{e.participant.name}</TableCell>
                             <TableCell>{e.reason}</TableCell>
                           </TableRow>
                         ))}
@@ -202,10 +290,12 @@ export default function ImportResultDialog({
             )}
 
             {data.created.length === 0 &&
+              data.overwritten.length === 0 &&
+              data.merged.length === 0 &&
               data.skipped.length === 0 &&
               data.errors.length === 0 && (
                 <Typography color="text.secondary">
-                  No attendees were processed.
+                  No participants were processed.
                 </Typography>
               )}
           </Stack>

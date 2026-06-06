@@ -1,49 +1,38 @@
 import datetime
 import logging
 import uuid
-from typing import NamedTuple
 
-from fastapi import HTTPException
+import fastapi
 from sqlalchemy import insert, select
 
-from schema.enum import EventMode
-from schema.orm import Attendee, AttendanceLog, Event
-from schema.rest import (
-    AssistedCheckinResponse,
-    CheckinErrorDetail,
-    CheckinResponse,
-    CheckinSuccessDetail,
-)
-from schema.sse import (
-    AttendanceNotificationData,
-    ControlCommandData,
-    SseEvent,
-    SseEventType,
-    SseType,
-)
-from service.db import get_session
-from service.event_stream import EventStreamManager
-from service.booth_stream import BoothStreamManager
-from service.ticket import verify_ticket
+import schema.enum
+import schema.orm
+import schema.rest
+import schema.service
+import schema.sse
+import service.booth_stream
+import service.db
+import service.event_stream
+import service.ticket
 
 logger = logging.getLogger(__name__)
 
 
 def _emit_attendance(
     event_id: uuid.UUID,
-    attendee_id: uuid.UUID,
-    title: str,
+    participant_id: uuid.UUID,
+    title: str | None,
     name: str,
     method: str,
     checked_in_at: str,
 ) -> None:
-    EventStreamManager().send(
+    service.event_stream.event_stream_manager.send(
         event_id,
-        SseEvent[AttendanceNotificationData](
-            event_type=SseEventType.ATTENDANCE,
-            type=SseType.NOTIFICATION,
-            data=AttendanceNotificationData(
-                attendee_id=str(attendee_id),
+        schema.sse.SseEvent[schema.sse.AttendanceNotificationData](
+            event_type=schema.sse.SseEventType.ATTENDANCE,
+            type=schema.sse.SseType.NOTIFICATION,
+            data=schema.sse.AttendanceNotificationData(
+                participant_id=str(participant_id),
                 title=title,
                 name=name,
                 check_in_method=method,
@@ -53,59 +42,68 @@ def _emit_attendance(
     )
 
 
-def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> CheckinResponse:
+def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinResponse:
     try:
-        payload = verify_ticket(ticket_token)
+        payload = service.ticket.verify_ticket(ticket_token)
     except ValueError as e:
-        return CheckinResponse(
+        return schema.rest.CheckinResponse(
             success=False,
-            detail=CheckinErrorDetail(reason=str(e)),
+            detail=schema.rest.CheckinErrorDetail(reason=str(e)),
         )
 
     if payload.event_id != event_id:
-        return CheckinResponse(
+        return schema.rest.CheckinResponse(
             success=False,
-            detail=CheckinErrorDetail(reason="Ticket is not for this event."),
+            detail=schema.rest.CheckinErrorDetail(
+                reason="Ticket is not for this event."
+            ),
         )
 
-    with get_session() as session:
+    with service.db.get_session() as session:
         event = (
-            session.execute(select(Event).where(Event.id == event_id)).scalars().first()
+            session.execute(
+                select(schema.orm.Event).where(schema.orm.Event.id == event_id)
+            )
+            .scalars()
+            .first()
         )
         if event is None:
-            return CheckinResponse(
-                success=False, detail=CheckinErrorDetail(reason="Event not found")
-            )
-
-        if event.mode == EventMode.DISABLED:
-            return CheckinResponse(
+            return schema.rest.CheckinResponse(
                 success=False,
-                detail=CheckinErrorDetail(reason="Event check-in is not active"),
+                detail=schema.rest.CheckinErrorDetail(reason="Event not found"),
             )
 
-        attendee = (
+        if event.mode == schema.enum.EventMode.DISABLED:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(
+                    reason="Event check-in is not active"
+                ),
+            )
+
+        participant = (
             session.execute(
-                select(Attendee).where(
-                    Attendee.id == payload.attendee_id,
-                    Attendee.event_id == event_id,
+                select(schema.orm.Participant).where(
+                    schema.orm.Participant.id == payload.participant_id,
+                    schema.orm.Participant.event_id == event_id,
                 )
             )
             .scalars()
             .first()
         )
-        if attendee is None:
-            return CheckinResponse(
+        if participant is None:
+            return schema.rest.CheckinResponse(
                 success=False,
-                detail=CheckinErrorDetail(
+                detail=schema.rest.CheckinErrorDetail(
                     reason="You are not registered for this event."
                 ),
             )
 
         already_checked_in = (
             session.execute(
-                select(AttendanceLog).where(
-                    AttendanceLog.event_id == event_id,
-                    AttendanceLog.attendee_id == payload.attendee_id,
+                select(schema.orm.AttendanceLog).where(
+                    schema.orm.AttendanceLog.event_id == event_id,
+                    schema.orm.AttendanceLog.participant_id == payload.participant_id,
                 )
             )
             .scalars()
@@ -113,17 +111,18 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> CheckinResponse:
             is not None
         )
         if already_checked_in:
-            return CheckinResponse(
-                success=False, detail=CheckinErrorDetail(reason="Already checked in.")
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(reason="Already checked in."),
             )
 
-        is_test = 1 if event.mode == EventMode.TEST else 0
+        is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
         checked_in_at = datetime.datetime.now().isoformat()
         session.execute(
-            insert(AttendanceLog).values(
+            insert(schema.orm.AttendanceLog).values(
                 id=uuid.uuid4(),
                 event_id=event_id,
-                attendee_id=payload.attendee_id,
+                participant_id=payload.participant_id,
                 checked_in_at=checked_in_at,
                 method="scan",
                 device_info=None,
@@ -133,72 +132,93 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> CheckinResponse:
 
         _emit_attendance(
             event_id,
-            payload.attendee_id,
-            attendee.title,
-            attendee.name,
+            payload.participant_id,
+            participant.title,
+            participant.name,
             "scan",
             checked_in_at,
         )
 
-        return CheckinResponse(
+        return schema.rest.CheckinResponse(
             success=True,
-            detail=CheckinSuccessDetail(
-                title=attendee.title,
-                name=attendee.name,
+            detail=schema.rest.CheckinSuccessDetail(
+                title=participant.title,
+                name=participant.name,
             ),
         )
 
 
 def checkin_by_phone(
     event_id: uuid.UUID, country_code: str, phone_no: str
-) -> CheckinResponse:
+) -> schema.rest.CheckinResponse:
     if not country_code or not phone_no:
-        return CheckinResponse(
+        return schema.rest.CheckinResponse(
             success=False,
-            detail=CheckinErrorDetail(
-                reason="No attendee found with this phone number"
+            detail=schema.rest.CheckinErrorDetail(
+                reason="No participant found with this phone number"
             ),
         )
 
-    with get_session() as session:
+    with service.db.get_session() as session:
         event = (
-            session.execute(select(Event).where(Event.id == event_id)).scalars().first()
-        )
-        if event is None:
-            return CheckinResponse(
-                success=False, detail=CheckinErrorDetail(reason="Event not found")
-            )
-
-        if event.mode == EventMode.DISABLED:
-            return CheckinResponse(
-                success=False,
-                detail=CheckinErrorDetail(reason="Event check-in is not active"),
-            )
-
-        attendee = (
             session.execute(
-                select(Attendee).where(
-                    Attendee.event_id == event_id,
-                    Attendee.country_code == country_code,
-                    Attendee.phone == phone_no,
-                )
+                select(schema.orm.Event).where(schema.orm.Event.id == event_id)
             )
             .scalars()
             .first()
         )
-        if attendee is None:
-            return CheckinResponse(
+        if event is None:
+            return schema.rest.CheckinResponse(
                 success=False,
-                detail=CheckinErrorDetail(
-                    reason="No attendee found with this phone number"
+                detail=schema.rest.CheckinErrorDetail(reason="Event not found"),
+            )
+
+        if event.mode == schema.enum.EventMode.DISABLED:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(
+                    reason="Event check-in is not active"
                 ),
             )
 
+        participants = (
+            session.execute(
+                select(schema.orm.Participant).where(
+                    schema.orm.Participant.event_id == event_id,
+                    schema.orm.Participant.country_code == country_code,
+                    schema.orm.Participant.phone == phone_no,
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not participants:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(
+                    reason="No participant found with this phone number"
+                ),
+            )
+
+        if len(participants) > 1:
+            conflicting = [
+                schema.rest.ParticipantResponse.model_validate(p) for p in participants
+            ]
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinConflictDetail(
+                    reason="Multiple participants share the same phone number",
+                    conflicting_participants=conflicting,
+                ),
+            )
+
+        participant = participants[0]
+
         already_checked_in = (
             session.execute(
-                select(AttendanceLog).where(
-                    AttendanceLog.event_id == event_id,
-                    AttendanceLog.attendee_id == attendee.id,
+                select(schema.orm.AttendanceLog).where(
+                    schema.orm.AttendanceLog.event_id == event_id,
+                    schema.orm.AttendanceLog.participant_id == participant.id,
                 )
             )
             .scalars()
@@ -206,17 +226,18 @@ def checkin_by_phone(
             is not None
         )
         if already_checked_in:
-            return CheckinResponse(
-                success=False, detail=CheckinErrorDetail(reason="Already checked in")
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(reason="Already checked in"),
             )
 
-        is_test = 1 if event.mode == EventMode.TEST else 0
+        is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
         checked_in_at = datetime.datetime.now().isoformat()
         session.execute(
-            insert(AttendanceLog).values(
+            insert(schema.orm.AttendanceLog).values(
                 id=uuid.uuid4(),
                 event_id=event_id,
-                attendee_id=attendee.id,
+                participant_id=participant.id,
                 checked_in_at=checked_in_at,
                 method="phone",
                 device_info=None,
@@ -226,38 +247,40 @@ def checkin_by_phone(
 
         _emit_attendance(
             event_id,
-            attendee.id,
-            attendee.title,
-            attendee.name,
+            participant.id,
+            participant.title,
+            participant.name,
             "phone",
             checked_in_at,
         )
 
-        return CheckinResponse(
+        return schema.rest.CheckinResponse(
             success=True,
-            detail=CheckinSuccessDetail(
-                title=attendee.title,
-                name=attendee.name,
+            detail=schema.rest.CheckinSuccessDetail(
+                title=participant.title,
+                name=participant.name,
             ),
         )
 
 
-def checkin_manual(event_id: uuid.UUID, attendee_id: uuid.UUID) -> CheckinResponse:
+def checkin_manual(
+    event_id: uuid.UUID, participant_id: uuid.UUID
+) -> schema.rest.CheckinResponse:
     try:
-        info = _lookup_attendee_for_checkin(event_id, attendee_id)
-    except HTTPException as e:
-        return CheckinResponse(
-            success=False, detail=CheckinErrorDetail(reason=str(e.detail))
+        info = _lookup_participant_for_checkin(event_id, participant_id)
+    except fastapi.HTTPException as e:
+        return schema.rest.CheckinResponse(
+            success=False, detail=schema.rest.CheckinErrorDetail(reason=str(e.detail))
         )
 
-    with get_session() as session:
-        is_test = 1 if info.event_mode == EventMode.TEST else 0
+    with service.db.get_session() as session:
+        is_test = 1 if info.event_mode == schema.enum.EventMode.TEST else 0
         checked_in_at = datetime.datetime.now().isoformat()
         session.execute(
-            insert(AttendanceLog).values(
+            insert(schema.orm.AttendanceLog).values(
                 id=uuid.uuid4(),
                 event_id=event_id,
-                attendee_id=attendee_id,
+                participant_id=participant_id,
                 checked_in_at=checked_in_at,
                 method="manual",
                 device_info=None,
@@ -267,73 +290,70 @@ def checkin_manual(event_id: uuid.UUID, attendee_id: uuid.UUID) -> CheckinRespon
 
         _emit_attendance(
             event_id,
-            attendee_id,
-            info.attendee_title,
-            info.attendee_name,
+            participant_id,
+            info.participant_title,
+            info.participant_name,
             "manual",
             checked_in_at,
         )
 
-        return CheckinResponse(
+        return schema.rest.CheckinResponse(
             success=True,
-            detail=CheckinSuccessDetail(
-                title=info.attendee_title,
-                name=info.attendee_name,
+            detail=schema.rest.CheckinSuccessDetail(
+                title=info.participant_title,
+                name=info.participant_name,
             ),
         )
 
 
-def get_ticket_image(event_id: uuid.UUID, attendee_id: uuid.UUID) -> bytes | None:
-    with get_session() as session:
+def get_ticket_image(event_id: uuid.UUID, participant_id: uuid.UUID) -> bytes | None:
+    with service.db.get_session() as session:
         result = session.execute(
-            select(Attendee.ticket_img).where(
-                Attendee.id == attendee_id, Attendee.event_id == event_id
+            select(schema.orm.Participant.ticket_img).where(
+                schema.orm.Participant.id == participant_id,
+                schema.orm.Participant.event_id == event_id,
             )
         )
         return result.scalars().first()
 
 
-class _CheckinInfo(NamedTuple):
-    event_mode: EventMode
-    attendee_id: uuid.UUID
-    attendee_title: str
-    attendee_name: str
-    attendee_country_code: str
-    attendee_phone: str
-    attendee_email: str
-
-
-def _lookup_attendee_for_checkin(
-    event_id: uuid.UUID, attendee_id: uuid.UUID
-) -> _CheckinInfo:
-    with get_session() as session:
+def _lookup_participant_for_checkin(
+    event_id: uuid.UUID, participant_id: uuid.UUID
+) -> schema.service.CheckinInfo:
+    with service.db.get_session() as session:
         event = (
-            session.execute(select(Event).where(Event.id == event_id)).scalars().first()
+            session.execute(
+                select(schema.orm.Event).where(schema.orm.Event.id == event_id)
+            )
+            .scalars()
+            .first()
         )
         if event is None:
-            raise HTTPException(status_code=404, detail="Event not found")
+            raise fastapi.HTTPException(status_code=404, detail="Event not found")
 
-        if event.mode == EventMode.DISABLED:
-            raise HTTPException(status_code=422, detail="Event check-in is not active")
+        if event.mode == schema.enum.EventMode.DISABLED:
+            raise fastapi.HTTPException(
+                status_code=422, detail="Event check-in is not active"
+            )
 
-        attendee = (
+        participant = (
             session.execute(
-                select(Attendee).where(
-                    Attendee.id == attendee_id,
-                    Attendee.event_id == event_id,
+                select(schema.orm.Participant).where(
+                    schema.orm.Participant.id == participant_id,
+                    schema.orm.Participant.event_id == event_id,
                 )
             )
             .scalars()
             .first()
         )
-        if attendee is None:
-            raise HTTPException(status_code=404, detail="Attendee not found")
+        if participant is None:
+            raise fastapi.HTTPException(status_code=404, detail="Participant not found")
 
         already_checked_in = (
             session.execute(
-                select(AttendanceLog).where(
-                    AttendanceLog.event_id == event_id,
-                    AttendanceLog.attendee_id == attendee_id,
+                select(schema.orm.AttendanceLog).where(
+                    schema.orm.AttendanceLog.event_id == event_id,
+                    schema.orm.AttendanceLog.participant_id == participant_id,
                 )
             )
             .scalars()
@@ -341,50 +361,50 @@ def _lookup_attendee_for_checkin(
             is not None
         )
         if already_checked_in:
-            raise HTTPException(
-                status_code=422, detail="Attendee is already checked in"
+            raise fastapi.HTTPException(
+                status_code=422, detail="Participant is already checked in"
             )
 
-        return _CheckinInfo(
-            event_mode=event.mode,
-            attendee_id=attendee.id,
-            attendee_title=attendee.title,
-            attendee_name=attendee.name,
-            attendee_country_code=attendee.country_code,
-            attendee_phone=attendee.phone,
-            attendee_email=attendee.email,
+        return schema.service.CheckinInfo(
+            event_mode=schema.enum.EventMode(event.mode),
+            participant_id=participant.id,
+            participant_title=participant.title,
+            participant_name=participant.name,
+            participant_country_code=participant.country_code,
+            participant_phone=participant.phone,
+            participant_email=participant.email,
         )
 
 
 def checkin_assisted(
-    event_id: uuid.UUID, attendee_id: uuid.UUID
-) -> AssistedCheckinResponse:
-    info = _lookup_attendee_for_checkin(event_id, attendee_id)
+    event_id: uuid.UUID, participant_id: uuid.UUID
+) -> schema.rest.AssistedCheckinResponse:
+    info = _lookup_participant_for_checkin(event_id, participant_id)
 
-    booth_manager = BoothStreamManager()
+    booth_manager = service.booth_stream.booth_stream_manager
     sent = booth_manager.send(
         event_id,
-        SseEvent[ControlCommandData](
-            event_type=SseEventType.CONTROL,
-            type=SseType.COMMAND,
-            data=ControlCommandData(
+        schema.sse.SseEvent[schema.sse.ControlCommandData](
+            event_type=schema.sse.SseEventType.CONTROL,
+            type=schema.sse.SseType.COMMAND,
+            data=schema.sse.ControlCommandData(
                 command="SHOW_CONFIRMATION",
                 params={
-                    "attendeeId": str(info.attendee_id),
-                    "title": info.attendee_title,
-                    "name": info.attendee_name,
-                    "countryCode": info.attendee_country_code,
-                    "phone": info.attendee_phone,
-                    "email": info.attendee_email,
+                    "participantId": str(info.participant_id),
+                    "title": info.participant_title,
+                    "name": info.participant_name,
+                    "countryCode": info.participant_country_code,
+                    "phone": info.participant_phone,
+                    "email": info.participant_email,
                 },
             ),
         ),
     )
 
     if not sent:
-        raise HTTPException(
+        raise fastapi.HTTPException(
             status_code=422,
             detail="No check-in booth is currently connected for this event",
         )
 
-    return AssistedCheckinResponse(success=True)
+    return schema.rest.AssistedCheckinResponse(success=True)

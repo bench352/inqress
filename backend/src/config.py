@@ -1,30 +1,30 @@
 import os
-from pathlib import Path
+import pathlib
 
+import pydantic
 import yaml
-from pydantic import BaseModel, Field
 
-_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+_DATA_DIR = pathlib.Path(__file__).resolve().parent.parent / "data"
 
 
-class ServerConfig(BaseModel):
+class ServerConfig(pydantic.BaseModel):
     host: str = "localhost"
     port: int = 8000
     debug: bool = False
     frontend_dir: str | None = None
 
 
-class AppConfig(BaseModel):
+class AppConfig(pydantic.BaseModel):
     organization_name: str | None = None
     default_country_code: str = "HK"
 
 
-class AuthConfig(BaseModel):
-    admin_username: str = Field(min_length=1)
-    admin_password: str = Field(min_length=1)
+class AuthConfig(pydantic.BaseModel):
+    admin_username: str = pydantic.Field(min_length=1)
+    admin_password: str = pydantic.Field(min_length=1)
 
 
-class EmailSmtpConfig(BaseModel):
+class EmailSmtpConfig(pydantic.BaseModel):
     host: str = ""
     port: int = 465
     username: str = ""
@@ -33,7 +33,7 @@ class EmailSmtpConfig(BaseModel):
     wait_between_delivery_second: int = 5
 
 
-class Config(BaseModel):
+class Config(pydantic.BaseModel):
     server: ServerConfig = ServerConfig()
     app: AppConfig = AppConfig()
     auth: AuthConfig
@@ -49,7 +49,7 @@ def get_config() -> Config:
         return _config
 
     config_path = os.getenv("CONFIG_PATH", str(_DATA_DIR / "config.yaml"))
-    config_file = Path(config_path)
+    config_file = pathlib.Path(config_path)
 
     if not config_file.exists():
         raise FileNotFoundError(

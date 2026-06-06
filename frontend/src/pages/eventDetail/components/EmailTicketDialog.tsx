@@ -18,8 +18,8 @@ import { useApi } from "../../../api";
 interface Props {
   open: boolean;
   eventId: string;
-  attendeeId: string;
-  attendeeEmail: string;
+  participantId: string;
+  participantEmail: string;
   eventName: string;
   onClose: () => void;
 }
@@ -27,8 +27,8 @@ interface Props {
 export default function EmailTicketDialog({
   open,
   eventId,
-  attendeeId,
-  attendeeEmail,
+  participantId,
+  participantEmail,
   eventName,
   onClose,
 }: Props) {
@@ -36,20 +36,22 @@ export default function EmailTicketDialog({
   const queryClient = useQueryClient();
 
   const previewQuery = useQuery({
-    queryKey: ["emailPreview", eventId, attendeeId],
+    queryKey: ["emailPreview", eventId, participantId],
     queryFn: () =>
       api.getText(
-        `/api/events/${eventId}/attendees/${attendeeId}/email/preview`,
+        `/api/events/${eventId}/participants/${participantId}/email/preview`,
       ),
     enabled: open,
   });
 
   const sendMutation = useMutation({
     mutationFn: async () => {
-      await api.post(`/api/events/${eventId}/attendees/${attendeeId}/email`);
+      await api.post(
+        `/api/events/${eventId}/participants/${participantId}/email`,
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
       onClose();
     },
   });
@@ -69,7 +71,7 @@ export default function EmailTicketDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Typography variant="body2">
             This email will be sent to{" "}
-            <Box component="strong">{attendeeEmail}</Box>.
+            <Box component="strong">{participantEmail}</Box>.
           </Typography>
         </Stack>
         <Box sx={{ mt: 2 }}>

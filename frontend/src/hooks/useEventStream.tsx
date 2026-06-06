@@ -33,8 +33,8 @@ interface SseErrorData {
 }
 
 interface SseAttendanceData {
-  attendeeId: string;
-  title: string;
+  participantId: string;
+  title: string | null;
   name: string;
   checkInMethod: string;
   checkInAt: string;
@@ -47,15 +47,15 @@ interface SseRawEvent {
 }
 
 export interface AttendanceDialogEntry {
-  attendeeId: string;
-  title: string;
+  participantId: string;
+  title: string | null;
   name: string;
   checkInMethod: string;
   checkInAt: string;
 }
 
 export interface UseEventStreamReturn {
-  createAttendeeProgress: ProgressState | null;
+  createParticipantProgress: ProgressState | null;
   sendEmailProgress: ProgressState | null;
   generateTicketQrProgress: ProgressState | null;
   resultDialog: { resultId: string } | null;
@@ -90,7 +90,7 @@ export function useEventStream(
     closeSnackbarRef.current = closeSnackbar;
   }, [closeSnackbar]);
 
-  const [createAttendeeProgress, setCreateAttendeeProgress] =
+  const [createParticipantProgress, setCreateParticipantProgress] =
     useState<ProgressState | null>(null);
   const [sendEmailProgress, setSendEmailProgress] =
     useState<ProgressState | null>(null);
@@ -181,27 +181,27 @@ export function useEventStream(
           enqueueSnackbarRef.current(message, { variant: "success" });
         }
         queryClientRef.current.invalidateQueries({
-          queryKey: ["attendees", eventId],
+          queryKey: ["participants", eventId],
         });
       };
 
       const handleNotificationError = (message: string) => {
         enqueueSnackbarRef.current(message, { variant: "error" });
         queryClientRef.current.invalidateQueries({
-          queryKey: ["attendees", eventId],
+          queryKey: ["participants", eventId],
         });
       };
 
-      if (ev.eventType === "CREATE_ATTENDEE") {
+      if (ev.eventType === "CREATE_PARTICIPANT") {
         if (ev.type === "PROGRESS") {
           const data = ev.data as SseProgressData;
-          handleProgress(data, setCreateAttendeeProgress);
+          handleProgress(data, setCreateParticipantProgress);
         } else if (ev.type === "NOTIFICATION") {
           const data = ev.data as SseSuccessData | SseErrorData;
           if (data.type === "success") {
             const successData = data as SseSuccessData;
             handleNotificationSuccess(
-              "Attendee import completed",
+              "Participant import completed",
               successData.resultId,
             );
           } else if (data.type === "error") {
@@ -245,20 +245,20 @@ export function useEventStream(
         if (ev.type === "NOTIFICATION") {
           const data = ev.data as SseAttendanceData;
           queryClientRef.current.setQueryData(
-            ["attendees", eventId],
+            ["participants", eventId],
             (old: object[] | undefined) => {
               if (!old) return old;
               return (
                 old as Array<{ id: string; checkedInAt: string | null }>
               ).map((a) =>
-                a.id === data.attendeeId
+                a.id === data.participantId
                   ? { ...a, checkedInAt: data.checkInAt }
                   : a,
               );
             },
           );
           setAttendanceDialog({
-            attendeeId: data.attendeeId,
+            participantId: data.participantId,
             title: data.title,
             name: data.name,
             checkInMethod: data.checkInMethod,
@@ -282,7 +282,7 @@ export function useEventStream(
   }, [eventId, username, password]);
 
   return {
-    createAttendeeProgress,
+    createParticipantProgress,
     sendEmailProgress,
     generateTicketQrProgress,
     resultDialog,

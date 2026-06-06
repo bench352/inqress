@@ -86,7 +86,8 @@ export default function CheckinNotificationDialog({
       <DialogTitle sx={{ textAlign: "center", pb: 0 }}>Checked In</DialogTitle>
       <DialogContent sx={{ textAlign: "center" }}>
         <Typography variant="h5" sx={{ mb: 1 }}>
-          {dialog.title} {dialog.name}
+          {dialog.title ? `${dialog.title} ` : ""}
+          {dialog.name}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
           Checked in at {formattedTime}

@@ -1,24 +1,24 @@
-from enum import StrEnum
+import enum
 
-from schema.rest import RestModel
+import schema.rest
 
 
-class BoothLifecycleStatus(StrEnum):
+class BoothLifecycleStatus(enum.StrEnum):
     CONNECTED = "connected"
     DISCONNECTED = "disconnected"
 
 
-class BoothCommand(StrEnum):
+class BoothCommand(enum.StrEnum):
     SHOW_CAMERA_PREVIEW = "SHOW_CAMERA_PREVIEW"
     HIDE_CAMERA_PREVIEW = "HIDE_CAMERA_PREVIEW"
     REFRESH = "REFRESH"
     CLOSE = "CLOSE"
 
 
-class BoothCommandRequest(RestModel):
+class BoothCommandRequest(schema.rest.RestModel):
     command: BoothCommand
     params: dict = {}
 
 
-class BoothStatusResponse(RestModel):
+class BoothStatusResponse(schema.rest.RestModel):
     connected: bool
