@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useApi } from "../../api";
+import { useApi } from "@/api.ts";
 import type { EventItem } from ".././eventsList/useEvents";
 
 export interface ParticipantItem {
@@ -76,7 +76,8 @@ export function useEventDetail(eventId: string) {
     () =>
       (participantsQuery.data ?? [])
         .filter(
-          (a) => a.checkedInAt == null && a.isTicketReady && a.isTicketDelivered,
+          (a) =>
+            a.checkedInAt == null && a.isTicketReady && a.isTicketDelivered,
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
     [participantsQuery.data],
@@ -94,7 +95,8 @@ export function useEventDetail(eventId: string) {
     () =>
       (participantsQuery.data ?? [])
         .filter(
-          (a) => a.checkedInAt == null && a.isTicketReady && !a.isTicketDelivered,
+          (a) =>
+            a.checkedInAt == null && a.isTicketReady && !a.isTicketDelivered,
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
     [participantsQuery.data],

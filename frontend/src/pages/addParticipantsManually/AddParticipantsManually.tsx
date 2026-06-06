@@ -2,15 +2,14 @@ import { useRef, useState } from "react";
 import {
   Box,
   Button,
-  FormControl,
-  FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
-  Radio,
-  RadioGroup,
   Select,
   Stack,
+  Step,
+  StepLabel,
+  Stepper,
   Table,
   TableBody,
   TableCell,
@@ -25,8 +24,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useSnackbar } from "notistack";
-import { ApiError, useApi } from "../../api";
+import { ApiError, useApi } from "@/api.ts";
 import ConflictDialog from "@/components/ConflictDialog";
+import DataHandlingStep from "@/components/DataHandlingStep";
 
 const TITLE_OPTIONS = ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof."];
 
@@ -46,11 +46,12 @@ export default function AddParticipantsManually() {
   const { enqueueSnackbar } = useSnackbar();
   const api = useApi();
   const queryClient = useQueryClient();
-  const nextKeyRef = useRef(0);
+  const nextKeyRef = useRef(1);
 
   function newRow(): ParticipantInput {
+    const key = nextKeyRef.current++;
     return {
-      key: ++nextKeyRef.current,
+      key,
       title: "Mr.",
       name: "",
       email: "",
@@ -65,16 +66,15 @@ export default function AddParticipantsManually() {
   });
   const eventName = eventQuery.data?.name ?? "...";
 
-  // eslint-disable-next-line react-hooks/refs -- Counter ref used for generating unique list keys
-  const [rows, setRows] = useState<ParticipantInput[]>(() => {
-    const key = ++nextKeyRef.current;
-    return [{ key, title: "Mr.", name: "", email: "", rawPhone: "" }];
-  });
+  const [activeStep, setActiveStep] = useState(0);
+  const [rows, setRows] = useState<ParticipantInput[]>([
+    { key: 0, title: "Mr.", name: "", email: "", rawPhone: "" },
+  ]);
   const [rowErrors, setRowErrors] = useState<
     Record<number, Record<string, string>>
   >({});
   const [conflictDetail, setConflictDetail] = useState<string | null>(null);
-  const [strategy, setStrategy] = useState("skip");
+  const [strategy, setStrategy] = useState("smartMerge");
   const [nameMatchMode, setNameMatchMode] = useState("exact");
 
   const mutation = useMutation({
@@ -142,7 +142,7 @@ export default function AddParticipantsManually() {
     setRows((prev) => [...prev, newRow()]);
   };
 
-  const handleSubmit = () => {
+  const validateRows = (): boolean => {
     const newErrors: Record<number, Record<string, string>> = {};
     let hasErrors = false;
     for (const row of rows) {
@@ -154,8 +154,11 @@ export default function AddParticipantsManually() {
       if (Object.keys(rowErr).length > 0) newErrors[row.key] = rowErr;
     }
     setRowErrors(newErrors);
-    if (hasErrors) return;
+    return !hasErrors;
+  };
 
+  const handleSubmit = () => {
+    if (!validateRows()) return;
     const payload = rows.map(({ title, name, email, rawPhone }) => ({
       title: title || null,
       name,
@@ -177,156 +180,156 @@ export default function AddParticipantsManually() {
 
       <Typography variant="h5">Add Participants Manually</Typography>
 
-      <Stack spacing={2}>
-        <FormControl>
-          <Typography variant="subtitle2" gutterBottom>
-            Duplicate handling strategy
-          </Typography>
-          <RadioGroup
-            value={strategy}
-            onChange={(e) => setStrategy(e.target.value)}
-          >
-            <FormControlLabel
-              value="skip"
-              control={<Radio />}
-              label="Skip (Recommended)"
-            />
-            <FormControlLabel
-              value="overwrite"
-              control={<Radio />}
-              label="Overwrite"
-            />
-            <FormControlLabel
-              value="smartMerge"
-              control={<Radio />}
-              label="Smart Merge"
-            />
-          </RadioGroup>
-        </FormControl>
+      <Stepper activeStep={activeStep}>
+        <Step>
+          <StepLabel>Enter participant information</StepLabel>
+        </Step>
+        <Step>
+          <StepLabel>Choose how data is handled</StepLabel>
+        </Step>
+      </Stepper>
 
-        <FormControl>
-          <Typography variant="subtitle2" gutterBottom>
-            Name matching mode
-          </Typography>
-          <Select
-            value={nameMatchMode}
-            onChange={(e) => setNameMatchMode(e.target.value)}
+      {activeStep === 0 && (
+        <Stack spacing={2}>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 100 }}>Title</TableCell>
+                  <TableCell>Name *</TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Phone</TableCell>
+                  <TableCell sx={{ width: 48 }} />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.key}>
+                    <TableCell>
+                      <Select
+                        value={row.title}
+                        onChange={(e) =>
+                          updateRow(row.key, "title", e.target.value)
+                        }
+                        size="small"
+                        fullWidth
+                      >
+                        {TITLE_OPTIONS.map((t) => (
+                          <MenuItem key={t} value={t}>
+                            {t}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        value={row.name}
+                        onChange={(e) => {
+                          updateRow(row.key, "name", e.target.value);
+                          clearRowError(row.key, "name");
+                        }}
+                        error={!!rowErrors[row.key]?.name}
+                        size="small"
+                        fullWidth
+                        placeholder="Name *"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        value={row.email}
+                        onChange={(e) => {
+                          updateRow(row.key, "email", e.target.value);
+                          clearRowError(row.key, "email");
+                        }}
+                        error={!!rowErrors[row.key]?.email}
+                        size="small"
+                        fullWidth
+                        placeholder="Optional"
+                        type="email"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        value={row.rawPhone}
+                        onChange={(e) => {
+                          updateRow(row.key, "rawPhone", e.target.value);
+                          clearRowError(row.key, "phone");
+                        }}
+                        error={!!rowErrors[row.key]?.phone}
+                        size="small"
+                        fullWidth
+                        placeholder="Optional"
+                        type="tel"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton
+                        size="small"
+                        onClick={() => deleteRow(row.key)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          <Button
+            startIcon={<AddIcon />}
+            onClick={addRow}
+            variant="outlined"
             size="small"
-            sx={{ maxWidth: 200 }}
+            sx={{ alignSelf: "flex-start" }}
           >
-            <MenuItem value="exact">Exact Match</MenuItem>
-            <MenuItem value="fuzzy">Fuzzy Match</MenuItem>
-          </Select>
-        </FormControl>
-      </Stack>
+            Add Row
+          </Button>
 
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ width: 100 }}>Title</TableCell>
-              <TableCell>Name *</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell sx={{ width: 48 }} />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.key}>
-                <TableCell>
-                  <Select
-                    value={row.title}
-                    onChange={(e) =>
-                      updateRow(row.key, "title", e.target.value)
-                    }
-                    size="small"
-                    fullWidth
-                  >
-                    {TITLE_OPTIONS.map((t) => (
-                      <MenuItem key={t} value={t}>
-                        {t}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={row.name}
-                    onChange={(e) => {
-                      updateRow(row.key, "name", e.target.value);
-                      clearRowError(row.key, "name");
-                    }}
-                    error={!!rowErrors[row.key]?.name}
-                    size="small"
-                    fullWidth
-                    placeholder="Name *"
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={row.email}
-                    onChange={(e) => {
-                      updateRow(row.key, "email", e.target.value);
-                      clearRowError(row.key, "email");
-                    }}
-                    error={!!rowErrors[row.key]?.email}
-                    size="small"
-                    fullWidth
-                    placeholder="Optional"
-                    type="email"
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={row.rawPhone}
-                    onChange={(e) => {
-                      updateRow(row.key, "rawPhone", e.target.value);
-                      clearRowError(row.key, "phone");
-                    }}
-                    error={!!rowErrors[row.key]?.phone}
-                    size="small"
-                    fullWidth
-                    placeholder="Optional"
-                    type="tel"
-                  />
-                </TableCell>
-                <TableCell>
-                  <IconButton size="small" onClick={() => deleteRow(row.key)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Button
+              variant="contained"
+              onClick={() => {
+                if (validateRows()) {
+                  setActiveStep(1);
+                }
+              }}
+              disabled={!hasAnyField}
+            >
+              Next
+            </Button>
+            {hasValidationError && (
+              <Typography variant="body2" color="error">
+                Complete the required fields
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      )}
 
-      <Button
-        startIcon={<AddIcon />}
-        onClick={addRow}
-        variant="outlined"
-        size="small"
-        sx={{ alignSelf: "flex-start" }}
-      >
-        Add Row
-      </Button>
+      {activeStep === 1 && (
+        <Stack spacing={3}>
+          <DataHandlingStep
+            strategy={strategy}
+            onStrategyChange={setStrategy}
+            nameMatchMode={nameMatchMode}
+            onNameMatchModeChange={setNameMatchMode}
+          />
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          loading={mutation.isPending}
-          disabled={!hasAnyField}
-        >
-          Submit
-        </Button>
-        {hasValidationError && (
-          <Typography variant="body2" color="error">
-            Complete the required fields
-          </Typography>
-        )}
-      </Box>
+          <Stack direction="row" spacing={2}>
+            <Button variant="outlined" onClick={() => setActiveStep(0)}>
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              loading={mutation.isPending}
+            >
+              Submit
+            </Button>
+          </Stack>
+        </Stack>
+      )}
 
       <ConflictDialog
         open={!!conflictDetail}

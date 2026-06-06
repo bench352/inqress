@@ -4,12 +4,8 @@ import {
   Box,
   Button,
   CircularProgress,
-  FormControl,
-  FormControlLabel,
   MenuItem,
   Paper,
-  Radio,
-  RadioGroup,
   Select,
   Stack,
   Step,
@@ -24,10 +20,11 @@ import {
   Typography,
 } from "@mui/material";
 import ConflictDialog from "@/components/ConflictDialog";
+import DataHandlingStep from "@/components/DataHandlingStep";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { ApiError, useApi } from "../../api";
+import { ApiError, useApi } from "@/api.ts";
 import TabIcon from "@mui/icons-material/Tab";
 
 const PARTICIPANT_FIELDS = [
@@ -92,7 +89,7 @@ export default function AddParticipantsBySpreadsheet() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [conflictDetail, setConflictDetail] = useState<string | null>(null);
-  const [strategy, setStrategy] = useState("skip");
+  const [strategy, setStrategy] = useState("smartMerge");
   const [nameMatchMode, setNameMatchMode] = useState("exact");
 
   const importMutation = useMutation({
@@ -213,7 +210,10 @@ export default function AddParticipantsBySpreadsheet() {
           <StepLabel>Select sheet</StepLabel>
         </Step>
         <Step>
-          <StepLabel>Map columns to participants' details</StepLabel>
+          <StepLabel>Map columns to participant details</StepLabel>
+        </Step>
+        <Step>
+          <StepLabel>Choose how data is handled</StepLabel>
         </Step>
       </Stepper>
 
@@ -275,8 +275,8 @@ export default function AddParticipantsBySpreadsheet() {
       {activeStep === 1 && preview && (
         <Stack spacing={2}>
           <Typography variant="subtitle1">
-            There're multiple sheets in your uploaded file. Choose the one that
-            has the data you want to import!
+            There are multiple sheets in your uploaded file. Choose the one that
+            has the data you want to import.
           </Typography>
           {Object.keys(preview.sheets).map((name) => {
             const sheet = preview.sheets[name];
@@ -345,142 +345,121 @@ export default function AddParticipantsBySpreadsheet() {
       {activeStep === 2 && preview && selectedSheet && (
         <Stack spacing={2}>
           <Typography variant="subtitle1">
-            <strong>{selectedSheet}</strong> - Use the dropdown to map your
+            <strong>{selectedSheet}</strong> — Use the dropdown to map your
             spreadsheet columns to corresponding participant information. The
             first 5 data entries are shown for preview.
           </Typography>
 
-          <Stack spacing={2}>
-            <FormControl>
-              <Typography variant="subtitle2" gutterBottom>
-                Duplicate handling strategy
-              </Typography>
-              <RadioGroup
-                value={strategy}
-                onChange={(e) => setStrategy(e.target.value)}
-              >
-                <FormControlLabel
-                  value="skip"
-                  control={<Radio />}
-                  label="Skip (Recommended)"
-                />
-                <FormControlLabel
-                  value="overwrite"
-                  control={<Radio />}
-                  label="Overwrite"
-                />
-                <FormControlLabel
-                  value="smartMerge"
-                  control={<Radio />}
-                  label="Smart Merge"
-                />
-              </RadioGroup>
-            </FormControl>
-
-            <FormControl>
-              <Typography variant="subtitle2" gutterBottom>
-                Name matching mode
-              </Typography>
-              <Select
-                value={nameMatchMode}
-                onChange={(e) => setNameMatchMode(e.target.value)}
-                size="small"
-                sx={{ maxWidth: 200 }}
-              >
-                <MenuItem value="exact">Exact Match</MenuItem>
-                <MenuItem value="fuzzy">Fuzzy Match</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-
           {preview.sheets[selectedSheet].columns.length > 0 ? (
-            <>
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      {(() => {
-                        const usedFields = new Set(
-                          Object.values(columnMapping).filter(
-                            (f) => f !== "(Ignore)",
-                          ),
-                        );
-                        return preview.sheets[selectedSheet].columns.map(
-                          (col) => {
-                            const assigned = columnMapping[col] || "(Ignore)";
-                            return (
-                              <TableCell
-                                key={col}
-                                sx={{ verticalAlign: "top", pb: 1 }}
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    {(() => {
+                      const usedFields = new Set(
+                        Object.values(columnMapping).filter(
+                          (f) => f !== "(Ignore)",
+                        ),
+                      );
+                      return preview.sheets[selectedSheet].columns.map(
+                        (col) => {
+                          const assigned = columnMapping[col] || "(Ignore)";
+                          return (
+                            <TableCell
+                              key={col}
+                              sx={{ verticalAlign: "top", pb: 1 }}
+                            >
+                              <Select
+                                value={assigned}
+                                onChange={(
+                                  ev: SelectChangeEvent<ParticipantField>,
+                                ) =>
+                                  handleColumnMappingChange(
+                                    col,
+                                    ev.target.value as ParticipantField,
+                                  )
+                                }
+                                size="small"
+                                sx={{ minWidth: 100 }}
                               >
-                                <Select
-                                  value={assigned}
-                                  onChange={(
-                                    ev: SelectChangeEvent<ParticipantField>,
-                                  ) =>
-                                    handleColumnMappingChange(
-                                      col,
-                                      ev.target.value as ParticipantField,
-                                    )
-                                  }
-                                  size="small"
-                                  sx={{ minWidth: 100 }}
-                                >
-                                  {PARTICIPANT_FIELDS.map((f) => (
-                                    <MenuItem
-                                      key={f}
-                                      value={f}
-                                      disabled={
-                                        f !== "(Ignore)" &&
-                                        f !== assigned &&
-                                        usedFields.has(f)
-                                      }
-                                    >
-                                      {f}
-                                    </MenuItem>
-                                  ))}
-                                </Select>
-                              </TableCell>
-                            );
-                          },
-                        );
-                      })()}
-                    </TableRow>
-                    <TableRow>
-                      {preview.sheets[selectedSheet].columns.map((col) => (
-                        <TableCell key={col} sx={{ fontWeight: 600, pt: 1 }}>
-                          {col}
-                        </TableCell>
+                                {PARTICIPANT_FIELDS.map((f) => (
+                                  <MenuItem
+                                    key={f}
+                                    value={f}
+                                    disabled={
+                                      f !== "(Ignore)" &&
+                                      f !== assigned &&
+                                      usedFields.has(f)
+                                    }
+                                  >
+                                    {f === "Name" ? "Name *" : f}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </TableCell>
+                          );
+                        },
+                      );
+                    })()}
+                  </TableRow>
+                  <TableRow>
+                    {preview.sheets[selectedSheet].columns.map((col) => (
+                      <TableCell key={col} sx={{ fontWeight: 600, pt: 1 }}>
+                        {col}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {preview.sheets[selectedSheet].heads.map((row, ri) => (
+                    <TableRow key={ri}>
+                      {preview.sheets[selectedSheet].columns.map((_, ci) => (
+                        <TableCell key={ci}>{row[ci] ?? ""}</TableCell>
                       ))}
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {preview.sheets[selectedSheet].heads.map((row, ri) => (
-                      <TableRow key={ri}>
-                        {preview.sheets[selectedSheet].columns.map((_, ci) => (
-                          <TableCell key={ci}>{row[ci] ?? ""}</TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              <Box>
-                <Button
-                  variant="contained"
-                  onClick={handleImport}
-                  loading={importMutation.isPending}
-                  disabled={isImportDisabled}
-                >
-                  Import Participants
-                </Button>
-              </Box>
-            </>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           ) : (
             <Typography variant="body2" color="text.secondary">
               This sheet is empty.
             </Typography>
           )}
+
+          <Box>
+            <Button
+              variant="contained"
+              onClick={() => setActiveStep(3)}
+              disabled={isImportDisabled}
+            >
+              Next
+            </Button>
+          </Box>
+        </Stack>
+      )}
+
+      {activeStep === 3 && (
+        <Stack spacing={3}>
+          <DataHandlingStep
+            strategy={strategy}
+            onStrategyChange={setStrategy}
+            nameMatchMode={nameMatchMode}
+            onNameMatchModeChange={setNameMatchMode}
+          />
+
+          <Stack direction="row" spacing={2}>
+            <Button variant="outlined" onClick={() => setActiveStep(2)}>
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleImport}
+              loading={importMutation.isPending}
+            >
+              Import Participants
+            </Button>
+          </Stack>
         </Stack>
       )}
 
