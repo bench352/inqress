@@ -6,7 +6,7 @@ import uuid
 
 import openpyxl
 
-from schema.rest import AttendeeCreate
+import schema.rest
 
 CacheEntry = tuple[dict[str, tuple[list[str], list[list[str]]]], datetime.datetime]
 _cache: dict[uuid.UUID, CacheEntry] = {}
@@ -94,7 +94,7 @@ def map_rows(
     name_column: str | None,
     raw_phone_column: str | None,
     email_column: str | None,
-) -> list[AttendeeCreate]:
+) -> list[schema.rest.ParticipantCreate]:
     if sheet_name not in workbook:
         raise ValueError(f"Sheet '{sheet_name}' not found in workbook")
     columns, rows = workbook[sheet_name]
@@ -111,23 +111,31 @@ def map_rows(
     def _get(row: list[str], idx: int) -> str:
         return row[idx] if idx < len(row) else ""
 
-    result: list[AttendeeCreate] = []
+    result: list[schema.rest.ParticipantCreate] = []
     for row in rows:
         title = (
-            _get(row, idx_by_field["title"]).strip() if "title" in idx_by_field else ""
+            _get(row, idx_by_field["title"]).strip()
+            if "title" in idx_by_field
+            else None
         )
-        name = _get(row, idx_by_field["name"]).strip() if "name" in idx_by_field else ""
+        name = (
+            _get(row, idx_by_field["name"]).strip() if "name" in idx_by_field else None
+        )
         raw_phone = (
             _get(row, idx_by_field["raw_phone"]).strip()
             if "raw_phone" in idx_by_field
-            else ""
+            else None
         )
         email = (
-            _get(row, idx_by_field["email"]).strip() if "email" in idx_by_field else ""
+            _get(row, idx_by_field["email"]).strip()
+            if "email" in idx_by_field
+            else None
         )
         if not name:
             continue
         result.append(
-            AttendeeCreate(title=title, name=name, email=email, raw_phone=raw_phone)
+            schema.rest.ParticipantCreate(
+                title=title, name=name, email=email, raw_phone=raw_phone
+            )
         )
     return result

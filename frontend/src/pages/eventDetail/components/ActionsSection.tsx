@@ -19,7 +19,7 @@ interface Props {
   undeliveredReadyCount: number;
   notReadyCount: number;
   notReadyIds: string[];
-  createAttendeeProgress: ProgressState | null;
+  createParticipantProgress: ProgressState | null;
   sendEmailProgress: ProgressState | null;
   generateTicketQrProgress: ProgressState | null;
 }
@@ -29,7 +29,7 @@ export default function ActionsSection({
   undeliveredReadyCount,
   notReadyCount,
   notReadyIds,
-  createAttendeeProgress,
+  createParticipantProgress,
   sendEmailProgress,
   generateTicketQrProgress,
 }: Props) {
@@ -45,8 +45,8 @@ export default function ActionsSection({
       <Typography variant="subtitle1">Actions</Typography>
       <Stack spacing={2}>
         <ProgressCard
-          title="Importing attendees..."
-          progress={createAttendeeProgress}
+          title="Importing participants..."
+          progress={createParticipantProgress}
         />
         <ProgressCard title="Sending emails..." progress={sendEmailProgress} />
         <ProgressCard
@@ -63,11 +63,11 @@ export default function ActionsSection({
               >
                 <QrCodeIcon color="primary" />
                 <Typography variant="h6">
-                  Generate ticket QR codes for all attendees
+                  Generate ticket QR codes for all participants
                 </Typography>
               </Stack>
               <Typography variant="body2" color="text.secondary">
-                {notReadyCount} attendee(s) don't have a ticket QR code yet.
+                {notReadyCount} participant(s) don't have a ticket QR code yet.
                 This must be done before delivering tickets.
               </Typography>
               <Button
@@ -91,13 +91,13 @@ export default function ActionsSection({
               >
                 <EmailIcon color="primary" />
                 <Typography variant="h6">
-                  Deliver tickets to all attendees in one click
+                  Deliver tickets to participants in one click
                 </Typography>
               </Stack>
               <Typography variant="body2" color="text.secondary">
-                {undeliveredReadyCount} attendee(s) haven't received their
-                ticket yet. Click here to send tickets to all undelivered
-                attendees.
+                {undeliveredReadyCount === 1
+                  ? "1 participant is waiting for ticket delivery and has registered their email address. Click here to send the ticket at once."
+                  : `${undeliveredReadyCount} participants are waiting for ticket delivery and have registered their email addresses. Click here to send tickets to them at once.`}
               </Typography>
               <Button
                 variant="contained"
@@ -108,7 +108,7 @@ export default function ActionsSection({
                   })
                 }
               >
-                Bulk ticket delivery to undelivered attendees
+                Bulk ticket delivery to undelivered participants
               </Button>
             </Stack>
           </Card>

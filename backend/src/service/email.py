@@ -1,31 +1,28 @@
 import base64
+import email.mime.image
+import email.mime.multipart
+import email.mime.text
 import logging
 import math
 import smtplib
 import time
 import uuid
-from email.mime.image import MIMEImage
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 from jinja2 import Template
 
-from config import get_config
-from schema.sse import (
-    SendEmailErrorData,
-    SendEmailProgressData,
-    SendEmailSuccessData,
-    SseEvent,
-    SseEventType,
-    SseType,
-)
-from service.event_stream import EventStreamManager
+import config
+import schema.sse
+import service.event_stream
 
 logger = logging.getLogger(__name__)
 
 
 def _render_template(
-    template_str: str, title: str, full_name: str, event_name: str, sender_name: str
+    template_str: str,
+    title: str | None,
+    full_name: str,
+    event_name: str,
+    sender_name: str,
 ) -> str:
     template = Template(template_str)
     ticket_qr = (
@@ -45,7 +42,7 @@ def _render_template(
 
 def render_preview_html(
     template_str: str,
-    title: str,
+    title: str | None,
     full_name: str,
     event_name: str,
     sender_name: str,
@@ -60,26 +57,26 @@ def send_ticket_email(
     to_email: str,
     subject: str,
     template_str: str,
-    title: str,
+    title: str | None,
     full_name: str,
     event_name: str,
     sender_name: str,
     qr_image_bytes: bytes,
 ) -> None:
-    cfg = get_config()
+    cfg = config.get_config()
     if not cfg.email_smtp.host:
         raise RuntimeError("SMTP is not configured")
 
     html = _render_template(template_str, title, full_name, event_name, sender_name)
 
-    msg = MIMEMultipart("related")
+    msg = email.mime.multipart.MIMEMultipart("related")
     msg["Subject"] = subject
     msg["From"] = cfg.email_smtp.display_email or cfg.email_smtp.username
     msg["To"] = to_email
 
-    msg.attach(MIMEText(html, "html"))
+    msg.attach(email.mime.text.MIMEText(html, "html"))
 
-    img = MIMEImage(qr_image_bytes, "png")
+    img = email.mime.image.MIMEImage(qr_image_bytes, "png")
     img.add_header("Content-ID", "<qr_code>")
     img.add_header("Content-Disposition", "inline", filename="ticket.png")
     msg.attach(img)
@@ -101,23 +98,23 @@ def send_ticket_email(
 
 def bulk_send_task(
     event_id: uuid.UUID,
-    attendee_ids: list[uuid.UUID],
+    participant_ids: list[uuid.UUID],
     get_event,
     get_email_template,
-    get_attendee,
+    get_participant,
     get_ticket_image,
     mark_ticket_delivered,
 ) -> None:
-    manager = EventStreamManager()
+    manager = service.event_stream.event_stream_manager
     event = get_event(event_id)
     if event is None:
         logger.error("Event %s not found during bulk email task", event_id)
         manager.send(
             event_id,
-            SseEvent[SendEmailErrorData](
-                event_type=SseEventType.SEND_EMAIL,
-                type=SseType.NOTIFICATION,
-                data=SendEmailErrorData(detail="Event not found"),
+            schema.sse.SseEvent[schema.sse.SendEmailErrorData](
+                event_type=schema.sse.SseEventType.SEND_EMAIL,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.SendEmailErrorData(detail="Event not found"),
             ),
         )
         return
@@ -127,18 +124,18 @@ def bulk_send_task(
         logger.error("Email template not found for event %s", event_id)
         manager.send(
             event_id,
-            SseEvent[SendEmailErrorData](
-                event_type=SseEventType.SEND_EMAIL,
-                type=SseType.NOTIFICATION,
-                data=SendEmailErrorData(detail="Email template not found"),
+            schema.sse.SseEvent[schema.sse.SendEmailErrorData](
+                event_type=schema.sse.SseEventType.SEND_EMAIL,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.SendEmailErrorData(detail="Email template not found"),
             ),
         )
         return
 
-    cfg = get_config()
+    cfg = config.get_config()
     sender_name = cfg.app.organization_name or "Event Organizer"
     smtp_cfg = cfg.email_smtp
-    total = len(attendee_ids)
+    total = len(participant_ids)
     num_completed = 0
     num_errors = 0
     start_time = time.monotonic()
@@ -146,10 +143,10 @@ def bulk_send_task(
     def _notify_error(detail: str) -> None:
         manager.send(
             event_id,
-            SseEvent[SendEmailErrorData](
-                event_type=SseEventType.SEND_EMAIL,
-                type=SseType.NOTIFICATION,
-                data=SendEmailErrorData(detail=detail),
+            schema.sse.SseEvent[schema.sse.SendEmailErrorData](
+                event_type=schema.sse.SseEventType.SEND_EMAIL,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.SendEmailErrorData(detail=detail),
             ),
         )
 
@@ -161,10 +158,10 @@ def bulk_send_task(
             est = max(1, math.ceil(est_sec / 60))
         manager.send(
             event_id,
-            SseEvent[SendEmailProgressData](
-                event_type=SseEventType.SEND_EMAIL,
-                type=SseType.PROGRESS,
-                data=SendEmailProgressData(
+            schema.sse.SseEvent[schema.sse.SendEmailProgressData](
+                event_type=schema.sse.SseEventType.SEND_EMAIL,
+                type=schema.sse.SseType.PROGRESS,
+                data=schema.sse.SendEmailProgressData(
                     in_progress=True,
                     num_completed=num_completed,
                     num_total=total,
@@ -176,65 +173,79 @@ def bulk_send_task(
         )
 
     try:
-        for i, attendee_id in enumerate(attendee_ids):
+        for i, participant_id in enumerate(participant_ids):
             _send_progress()
 
             try:
-                attendee = get_attendee(event_id, attendee_id)
-                if attendee is None:
+                participant = get_participant(event_id, participant_id)
+                if participant is None:
                     logger.warning(
-                        "Attendee %s not found, skipping (%d/%d)",
-                        attendee_id,
+                        "Participant %s not found, skipping (%d/%d)",
+                        participant_id,
                         i + 1,
                         total,
                     )
                     num_errors += 1
-                    _notify_error(f"Attendee {attendee_id} not found")
+                    _notify_error(f"Participant {participant_id} not found")
                     num_completed += 1
                     continue
 
-                qr_bytes = get_ticket_image(event_id, attendee_id)
-                if qr_bytes is None:
+                if not participant.email:
                     logger.warning(
-                        "Ticket image not ready for attendee %s, skipping (%d/%d)",
-                        attendee_id,
+                        "Participant %s has no email, skipping (%d/%d)",
+                        participant_id,
                         i + 1,
                         total,
                     )
                     num_errors += 1
                     _notify_error(
-                        f"Ticket image not ready for {attendee.title} {attendee.name}"
+                        f"No email for {participant.title} {participant.name}"
+                    )
+                    num_completed += 1
+                    continue
+
+                qr_bytes = get_ticket_image(event_id, participant_id)
+                if qr_bytes is None:
+                    logger.warning(
+                        "Ticket image not ready for participant %s, skipping (%d/%d)",
+                        participant_id,
+                        i + 1,
+                        total,
+                    )
+                    num_errors += 1
+                    _notify_error(
+                        f"Ticket image not ready for {participant.title} {participant.name}"
                     )
                     num_completed += 1
                     continue
 
                 subject = f"[Ticket] {event.name}"
                 send_ticket_email(
-                    attendee.email,
+                    participant.email,
                     subject,
                     template.text,
-                    attendee.title,
-                    attendee.name,
+                    participant.title,
+                    participant.name,
                     event.name,
                     sender_name,
                     qr_bytes,
                 )
-                if not mark_ticket_delivered(event_id, attendee_id):
+                if not mark_ticket_delivered(event_id, participant_id):
                     logger.warning(
-                        "Failed to mark ticket delivered for attendee %s in event %s",
-                        attendee_id,
+                        "Failed to mark ticket delivered for participant %s in event %s",
+                        participant_id,
                         event_id,
                     )
-                logger.info("Sent email to %s (%d/%d)", attendee.email, i + 1, total)
+                logger.info("Sent email to %s (%d/%d)", participant.email, i + 1, total)
             except Exception:
                 logger.exception(
-                    "Failed to send email to attendee %s (%d/%d)",
-                    attendee_id,
+                    "Failed to send email to participant %s (%d/%d)",
+                    participant_id,
                     i + 1,
                     total,
                 )
                 num_errors += 1
-                _notify_error(f"Failed to send email to attendee {attendee_id}")
+                _notify_error(f"Failed to send email to participant {participant_id}")
 
             num_completed += 1
 
@@ -243,10 +254,10 @@ def bulk_send_task(
 
         manager.send(
             event_id,
-            SseEvent[SendEmailProgressData](
-                event_type=SseEventType.SEND_EMAIL,
-                type=SseType.PROGRESS,
-                data=SendEmailProgressData(
+            schema.sse.SseEvent[schema.sse.SendEmailProgressData](
+                event_type=schema.sse.SseEventType.SEND_EMAIL,
+                type=schema.sse.SseType.PROGRESS,
+                data=schema.sse.SendEmailProgressData(
                     in_progress=False,
                     num_completed=num_completed,
                     num_total=total,
@@ -258,15 +269,15 @@ def bulk_send_task(
 
         manager.send(
             event_id,
-            SseEvent[SendEmailSuccessData](
-                event_type=SseEventType.SEND_EMAIL,
-                type=SseType.NOTIFICATION,
-                data=SendEmailSuccessData(),
+            schema.sse.SseEvent[schema.sse.SendEmailSuccessData](
+                event_type=schema.sse.SseEventType.SEND_EMAIL,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.SendEmailSuccessData(),
             ),
         )
 
         logger.info(
-            "Bulk email sending completed for event %s (%d attendees)",
+            "Bulk email sending completed for event %s (%d participants)",
             event_id,
             total,
         )
@@ -276,10 +287,10 @@ def bulk_send_task(
 
         manager.send(
             event_id,
-            SseEvent[SendEmailProgressData](
-                event_type=SseEventType.SEND_EMAIL,
-                type=SseType.PROGRESS,
-                data=SendEmailProgressData(
+            schema.sse.SseEvent[schema.sse.SendEmailProgressData](
+                event_type=schema.sse.SseEventType.SEND_EMAIL,
+                type=schema.sse.SseType.PROGRESS,
+                data=schema.sse.SendEmailProgressData(
                     in_progress=False,
                     num_completed=num_completed,
                     num_total=total,
@@ -291,31 +302,31 @@ def bulk_send_task(
 
         manager.send(
             event_id,
-            SseEvent[SendEmailErrorData](
-                event_type=SseEventType.SEND_EMAIL,
-                type=SseType.NOTIFICATION,
-                data=SendEmailErrorData(detail=str(e)),
+            schema.sse.SseEvent[schema.sse.SendEmailErrorData](
+                event_type=schema.sse.SseEventType.SEND_EMAIL,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.SendEmailErrorData(detail=str(e)),
             ),
         )
 
 
 def bulk_send_and_notify(
     event_id: uuid.UUID,
-    attendee_ids: list[uuid.UUID],
+    participant_ids: list[uuid.UUID],
     get_event,
     get_email_template,
-    get_attendee,
+    get_participant,
     get_ticket_image,
     mark_ticket_delivered,
 ) -> None:
-    manager = EventStreamManager()
+    manager = service.event_stream.event_stream_manager
     try:
         bulk_send_task(
             event_id,
-            attendee_ids,
+            participant_ids,
             get_event,
             get_email_template,
-            get_attendee,
+            get_participant,
             get_ticket_image,
             mark_ticket_delivered,
         )

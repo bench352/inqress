@@ -5,25 +5,19 @@ import math
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
-import qrcode
 import pyseto
-from cryptography.hazmat.primitives.asymmetric import ed25519
+import qrcode
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
 from sqlalchemy import select, update
 
-from schema.orm import Attendee
-from schema.service import TicketPayload
-from schema.sse import (
-    GenerateTicketQrErrorData,
-    GenerateTicketQrProgressData,
-    GenerateTicketQrSuccessData,
-    SseEvent,
-    SseEventType,
-    SseType,
-)
-from service.db import get_session
-from service.event_stream import EventStreamManager
+import schema.orm
+import schema.service
+import schema.sse
+import service.db
+import service.event_stream
 
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _KEY_PATH = _DATA_DIR / "key.pem"
@@ -70,42 +64,48 @@ def init_keys() -> None:
         _public_key = pyseto.Key.new(version=2, purpose="public", key=public_pem)
 
 
-def verify_ticket(token_str: str) -> TicketPayload:
+def verify_ticket(token_str: str) -> schema.service.TicketPayload:
     assert _public_key is not None, "Keys not initialized"
     try:
         decoded = pyseto.decode(_public_key, token_str)
-        payload = json.loads(decoded.payload)
-        return TicketPayload(
+        raw = decoded.payload
+        payload: dict[str, Any] = json.loads(raw) if isinstance(raw, bytes) else raw
+        return schema.service.TicketPayload(
             event_id=uuid.UUID(payload["eventId"]),
-            attendee_id=uuid.UUID(payload["attendeeId"]),
+            participant_id=uuid.UUID(payload["participantId"]),
         )
     except Exception as e:
         raise ValueError("Not a valid ticket.") from e
 
 
-def generate_ticket(event_id: uuid.UUID, attendee_id: uuid.UUID) -> str:
+def generate_ticket(event_id: uuid.UUID, participant_id: uuid.UUID) -> str:
     assert _private_key is not None, "Keys not initialized"
-    payload = TicketPayload(event_id=event_id, attendee_id=attendee_id)
+    payload = schema.service.TicketPayload(
+        event_id=event_id, participant_id=participant_id
+    )
     token = pyseto.encode(
         _private_key,
-        {"eventId": str(payload.event_id), "attendeeId": str(payload.attendee_id)},
+        {
+            "eventId": str(payload.event_id),
+            "participantId": str(payload.participant_id),
+        },
     )
     return token.decode()
 
 
 def generate_qrs_task(
     event_id: uuid.UUID,
-    attendee_ids: list[uuid.UUID],
+    participant_ids: list[uuid.UUID],
 ) -> None:
-    manager = EventStreamManager()
-    total = len(attendee_ids)
+    manager = service.event_stream.event_stream_manager
+    total = len(participant_ids)
     if total == 0:
         manager.send(
             event_id,
-            SseEvent[GenerateTicketQrSuccessData](
-                event_type=SseEventType.GENERATE_TICKET_QR,
-                type=SseType.NOTIFICATION,
-                data=GenerateTicketQrSuccessData(),
+            schema.sse.SseEvent[schema.sse.GenerateTicketQrSuccessData](
+                event_type=schema.sse.SseEventType.GENERATE_TICKET_QR,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.GenerateTicketQrSuccessData(),
             ),
         )
         return
@@ -117,10 +117,10 @@ def generate_qrs_task(
     def _notify_error(detail: str) -> None:
         manager.send(
             event_id,
-            SseEvent[GenerateTicketQrErrorData](
-                event_type=SseEventType.GENERATE_TICKET_QR,
-                type=SseType.NOTIFICATION,
-                data=GenerateTicketQrErrorData(detail=detail),
+            schema.sse.SseEvent[schema.sse.GenerateTicketQrErrorData](
+                event_type=schema.sse.SseEventType.GENERATE_TICKET_QR,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.GenerateTicketQrErrorData(detail=detail),
             ),
         )
 
@@ -132,10 +132,10 @@ def generate_qrs_task(
             est = max(1, math.ceil(est_sec / 60))
         manager.send(
             event_id,
-            SseEvent[GenerateTicketQrProgressData](
-                event_type=SseEventType.GENERATE_TICKET_QR,
-                type=SseType.PROGRESS,
-                data=GenerateTicketQrProgressData(
+            schema.sse.SseEvent[schema.sse.GenerateTicketQrProgressData](
+                event_type=schema.sse.SseEventType.GENERATE_TICKET_QR,
+                type=schema.sse.SseType.PROGRESS,
+                data=schema.sse.GenerateTicketQrProgressData(
                     in_progress=True,
                     num_completed=num_completed,
                     num_total=total,
@@ -147,82 +147,82 @@ def generate_qrs_task(
         )
 
     try:
-        for i, attendee_id in enumerate(attendee_ids):
+        for i, participant_id in enumerate(participant_ids):
             _send_progress()
 
             try:
-                with get_session() as session:
-                    attendee = (
+                with service.db.get_session() as session:
+                    participant = (
                         session.execute(
-                            select(Attendee).where(
-                                Attendee.id == attendee_id,
-                                Attendee.event_id == event_id,
+                            select(schema.orm.Participant).where(
+                                schema.orm.Participant.id == participant_id,
+                                schema.orm.Participant.event_id == event_id,
                             )
                         )
                         .scalars()
                         .first()
                     )
 
-                    if attendee is None:
+                    if participant is None:
                         logger.warning(
-                            "Attendee %s not found, skipping (%d/%d)",
-                            attendee_id,
+                            "Participant %s not found, skipping (%d/%d)",
+                            participant_id,
                             i + 1,
                             total,
                         )
                         num_errors += 1
-                        _notify_error(f"Attendee {attendee_id} not found")
+                        _notify_error(f"Participant {participant_id} not found")
                         num_completed += 1
                         continue
 
-                    if not attendee.ticket_token:
+                    if not participant.ticket_token:
                         logger.warning(
-                            "Attendee %s has no ticket token, skipping (%d/%d)",
-                            attendee_id,
+                            "Participant %s has no ticket token, skipping (%d/%d)",
+                            participant_id,
                             i + 1,
                             total,
                         )
                         num_errors += 1
                         _notify_error(
-                            f"No ticket token for {attendee.title} {attendee.name}"
+                            f"No ticket token for {participant.title} {participant.name}"
                         )
                         num_completed += 1
                         continue
 
-                    img = qrcode.make(attendee.ticket_token)
+                    img = qrcode.make(participant.ticket_token)
                     buf = io.BytesIO()
-                    img.save(buf, format="PNG")
+                    img.save(buf, format="PNG")  # type: ignore[call-arg]
 
                     session.execute(
-                        update(Attendee)
-                        .where(Attendee.id == attendee_id)
+                        update(schema.orm.Participant)
+                        .where(schema.orm.Participant.id == participant_id)
                         .values(ticket_img=buf.getvalue())
                     )
 
                     logger.info(
                         "Generated ticket QR for %s (%d/%d)",
-                        attendee.email,
+                        participant.email or participant.name,
                         i + 1,
                         total,
                     )
             except Exception:
                 logger.exception(
-                    "Failed to generate ticket QR for attendee %s (%d/%d)",
-                    attendee_id,
+                    "Failed to generate ticket QR for participant %s (%d/%d)",
+                    participant_id,
                     i + 1,
                     total,
                 )
                 num_errors += 1
-                _notify_error(f"Failed to generate QR for attendee {attendee_id}")
+                _notify_error(f"Failed to generate QR for participant {participant_id}")
 
             num_completed += 1
 
         manager.send(
             event_id,
-            SseEvent[GenerateTicketQrProgressData](
-                event_type=SseEventType.GENERATE_TICKET_QR,
-                type=SseType.PROGRESS,
-                data=GenerateTicketQrProgressData(
+            schema.sse.SseEvent[schema.sse.GenerateTicketQrProgressData](
+                event_type=schema.sse.SseEventType.GENERATE_TICKET_QR,
+                type=schema.sse.SseType.PROGRESS,
+                data=schema.sse.GenerateTicketQrProgressData(
                     in_progress=False,
                     num_completed=num_completed,
                     num_total=total,
@@ -234,15 +234,15 @@ def generate_qrs_task(
 
         manager.send(
             event_id,
-            SseEvent[GenerateTicketQrSuccessData](
-                event_type=SseEventType.GENERATE_TICKET_QR,
-                type=SseType.NOTIFICATION,
-                data=GenerateTicketQrSuccessData(),
+            schema.sse.SseEvent[schema.sse.GenerateTicketQrSuccessData](
+                event_type=schema.sse.SseEventType.GENERATE_TICKET_QR,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.GenerateTicketQrSuccessData(),
             ),
         )
 
         logger.info(
-            "Ticket QR generation completed for event %s (%d attendees)",
+            "Ticket QR generation completed for event %s (%d participants)",
             event_id,
             total,
         )
@@ -252,10 +252,10 @@ def generate_qrs_task(
 
         manager.send(
             event_id,
-            SseEvent[GenerateTicketQrProgressData](
-                event_type=SseEventType.GENERATE_TICKET_QR,
-                type=SseType.PROGRESS,
-                data=GenerateTicketQrProgressData(
+            schema.sse.SseEvent[schema.sse.GenerateTicketQrProgressData](
+                event_type=schema.sse.SseEventType.GENERATE_TICKET_QR,
+                type=schema.sse.SseType.PROGRESS,
+                data=schema.sse.GenerateTicketQrProgressData(
                     in_progress=False,
                     num_completed=num_completed,
                     num_total=total,
@@ -267,20 +267,20 @@ def generate_qrs_task(
 
         manager.send(
             event_id,
-            SseEvent[GenerateTicketQrErrorData](
-                event_type=SseEventType.GENERATE_TICKET_QR,
-                type=SseType.NOTIFICATION,
-                data=GenerateTicketQrErrorData(detail=str(e)),
+            schema.sse.SseEvent[schema.sse.GenerateTicketQrErrorData](
+                event_type=schema.sse.SseEventType.GENERATE_TICKET_QR,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.GenerateTicketQrErrorData(detail=str(e)),
             ),
         )
 
 
 def generate_qrs_and_notify(
     event_id: uuid.UUID,
-    attendee_ids: list[uuid.UUID],
+    participant_ids: list[uuid.UUID],
 ) -> None:
-    manager = EventStreamManager()
+    manager = service.event_stream.event_stream_manager
     try:
-        generate_qrs_task(event_id, attendee_ids)
+        generate_qrs_task(event_id, participant_ids)
     finally:
         manager.mark_job_done(event_id, "ticket_qr")

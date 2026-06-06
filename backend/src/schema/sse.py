@@ -1,14 +1,14 @@
-from enum import StrEnum
-from typing import Generic, TypeVar
+import enum
+import typing
 
-from schema.booth import BoothLifecycleStatus
-from schema.rest import RestModel
+import schema.booth
+import schema.rest
 
-T = TypeVar("T")
+T = typing.TypeVar("T")
 
 
-class SseEventType(StrEnum):
-    CREATE_ATTENDEE = "CREATE_ATTENDEE"
+class SseEventType(enum.StrEnum):
+    CREATE_PARTICIPANT = "CREATE_PARTICIPANT"
     SEND_EMAIL = "SEND_EMAIL"
     ATTENDANCE = "ATTENDANCE"
     GENERATE_TICKET_QR = "GENERATE_TICKET_QR"
@@ -17,19 +17,19 @@ class SseEventType(StrEnum):
     BOOTH_LIFECYCLE = "BOOTH_LIFECYCLE"
 
 
-class SseType(StrEnum):
+class SseType(enum.StrEnum):
     PROGRESS = "PROGRESS"
     NOTIFICATION = "NOTIFICATION"
     COMMAND = "COMMAND"
 
 
-class SseEvent(RestModel, Generic[T]):
+class SseEvent(schema.rest.RestModel, typing.Generic[T]):
     event_type: SseEventType
     type: SseType
     data: T
 
 
-class CreateAttendeeProgressData(RestModel):
+class CreateParticipantProgressData(schema.rest.RestModel):
     in_progress: bool
     num_completed: int
     num_total: int
@@ -37,18 +37,18 @@ class CreateAttendeeProgressData(RestModel):
     num_errors: int = 0
 
 
-class CreateAttendeeSuccessData(RestModel):
+class CreateParticipantSuccessData(schema.rest.RestModel):
     type: str = "success"
     expire_on: str
     result_id: str
 
 
-class CreateAttendeeErrorData(RestModel):
+class CreateParticipantErrorData(schema.rest.RestModel):
     type: str = "error"
     detail: str
 
 
-class SendEmailProgressData(RestModel):
+class SendEmailProgressData(schema.rest.RestModel):
     in_progress: bool
     num_completed: int
     num_total: int
@@ -56,24 +56,24 @@ class SendEmailProgressData(RestModel):
     num_errors: int = 0
 
 
-class SendEmailSuccessData(RestModel):
+class SendEmailSuccessData(schema.rest.RestModel):
     type: str = "success"
 
 
-class SendEmailErrorData(RestModel):
+class SendEmailErrorData(schema.rest.RestModel):
     type: str = "error"
     detail: str
 
 
-class AttendanceNotificationData(RestModel):
-    attendee_id: str
-    title: str
+class AttendanceNotificationData(schema.rest.RestModel):
+    participant_id: str
+    title: str | None = None
     name: str
     check_in_method: str
     check_in_at: str
 
 
-class GenerateTicketQrProgressData(RestModel):
+class GenerateTicketQrProgressData(schema.rest.RestModel):
     in_progress: bool
     num_completed: int
     num_total: int
@@ -81,25 +81,25 @@ class GenerateTicketQrProgressData(RestModel):
     num_errors: int = 0
 
 
-class GenerateTicketQrSuccessData(RestModel):
+class GenerateTicketQrSuccessData(schema.rest.RestModel):
     type: str = "success"
 
 
-class GenerateTicketQrErrorData(RestModel):
+class GenerateTicketQrErrorData(schema.rest.RestModel):
     type: str = "error"
     detail: str
 
 
-class ChangeModeData(RestModel):
+class ChangeModeData(schema.rest.RestModel):
     value: str
 
 
-class ControlCommandData(RestModel):
+class ControlCommandData(schema.rest.RestModel):
     command: str
     params: dict = {}
 
 
-class BoothLifecycleData(RestModel):
+class BoothLifecycleData(schema.rest.RestModel):
     event_id: str
     event_name: str
-    status: BoothLifecycleStatus
+    status: schema.booth.BoothLifecycleStatus

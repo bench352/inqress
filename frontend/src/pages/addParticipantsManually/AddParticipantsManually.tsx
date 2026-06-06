@@ -2,9 +2,13 @@ import { useRef, useState } from "react";
 import {
   Box,
   Button,
+  FormControl,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   Table,
@@ -26,7 +30,7 @@ import ConflictDialog from "@/components/ConflictDialog";
 
 const TITLE_OPTIONS = ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof."];
 
-interface AttendeeInput {
+interface ParticipantInput {
   key: number;
   title: string;
   name: string;
@@ -34,9 +38,9 @@ interface AttendeeInput {
   rawPhone: string;
 }
 
-export default function AddAttendeesManually() {
+export default function AddParticipantsManually() {
   const { eventId } = useParams({
-    from: "/app-shell/events/$eventId/addAttendeesManually",
+    from: "/app-shell/events/$eventId/addParticipantsManually",
   });
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
@@ -44,7 +48,7 @@ export default function AddAttendeesManually() {
   const queryClient = useQueryClient();
   const nextKeyRef = useRef(0);
 
-  function newRow(): AttendeeInput {
+  function newRow(): ParticipantInput {
     return {
       key: ++nextKeyRef.current,
       title: "Mr.",
@@ -62,7 +66,7 @@ export default function AddAttendeesManually() {
   const eventName = eventQuery.data?.name ?? "...";
 
   // eslint-disable-next-line react-hooks/refs -- Counter ref used for generating unique list keys
-  const [rows, setRows] = useState<AttendeeInput[]>(() => {
+  const [rows, setRows] = useState<ParticipantInput[]>(() => {
     const key = ++nextKeyRef.current;
     return [{ key, title: "Mr.", name: "", email: "", rawPhone: "" }];
   });
@@ -70,28 +74,34 @@ export default function AddAttendeesManually() {
     Record<number, Record<string, string>>
   >({});
   const [conflictDetail, setConflictDetail] = useState<string | null>(null);
+  const [strategy, setStrategy] = useState("skip");
+  const [nameMatchMode, setNameMatchMode] = useState("exact");
 
   const mutation = useMutation({
     mutationFn: async (
       payload: Array<{
-        title: string;
+        title: string | null;
         name: string;
-        email: string;
-        rawPhone: string;
+        email: string | null;
+        rawPhone: string | null;
       }>,
     ) => {
-      await api.post(`/api/events/${eventId}/attendees`, payload);
+      await api.post(`/api/events/${eventId}/participants`, {
+        strategy,
+        nameMatchMode,
+        data: payload,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
       navigate({ to: "/events/$eventId", params: { eventId } });
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError && err.status === 409) {
-        setConflictDetail(err.detail);
+        setConflictDetail(typeof err.detail === "string" ? err.detail : null);
       } else {
         const message =
-          err instanceof Error ? err.message : "Failed to add attendees";
+          err instanceof Error ? err.message : "Failed to add participants";
         enqueueSnackbar(message, { variant: "error" });
       }
     },
@@ -99,7 +109,7 @@ export default function AddAttendeesManually() {
 
   const updateRow = (
     key: number,
-    field: keyof AttendeeInput,
+    field: keyof ParticipantInput,
     value: string,
   ) => {
     setRows((prev) =>
@@ -141,24 +151,16 @@ export default function AddAttendeesManually() {
         rowErr.name = "Name is required";
         hasErrors = true;
       }
-      if (!row.email.trim()) {
-        rowErr.email = "Email is required";
-        hasErrors = true;
-      }
-      if (!row.rawPhone.trim()) {
-        rowErr.phone = "Phone is required";
-        hasErrors = true;
-      }
       if (Object.keys(rowErr).length > 0) newErrors[row.key] = rowErr;
     }
     setRowErrors(newErrors);
     if (hasErrors) return;
 
     const payload = rows.map(({ title, name, email, rawPhone }) => ({
-      title,
+      title: title || null,
       name,
-      email,
-      rawPhone,
+      email: email || null,
+      rawPhone: rawPhone || null,
     }));
     mutation.mutate(payload);
   };
@@ -173,14 +175,57 @@ export default function AddAttendeesManually() {
     <Stack spacing={3}>
       <Typography variant="h4">{eventName}</Typography>
 
-      <Typography variant="h5">Add Attendees Manually</Typography>
+      <Typography variant="h5">Add Participants Manually</Typography>
+
+      <Stack spacing={2}>
+        <FormControl>
+          <Typography variant="subtitle2" gutterBottom>
+            Duplicate handling strategy
+          </Typography>
+          <RadioGroup
+            value={strategy}
+            onChange={(e) => setStrategy(e.target.value)}
+          >
+            <FormControlLabel
+              value="skip"
+              control={<Radio />}
+              label="Skip (Recommended)"
+            />
+            <FormControlLabel
+              value="overwrite"
+              control={<Radio />}
+              label="Overwrite"
+            />
+            <FormControlLabel
+              value="smartMerge"
+              control={<Radio />}
+              label="Smart Merge"
+            />
+          </RadioGroup>
+        </FormControl>
+
+        <FormControl>
+          <Typography variant="subtitle2" gutterBottom>
+            Name matching mode
+          </Typography>
+          <Select
+            value={nameMatchMode}
+            onChange={(e) => setNameMatchMode(e.target.value)}
+            size="small"
+            sx={{ maxWidth: 200 }}
+          >
+            <MenuItem value="exact">Exact Match</MenuItem>
+            <MenuItem value="fuzzy">Fuzzy Match</MenuItem>
+          </Select>
+        </FormControl>
+      </Stack>
 
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell sx={{ width: 100 }}>Title</TableCell>
-              <TableCell>Name</TableCell>
+              <TableCell>Name *</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Phone</TableCell>
               <TableCell sx={{ width: 48 }} />
@@ -215,7 +260,7 @@ export default function AddAttendeesManually() {
                     error={!!rowErrors[row.key]?.name}
                     size="small"
                     fullWidth
-                    placeholder="Name"
+                    placeholder="Name *"
                   />
                 </TableCell>
                 <TableCell>
@@ -228,7 +273,7 @@ export default function AddAttendeesManually() {
                     error={!!rowErrors[row.key]?.email}
                     size="small"
                     fullWidth
-                    placeholder="Email"
+                    placeholder="Optional"
                     type="email"
                   />
                 </TableCell>
@@ -242,7 +287,7 @@ export default function AddAttendeesManually() {
                     error={!!rowErrors[row.key]?.phone}
                     size="small"
                     fullWidth
-                    placeholder="Phone"
+                    placeholder="Optional"
                     type="tel"
                   />
                 </TableCell>

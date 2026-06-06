@@ -13,19 +13,19 @@ import type { CheckinPhase, CheckinResponse } from "../types";
 interface Props {
   open: boolean;
   eventId: string;
-  attendeeId: string;
-  title: string;
+  participantId: string;
+  title: string | null;
   name: string;
-  countryCode: string;
-  phone: string;
-  email: string;
+  countryCode: string | null;
+  phone: string | null;
+  email: string | null;
   onClose: () => void;
 }
 
 export default function AssistedConfirmationDialog({
   open,
   eventId,
-  attendeeId,
+  participantId,
   title,
   name,
   countryCode,
@@ -41,7 +41,7 @@ export default function AssistedConfirmationDialog({
     setPhase("loading");
     api
       .post<CheckinResponse>(`/api/events/${eventId}/checkin/manual`, {
-        attendeeId,
+        participantId,
       })
       .then((data) => {
         setResult(data);
@@ -88,19 +88,22 @@ export default function AssistedConfirmationDialog({
           Confirm this is you
         </Typography>
         <Typography variant="h1" color="text.secondary">
-          {title} {name}
+          {title ? `${title} ` : ""}
+          {name}
         </Typography>
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <PhoneIcon fontSize="large" color="action" />
             <Typography variant="h4" color="text.secondary">
-              {countryCode} {maskPhone(phone)}
+              {countryCode && phone
+                ? `${countryCode} ${maskPhone(phone)}`
+                : "(No phone number)"}
             </Typography>
           </Stack>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <EmailIcon fontSize="large" color="action" />
             <Typography variant="h4" color="text.secondary">
-              {maskEmail(email)}
+              {email ? maskEmail(email) : "(No email address)"}
             </Typography>
           </Stack>
         </Stack>

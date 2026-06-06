@@ -3,15 +3,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../api";
 import type { EventItem } from ".././eventsList/useEvents";
 
-export interface AttendeeItem {
+export interface ParticipantItem {
   id: string;
   eventId: string;
-  title: string;
+  title: string | null;
   name: string;
-  email: string;
-  rawPhone: string;
-  countryCode: string;
-  phone: string;
+  email: string | null;
+  rawPhone: string | null;
+  countryCode: string | null;
+  phone: string | null;
   isTicketDelivered: boolean;
   isTicketReady: boolean;
   checkedInAt: string | null;
@@ -34,9 +34,9 @@ export function useEventDetail(eventId: string) {
     enabled,
   });
 
-  const attendeesQuery = useQuery<AttendeeItem[]>({
-    queryKey: ["attendees", eventId],
-    queryFn: () => api.get(`/api/events/${eventId}/attendees`),
+  const participantsQuery = useQuery<ParticipantItem[]>({
+    queryKey: ["participants", eventId],
+    queryFn: () => api.get(`/api/events/${eventId}/participants`),
     refetchInterval: 30_000,
     enabled,
   });
@@ -54,7 +54,7 @@ export function useEventDetail(eventId: string) {
       api.put<EventItem>(`/api/events/${eventId}/mode`, { mode }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
     },
   });
 
@@ -64,40 +64,53 @@ export function useEventDetail(eventId: string) {
 
   const attended = useMemo(
     () =>
-      (attendeesQuery.data ?? [])
+      (participantsQuery.data ?? [])
         .filter((a) => a.checkedInAt != null)
         .sort((a, b) =>
           (b.checkedInAt ?? "").localeCompare(a.checkedInAt ?? ""),
         ),
-    [attendeesQuery.data],
+    [participantsQuery.data],
   );
 
   const notAttended = useMemo(
     () =>
-      (attendeesQuery.data ?? [])
-        .filter((a) => a.checkedInAt == null && a.isTicketReady)
+      (participantsQuery.data ?? [])
+        .filter(
+          (a) => a.checkedInAt == null && a.isTicketReady && a.isTicketDelivered,
+        )
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [attendeesQuery.data],
+    [participantsQuery.data],
   );
 
   const ticketUndelivered = useMemo(
     () =>
-      (attendeesQuery.data ?? [])
+      (participantsQuery.data ?? [])
         .filter((a) => a.checkedInAt == null && !a.isTicketReady)
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [attendeesQuery.data],
+    [participantsQuery.data],
   );
 
-  const attendees = attendeesQuery.data ?? [];
+  const notDelivered = useMemo(
+    () =>
+      (participantsQuery.data ?? [])
+        .filter(
+          (a) => a.checkedInAt == null && a.isTicketReady && !a.isTicketDelivered,
+        )
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [participantsQuery.data],
+  );
+
+  const participants = participantsQuery.data ?? [];
 
   return {
     event: eventQuery.data,
     isEventLoading: eventQuery.isLoading,
-    attendees,
+    participants,
     attended,
     notAttended,
+    notDelivered,
     ticketUndelivered,
-    isAttendeesLoading: attendeesQuery.isLoading,
+    isParticipantsLoading: participantsQuery.isLoading,
     updateEvent: updateEventMutation.mutate,
     isUpdating: updateEventMutation.isPending,
     updateMode: updateModeMutation.mutate,

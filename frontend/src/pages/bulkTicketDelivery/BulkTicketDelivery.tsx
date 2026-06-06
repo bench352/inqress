@@ -26,7 +26,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ConflictDialog from "@/components/ConflictDialog";
 import DOMPurify from "dompurify";
 import { ApiError, useApi } from "../../api";
-import type { AttendeeItem } from "../eventDetail/useEventDetail";
+import type { ParticipantItem } from "../eventDetail/useEventDetail";
 import type { EventItem } from "../eventsList/useEvents";
 
 export default function BulkTicketDelivery() {
@@ -43,18 +43,18 @@ export default function BulkTicketDelivery() {
     enabled: !!eventId,
   });
 
-  const attendeesQuery = useQuery<AttendeeItem[]>({
-    queryKey: ["attendees", eventId],
-    queryFn: () => api.get(`/api/events/${eventId}/attendees`),
+  const participantsQuery = useQuery<ParticipantItem[]>({
+    queryKey: ["participants", eventId],
+    queryFn: () => api.get(`/api/events/${eventId}/participants`),
     enabled: !!eventId,
   });
 
   const undeliveredReady = useMemo(
     () =>
-      (attendeesQuery.data ?? []).filter(
-        (a) => !a.isTicketDelivered && a.isTicketReady,
+      (participantsQuery.data ?? []).filter(
+        (a) => !a.isTicketDelivered && a.isTicketReady && a.email,
       ),
-    [attendeesQuery.data],
+    [participantsQuery.data],
   );
 
   const [previewIndex, setPreviewIndex] = useState(0);
@@ -64,36 +64,36 @@ export default function BulkTicketDelivery() {
     previewIndex,
     Math.max(0, undeliveredReady.length - 1),
   );
-  const currentAttendee = undeliveredReady[clampedIndex] ?? null;
+  const currentParticipant = undeliveredReady[clampedIndex] ?? null;
 
   const previewQuery = useQuery({
-    queryKey: ["emailPreview", eventId, currentAttendee?.id],
+    queryKey: ["emailPreview", eventId, currentParticipant?.id],
     queryFn: () =>
       api.getText(
-        `/api/events/${eventId}/attendees/${currentAttendee!.id}/email/preview`,
+        `/api/events/${eventId}/participants/${currentParticipant!.id}/email/preview`,
       ),
-    enabled: !!currentAttendee,
+    enabled: !!currentParticipant,
   });
 
-  const previewLoading = !!currentAttendee && previewQuery.isLoading;
+  const previewLoading = !!currentParticipant && previewQuery.isLoading;
   const displayHtml = previewQuery.data ?? null;
 
   const sendMutation = useMutation({
     mutationFn: async () => {
       const body = undeliveredReady.map((a) => a.id);
-      const res = await api.post<{ detail?: string }>(
+      const res = await api.post<{ detail?: unknown }>(
         `/api/events/${eventId}/emails`,
         body,
       );
       return res;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
       navigate({ to: "/events/$eventId", params: { eventId } });
     },
     onError: (err: ApiError) => {
       if (err.status === 409) {
-        setConflictDetail(err.detail ?? null);
+        setConflictDetail(typeof err.detail === "string" ? err.detail : null);
       }
     },
   });
@@ -105,7 +105,7 @@ export default function BulkTicketDelivery() {
   const goBack = () =>
     navigate({ to: "/events/$eventId", params: { eventId } });
 
-  if (eventQuery.isLoading || attendeesQuery.isLoading) {
+  if (eventQuery.isLoading || participantsQuery.isLoading) {
     return <LinearProgress />;
   }
 
@@ -136,7 +136,8 @@ export default function BulkTicketDelivery() {
                   {undeliveredReady.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell>
-                        {a.title} {a.name}
+                        {a.title ? `${a.title} ` : ""}
+                        {a.name}
                       </TableCell>
                       <TableCell>{a.email}</TableCell>
                     </TableRow>
@@ -146,7 +147,7 @@ export default function BulkTicketDelivery() {
             </TableContainer>
           ) : (
             <Typography color="text.secondary">
-              No undelivered guests with ready tickets.
+              No undelivered guests with ready tickets and email addresses.
             </Typography>
           )}
 
@@ -217,8 +218,8 @@ export default function BulkTicketDelivery() {
                 variant="body1"
                 sx={{ minWidth: 180, textAlign: "center" }}
               >
-                {currentAttendee
-                  ? `${currentAttendee.title} ${currentAttendee.name}`
+                {currentParticipant
+                  ? `${currentParticipant.title ? `${currentParticipant.title} ` : ""}${currentParticipant.name}`
                   : "—"}
               </Typography>
               <IconButton
@@ -241,7 +242,7 @@ export default function BulkTicketDelivery() {
               minHeight: 0,
             }}
           >
-            {currentAttendee ? (
+            {currentParticipant ? (
               <>
                 <Box sx={{ p: 2, flexShrink: 0 }}>
                   <Stack
@@ -254,7 +255,7 @@ export default function BulkTicketDelivery() {
                     </Typography>
                     <Chip
                       icon={<EmailIcon />}
-                      label={currentAttendee.email}
+                      label={currentParticipant.email}
                       size="small"
                       variant="outlined"
                     />
@@ -300,7 +301,7 @@ export default function BulkTicketDelivery() {
                 }}
               >
                 <Typography color="text.secondary">
-                  Select an attendee to preview
+                  Select a participant to preview
                 </Typography>
               </Box>
             )}

@@ -10,8 +10,8 @@ import EventsList from "./pages/eventsList/EventsList";
 import EventDetail from "./pages/eventDetail/EventDetail";
 import CheckInBooth from "./pages/checkInBooth/CheckInBooth";
 import Settings from "./pages/settings/Settings";
-import AddAttendeesManually from "./pages/addAttendeesManually/AddAttendeesManually";
-import AddAttendeesBySpreadsheet from "./pages/addAttendeesSpreadsheet/AddAttendeesBySpreadsheet";
+import AddParticipantsManually from "./pages/addParticipantsManually/AddParticipantsManually";
+import AddParticipantsBySpreadsheet from "./pages/addParticipantsSpreadsheet/AddParticipantsBySpreadsheet";
 import BulkTicketDelivery from "./pages/bulkTicketDelivery/BulkTicketDelivery";
 import CustomizeBooth from "./pages/customizeBooth/CustomizeBooth";
 
@@ -59,16 +59,16 @@ const eventDetailRoute = createRoute({
   component: EventDetail,
 });
 
-const addAttendeesManuallyRoute = createRoute({
+const addParticipantsManuallyRoute = createRoute({
   getParentRoute: () => eventDetailRoute,
-  path: "/addAttendeesManually",
-  component: AddAttendeesManually,
+  path: "/addParticipantsManually",
+  component: AddParticipantsManually,
 });
 
-const addAttendeesSpreadsheetRoute = createRoute({
+const addParticipantsSpreadsheetRoute = createRoute({
   getParentRoute: () => eventDetailRoute,
-  path: "/addAttendeesBySpreadsheet",
-  component: AddAttendeesBySpreadsheet,
+  path: "/addParticipantsBySpreadsheet",
+  component: AddParticipantsBySpreadsheet,
 });
 
 const bulkTicketDeliveryRoute = createRoute({
@@ -99,8 +99,8 @@ const routeTree = rootRoute.addChildren([
     bulkTicketDeliveryRoute,
     customizeBoothRoute,
     eventDetailRoute.addChildren([
-      addAttendeesSpreadsheetRoute,
-      addAttendeesManuallyRoute,
+      addParticipantsSpreadsheetRoute,
+      addParticipantsManuallyRoute,
     ]),
     settingsRoute,
   ]),

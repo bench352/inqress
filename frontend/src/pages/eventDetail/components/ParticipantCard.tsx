@@ -8,46 +8,51 @@ import {
 import EmailIcon from "@mui/icons-material/Email";
 import PhoneIcon from "@mui/icons-material/Phone";
 import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
-import type { AttendeeItem } from "../useEventDetail";
+import type { ParticipantItem } from "../useEventDetail";
 import { maskEmail, maskPhone } from "@/utils/masking";
 
-function getTicketStatus(attendee: AttendeeItem): string {
-  if (attendee.checkedInAt != null) return "Checked in";
-  if (!attendee.isTicketReady) return "Generating...";
-  if (!attendee.isTicketDelivered) return "Undelivered";
+function getTicketStatus(participant: ParticipantItem): string {
+  if (participant.checkedInAt != null) return "Checked in";
+  if (!participant.isTicketReady) return "Generating...";
+  if (!participant.isTicketDelivered) return "Undelivered";
   return "Delivered";
 }
 
 interface Props {
-  attendee: AttendeeItem;
+  participant: ParticipantItem;
   onClick: () => void;
 }
 
-export default function AttendeeCard({ attendee, onClick }: Props) {
+export default function ParticipantCard({ participant, onClick }: Props) {
   return (
     <Card sx={{ height: "100%" }}>
       <CardActionArea onClick={onClick} sx={{ height: "100%" }}>
         <CardContent>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }} gutterBottom>
-            {attendee.title} {attendee.name}
+            {participant.title ? `${participant.title} ` : ""}
+            {participant.name}
           </Typography>
           <Stack spacing={0.75}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <EmailIcon fontSize="small" color="action" />
               <Typography variant="body2" color="text.secondary">
-                {maskEmail(attendee.email)}
+                {participant.email
+                  ? maskEmail(participant.email)
+                  : "(No email address)"}
               </Typography>
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <PhoneIcon fontSize="small" color="action" />
               <Typography variant="body2" color="text.secondary">
-                {attendee.countryCode} {maskPhone(attendee.phone)}
+                {participant.countryCode && participant.phone
+                  ? `${participant.countryCode} ${maskPhone(participant.phone)}`
+                  : "(No phone number)"}
               </Typography>
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <ConfirmationNumberIcon fontSize="small" color="action" />
               <Typography variant="body2" color="text.secondary">
-                {getTicketStatus(attendee)}
+                {getTicketStatus(participant)}
               </Typography>
             </Stack>
           </Stack>

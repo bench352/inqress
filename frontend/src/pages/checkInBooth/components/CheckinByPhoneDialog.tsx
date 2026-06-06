@@ -16,6 +16,7 @@ import QrCode2Icon from "@mui/icons-material/QrCode2";
 import { useQuery } from "@tanstack/react-query";
 import PhoneDialPad, { DIAL_BUTTON_HEIGHT } from "./PhoneDialPad";
 import CheckinResultDisplay from "./CheckinResultDisplay";
+import MultipleParticipantsCheckInDialog from "./MultipleParticipantsCheckInDialog";
 import { useApi } from "../../../api";
 import type { CheckinResponse } from "../types";
 
@@ -31,7 +32,17 @@ interface CountryCodesResponse {
   options: string[];
 }
 
-type Phase = "input" | "loading" | "success" | "error";
+interface ParticipantConflict {
+  id: string;
+  title: string | null;
+  name: string;
+  email: string | null;
+  countryCode: string | null;
+  phone: string | null;
+  checkedInAt: string | null;
+}
+
+type Phase = "input" | "loading" | "success" | "error" | "multiple";
 
 const DIAL_PAD_MAX_WIDTH = 360;
 const PHONE_ICON_SIZE = 120;
@@ -49,6 +60,9 @@ export default function CheckinByPhoneDialog({
   const [phase, setPhase] = useState<Phase>("input");
   const [result, setResult] = useState<CheckinResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [conflictingParticipants, setConflictingParticipants] = useState<
+    ParticipantConflict[]
+  >([]);
 
   const countryCodesQuery = useQuery<CountryCodesResponse>({
     queryKey: ["countryCodes", eventId],
@@ -82,6 +96,19 @@ export default function CheckinByPhoneDialog({
         phoneNo,
       })
       .then((data) => {
+        if (
+          !data.success &&
+          typeof data.detail === "object" &&
+          data.detail !== null &&
+          "conflictingParticipants" in data.detail
+        ) {
+          const detail = data.detail as {
+            conflictingParticipants: ParticipantConflict[];
+          };
+          setConflictingParticipants(detail.conflictingParticipants);
+          setPhase("multiple");
+          return;
+        }
         setResult(data);
         setPhase(data.success ? "success" : "error");
       })
@@ -93,7 +120,7 @@ export default function CheckinByPhoneDialog({
 
   if (!open) return null;
 
-  if (phase !== "input") {
+  if (phase !== "input" && phase !== "multiple") {
     return (
       <Dialog open fullScreen>
         <CheckinResultDisplay
@@ -103,6 +130,18 @@ export default function CheckinByPhoneDialog({
           onDismiss={onClose}
         />
       </Dialog>
+    );
+  }
+
+  if (phase === "multiple") {
+    return (
+      <MultipleParticipantsCheckInDialog
+        open
+        eventId={eventId}
+        accentColor={accentColor}
+        participants={conflictingParticipants}
+        onClose={onClose}
+      />
     );
   }
 

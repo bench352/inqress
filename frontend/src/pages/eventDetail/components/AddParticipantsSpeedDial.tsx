@@ -8,22 +8,22 @@ interface Props {
   eventId: string;
 }
 
-export default function AddAttendeesSpeedDial({ eventId }: Props) {
+export default function AddParticipantsSpeedDial({ eventId }: Props) {
   const navigate = useNavigate();
 
   return (
     <SpeedDial
-      ariaLabel="Add attendees"
+      ariaLabel="Add participants"
       icon={<AddIcon />}
       sx={{ position: "fixed", bottom: 24, right: 24 }}
-      FabProps={{ color: "primary" }}
+      FabProps={{ color: "secondary" }}
     >
       <SpeedDialAction
         icon={<PersonAddIcon />}
         slotProps={{ tooltip: { title: "Add manually" } }}
         onClick={() =>
           navigate({
-            to: "/events/$eventId/addAttendeesManually",
+            to: "/events/$eventId/addParticipantsManually",
             params: { eventId },
           })
         }
@@ -33,7 +33,7 @@ export default function AddAttendeesSpeedDial({ eventId }: Props) {
         slotProps={{ tooltip: { title: "By spreadsheet" } }}
         onClick={() =>
           navigate({
-            to: "/events/$eventId/addAttendeesBySpreadsheet",
+            to: "/events/$eventId/addParticipantsBySpreadsheet",
             params: { eventId },
           })
         }

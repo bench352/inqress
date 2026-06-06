@@ -1,11 +1,11 @@
-from contextlib import contextmanager
-from pathlib import Path
-from typing import Generator
+import contextlib
+import pathlib
+import typing
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 
-_DB_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+_DB_DIR = pathlib.Path(__file__).resolve().parent.parent.parent / "data"
 _DB_PATH = _DB_DIR / "inqress.db"
 
 _DB_DIR.mkdir(parents=True, exist_ok=True)
@@ -19,8 +19,8 @@ def _set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.close()
 
 
-@contextmanager
-def get_session() -> Generator[Session, None, None]:
+@contextlib.contextmanager
+def get_session() -> typing.Generator[Session, None, None]:
     session = Session(ENGINE)
     try:
         yield session

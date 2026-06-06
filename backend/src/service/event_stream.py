@@ -4,28 +4,23 @@ import queue
 import threading
 import uuid
 
-from schema.rest import BulkCreateResponse
-from schema.sse import SseEvent, SseEventType, SseType
+import schema.rest
+import schema.sse
 
 logger = logging.getLogger(__name__)
 
 
 class EventStreamManager:
-    _instance: "EventStreamManager | None" = None
-    _instance_lock = threading.Lock()
-
-    def __new__(cls) -> "EventStreamManager":
-        if cls._instance is None:
-            with cls._instance_lock:
-                if cls._instance is None:
-                    obj = super().__new__(cls)
-                    obj._lock = threading.Lock()
-                    obj._queues: dict[uuid.UUID, list[queue.Queue]] = {}
-                    obj._sticky: dict[uuid.UUID, dict[SseEventType, SseEvent]] = {}
-                    obj._active_jobs: dict[uuid.UUID, set[str]] = {}
-                    obj._results: dict[uuid.UUID, tuple[datetime.datetime, object]] = {}
-                    cls._instance = obj
-        return cls._instance
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._queues: dict[uuid.UUID, list[queue.Queue]] = {}
+        self._sticky: dict[
+            uuid.UUID, dict[schema.sse.SseEventType, schema.sse.SseEvent]
+        ] = {}
+        self._active_jobs: dict[uuid.UUID, set[str]] = {}
+        self._results: dict[
+            uuid.UUID, tuple[datetime.datetime, schema.rest.BulkCreateResponse]
+        ] = {}
 
     def subscribe(self, event_id: uuid.UUID) -> queue.Queue:
         q: queue.Queue = queue.Queue()
@@ -43,13 +38,13 @@ class EventStreamManager:
                 pass
 
     def send(
-        self, event_id: uuid.UUID, event: SseEvent, *, sticky: bool = False
+        self, event_id: uuid.UUID, event: schema.sse.SseEvent, *, sticky: bool = False
     ) -> None:
         with self._lock:
             if sticky:
                 self._sticky.setdefault(event_id, {})[event.event_type] = event
             if (
-                event.type == SseType.PROGRESS
+                event.type == schema.sse.SseType.PROGRESS
                 and hasattr(event.data, "in_progress")
                 and not event.data.in_progress
             ):
@@ -79,7 +74,7 @@ class EventStreamManager:
     def store_result(
         self,
         result_id: uuid.UUID,
-        data: BulkCreateResponse,
+        data: schema.rest.BulkCreateResponse,
         ttl_minutes: int = 30,
     ) -> None:
         expiry = datetime.datetime.now() + datetime.timedelta(minutes=ttl_minutes)
@@ -89,7 +84,7 @@ class EventStreamManager:
             ttl_minutes * 60, self._cleanup_result, args=(result_id,)
         ).start()
 
-    def get_result(self, result_id: uuid.UUID) -> BulkCreateResponse | None:
+    def get_result(self, result_id: uuid.UUID) -> schema.rest.BulkCreateResponse | None:
         with self._lock:
             entry = self._results.get(result_id)
             if entry is None:
@@ -103,3 +98,6 @@ class EventStreamManager:
     def _cleanup_result(self, result_id: uuid.UUID) -> None:
         with self._lock:
             self._results.pop(result_id, None)
+
+
+event_stream_manager = EventStreamManager()

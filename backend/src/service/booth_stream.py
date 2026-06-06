@@ -3,7 +3,7 @@ import queue
 import threading
 import uuid
 
-from schema.sse import SseEvent
+import schema.sse
 
 logger = logging.getLogger(__name__)
 
@@ -13,19 +13,10 @@ class BoothAlreadyConnected(Exception):
 
 
 class BoothStreamManager:
-    _instance: "BoothStreamManager | None" = None
-    _instance_lock = threading.Lock()
-
-    def __new__(cls) -> "BoothStreamManager":
-        if cls._instance is None:
-            with cls._instance_lock:
-                if cls._instance is None:
-                    obj = super().__new__(cls)
-                    obj._lock = threading.Lock()
-                    obj._queues: dict[uuid.UUID, queue.Queue] = {}
-                    obj._sticky: dict[uuid.UUID, dict[str, SseEvent]] = {}
-                    cls._instance = obj
-        return cls._instance
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._queues: dict[uuid.UUID, queue.Queue] = {}
+        self._sticky: dict[uuid.UUID, dict[str, schema.sse.SseEvent]] = {}
 
     def subscribe(self, event_id: uuid.UUID) -> queue.Queue:
         with self._lock:
@@ -45,7 +36,7 @@ class BoothStreamManager:
             self._sticky.pop(event_id, None)
 
     def send(
-        self, event_id: uuid.UUID, event: SseEvent, *, sticky: bool = False
+        self, event_id: uuid.UUID, event: schema.sse.SseEvent, *, sticky: bool = False
     ) -> bool:
         with self._lock:
             if sticky:
@@ -66,3 +57,6 @@ class BoothStreamManager:
     def get_active_booths(self) -> list[uuid.UUID]:
         with self._lock:
             return list(self._queues.keys())
+
+
+booth_stream_manager = BoothStreamManager()

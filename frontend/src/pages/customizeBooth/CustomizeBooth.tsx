@@ -134,7 +134,7 @@ export default function CustomizeBooth() {
     },
     onError: (err: unknown) => {
       const message =
-        err instanceof ApiError ? err.detail : "Failed to save changes";
+        err instanceof ApiError ? String(err.detail) : "Failed to save changes";
       enqueueSnackbar(message, { variant: "error" });
     },
   });

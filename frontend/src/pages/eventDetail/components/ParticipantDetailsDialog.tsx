@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import EmailIcon from "@mui/icons-material/Email";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
@@ -22,24 +23,32 @@ import QrCodeIcon from "@mui/icons-material/QrCode";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useApi } from "../../../api";
-import type { AttendeeItem } from "../useEventDetail";
+import type { ParticipantItem } from "../useEventDetail";
 import PreviewTicketDialog from "./PreviewTicketDialog";
 import EmailTicketDialog from "./EmailTicketDialog";
+import EditParticipantDialog from "./EditParticipantDialog";
 
-type SubView = "main" | "preview" | "email" | "deliver" | "attend" | "delete";
+type SubView =
+  | "main"
+  | "preview"
+  | "email"
+  | "deliver"
+  | "attend"
+  | "delete"
+  | "edit";
 
 interface Props {
   open: boolean;
-  attendee: AttendeeItem;
+  participant: ParticipantItem;
   eventId: string;
   eventName: string;
   eventMode: string;
   onClose: () => void;
 }
 
-export default function AttendeeDetailsDialog({
+export default function ParticipantDetailsDialog({
   open,
-  attendee,
+  participant,
   eventId,
   eventName,
   eventMode,
@@ -53,11 +62,11 @@ export default function AttendeeDetailsDialog({
   const deliverMutation = useMutation({
     mutationFn: async () => {
       await api.post(
-        `/api/events/${eventId}/attendees/${attendee.id}/ticket/delivery`,
+        `/api/events/${eventId}/participants/${participant.id}/ticket/delivery`,
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
     },
   });
 
@@ -67,7 +76,7 @@ export default function AttendeeDetailsDialog({
         success: boolean;
         detail: { reason?: string } | Record<string, unknown>;
       }>(`/api/events/${eventId}/checkin/manual`, {
-        attendeeId: attendee.id,
+        participantId: participant.id,
       });
       if (!data.success) {
         throw new Error(
@@ -79,7 +88,7 @@ export default function AttendeeDetailsDialog({
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
       onClose();
     },
   });
@@ -87,25 +96,26 @@ export default function AttendeeDetailsDialog({
   const assistedMutation = useMutation({
     mutationFn: async () => {
       await api.post(`/api/events/${eventId}/checkin/assisted`, {
-        attendeeId: attendee.id,
+        participantId: participant.id,
       });
     },
     onSuccess: () => {
       onClose();
     },
-    onError: (err: Error & { status?: number; detail?: string }) => {
+    onError: (err: Error & { status?: number; detail?: unknown }) => {
       const message =
-        err.detail || err.message || "Failed to send confirmation to booth";
+        (typeof err.detail === "string" ? err.detail : err.message) ||
+        "Failed to send confirmation to booth";
       enqueueSnackbar(message, { variant: "error" });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await api.del(`/api/events/${eventId}/attendees`, [attendee.id]);
+      await api.del(`/api/events/${eventId}/participants`, [participant.id]);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["attendees", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
       onClose();
     },
   });
@@ -134,7 +144,7 @@ export default function AttendeeDetailsDialog({
       <PreviewTicketDialog
         open
         eventId={eventId}
-        attendeeId={attendee.id}
+        participantId={participant.id}
         onClose={() => setSubView("main")}
       />
     );
@@ -145,9 +155,20 @@ export default function AttendeeDetailsDialog({
       <EmailTicketDialog
         open
         eventId={eventId}
-        attendeeId={attendee.id}
-        attendeeEmail={attendee.email}
+        participantId={participant.id}
+        participantEmail={participant.email ?? ""}
         eventName={eventName}
+        onClose={() => setSubView("main")}
+      />
+    );
+  }
+
+  if (subView === "edit") {
+    return (
+      <EditParticipantDialog
+        open
+        participant={participant}
+        eventId={eventId}
         onClose={() => setSubView("main")}
       />
     );
@@ -159,8 +180,9 @@ export default function AttendeeDetailsDialog({
         <DialogTitle>Mark Ticket Delivered</DialogTitle>
         <DialogContent>
           <Typography>
-            Mark the ticket as delivered for {attendee.title} {attendee.name}?
-            This will not send an email.
+            Mark the ticket as delivered for{" "}
+            {participant.title ? `${participant.title} ` : ""}
+            {participant.name}? This will not send an email.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -188,8 +210,9 @@ export default function AttendeeDetailsDialog({
         <DialogTitle>Mark Attended</DialogTitle>
         <DialogContent>
           <Typography>
-            Mark {attendee.title} {attendee.name} as attended? This will check
-            in this attendee immediately.
+            Mark {participant.title ? `${participant.title} ` : ""}
+            {participant.name} as attended? This will check in this participant
+            immediately.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -214,11 +237,12 @@ export default function AttendeeDetailsDialog({
   if (subView === "delete") {
     return (
       <Dialog open onClose={() => setSubView("main")}>
-        <DialogTitle>Delete Attendee</DialogTitle>
+        <DialogTitle>Delete Participant</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete {attendee.title} {attendee.name}?
-            This action cannot be undone.
+            Are you sure you want to delete{" "}
+            {participant.title ? `${participant.title} ` : ""}
+            {participant.name}? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -243,21 +267,26 @@ export default function AttendeeDetailsDialog({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Attendee Details</DialogTitle>
+      <DialogTitle>Participant Details</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Typography variant="h6">
-            {attendee.title} {attendee.name}
+            {participant.title ? `${participant.title} ` : ""}
+            {participant.name}
           </Typography>
           <Stack spacing={0.75}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <EmailIcon fontSize="small" color="action" />
-              <Typography variant="body2">{attendee.email}</Typography>
+              <Typography variant="body2">
+                {participant.email ?? "(No email address)"}
+              </Typography>
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <PhoneIcon fontSize="small" color="action" />
               <Typography variant="body2">
-                {attendee.countryCode} {attendee.phone}
+                {participant.countryCode && participant.phone
+                  ? `${participant.countryCode} ${participant.phone}`
+                  : "(No phone number)"}
               </Typography>
             </Stack>
           </Stack>
@@ -275,9 +304,15 @@ export default function AttendeeDetailsDialog({
           )}
 
           <List disablePadding>
+            <ListItemButton onClick={() => setSubView("edit")}>
+              <ListItemIcon>
+                <EditIcon />
+              </ListItemIcon>
+              <ListItemText primary="Edit information" />
+            </ListItemButton>
             <ListItemButton
               onClick={() => setSubView("preview")}
-              disabled={!attendee.isTicketReady}
+              disabled={!participant.isTicketReady}
             >
               <ListItemIcon>
                 <QrCodeIcon />
@@ -285,7 +320,7 @@ export default function AttendeeDetailsDialog({
               <ListItemText
                 primary="Preview ticket"
                 secondary={
-                  !attendee.isTicketReady
+                  !participant.isTicketReady
                     ? "Ticket image is still generating"
                     : undefined
                 }
@@ -293,7 +328,7 @@ export default function AttendeeDetailsDialog({
             </ListItemButton>
             <ListItemButton
               onClick={() => setSubView("email")}
-              disabled={!attendee.isTicketReady}
+              disabled={!participant.isTicketReady || !participant.email}
             >
               <ListItemIcon>
                 <EmailIcon />
@@ -301,17 +336,19 @@ export default function AttendeeDetailsDialog({
               <ListItemText
                 primary="Email ticket"
                 secondary={
-                  !attendee.isTicketReady
+                  !participant.isTicketReady
                     ? "Ticket image is still generating"
-                    : undefined
+                    : !participant.email
+                      ? "No email address"
+                      : undefined
                 }
               />
             </ListItemButton>
             <ListItemButton
               onClick={handleDeliver}
               disabled={
-                !attendee.isTicketReady ||
-                attendee.isTicketDelivered ||
+                !participant.isTicketReady ||
+                participant.isTicketDelivered ||
                 deliverMutation.isPending
               }
             >
@@ -321,9 +358,9 @@ export default function AttendeeDetailsDialog({
               <ListItemText
                 primary="Mark ticket delivered"
                 secondary={
-                  !attendee.isTicketReady
+                  !participant.isTicketReady
                     ? "Ticket image is still generating"
-                    : attendee.isTicketDelivered
+                    : participant.isTicketDelivered
                       ? "Already marked as delivered"
                       : undefined
                 }
@@ -332,7 +369,7 @@ export default function AttendeeDetailsDialog({
             <ListItemButton
               onClick={() => setSubView("attend")}
               disabled={
-                attendee.checkedInAt != null || checkinMutation.isPending
+                participant.checkedInAt != null || checkinMutation.isPending
               }
             >
               <ListItemIcon>
@@ -341,7 +378,7 @@ export default function AttendeeDetailsDialog({
               <ListItemText
                 primary="Mark attended"
                 secondary={
-                  attendee.checkedInAt != null
+                  participant.checkedInAt != null
                     ? "Already checked in"
                     : undefined
                 }
@@ -352,7 +389,7 @@ export default function AttendeeDetailsDialog({
                 <DeleteIcon color="error" />
               </ListItemIcon>
               <ListItemText
-                primary="Delete attendee"
+                primary="Delete participant"
                 slotProps={{ primary: { sx: { color: "error.main" } } }}
               />
             </ListItemButton>

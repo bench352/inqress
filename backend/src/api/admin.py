@@ -1,31 +1,31 @@
 import asyncio
+import collections.abc
 import logging
-from collections.abc import AsyncIterable
-from typing import Annotated
+import typing
 
-from fastapi import APIRouter, Query
-from fastapi.sse import EventSourceResponse, ServerSentEvent
+import fastapi
+import fastapi.sse
 
-from service.admin_stream import AdminStreamManager
-from service.auth import verify_basic_auth_query
+import service.admin_stream
+import service.auth
 
 logger = logging.getLogger(__name__)
 
-admin_manager = AdminStreamManager()
-router = APIRouter(prefix="/admin", tags=["admin"])
+admin_manager = service.admin_stream.admin_stream_manager
+router = fastapi.APIRouter(prefix="/admin", tags=["Admin"])
 
 
-@router.get("/streams", response_class=EventSourceResponse)
+@router.get("/streams", response_class=fastapi.sse.EventSourceResponse)
 async def admin_streams(
-    token: Annotated[str | None, Query()] = None,
-) -> AsyncIterable[ServerSentEvent]:
-    verify_basic_auth_query(token=token)
+    token: typing.Annotated[str | None, fastapi.Query()] = None,
+) -> collections.abc.AsyncIterable[fastapi.sse.ServerSentEvent]:
+    service.auth.verify_basic_auth_query(token=token)
 
     q: asyncio.Queue = admin_manager.subscribe()
     try:
         while True:
             event = await q.get()
-            yield ServerSentEvent(data=event.model_dump(by_alias=True))
+            yield fastapi.sse.ServerSentEvent(data=event.model_dump(by_alias=True))
     except asyncio.CancelledError:
         pass
     finally:

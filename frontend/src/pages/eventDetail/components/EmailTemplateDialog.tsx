@@ -47,7 +47,9 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
     },
     onError: (err: unknown) => {
       const message =
-        err instanceof ApiError ? err.detail : "Failed to save email template";
+        err instanceof ApiError
+          ? String(err.detail)
+          : "Failed to save email template";
       enqueueSnackbar(message, { variant: "error" });
     },
   });
@@ -65,12 +67,12 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Customize the HTML template below to personalize your ticket delivery
           email. Use the following placeholders; they will be replaced with
-          attendee-specific information when the email is sent:
+          participant-specific information when the email is sent:
         </Typography>
         <Box component="ul" sx={{ pl: 3, mt: 0, mb: 2 }}>
           {[
             { code: "{{ title }}", desc: "Honorific (e.g. Mr, Mrs, Dr)" },
-            { code: "{{ fullName }}", desc: "Full name of the attendee" },
+            { code: "{{ fullName }}", desc: "Full name of the participant" },
             { code: "{{ eventName }}", desc: "Name of the event" },
             {
               code: "{{ senderName }}",
