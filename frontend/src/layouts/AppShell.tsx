@@ -30,7 +30,7 @@ import {
 import { useAuth } from "../providers/useAuth";
 import { useAdminStream } from "../hooks/useAdminStream";
 import BoothControlPanel from "../components/BoothControlPanel";
-import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
+import CoPresentIcon from "@mui/icons-material/CoPresent";
 
 const DRAWER_WIDTH = 240;
 
@@ -59,9 +59,10 @@ function DrawerContent() {
             justifyContent: "center",
             alignItems: "center",
             py: 1,
+            pb: 0,
           }}
         >
-          <QrCodeScannerIcon />
+          <CoPresentIcon />
           <Typography variant="h6">Booth control</Typography>
         </Stack>
         {activeBooths.map((booth) => (

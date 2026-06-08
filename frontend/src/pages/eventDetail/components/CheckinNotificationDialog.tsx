@@ -9,7 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import dayjs from "dayjs";
-import type { AttendanceDialogEntry } from "../../../hooks/useEventStream";
+import type { AttendanceDialogEntry } from "@/hooks/useEventStream.tsx";
 
 interface Props {
   dialog: AttendanceDialogEntry;
@@ -22,11 +22,11 @@ const PROGRESS_INTERVAL_MS = 100;
 function formatMethod(method: string): string {
   switch (method) {
     case "scan":
-      return "QR scan";
+      return "QR code";
     case "phone":
-      return "Phone number";
+      return "phone number";
     case "manual":
-      return "Manual entry";
+      return "manual entry";
     default:
       return method;
   }
@@ -89,10 +89,10 @@ export default function CheckinNotificationDialog({
           {dialog.title ? `${dialog.title} ` : ""}
           {dialog.name}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 0.5 }}>
           Checked in at {formattedTime}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body1" color="text.secondary">
           By {formatMethod(dialog.checkInMethod)}
         </Typography>
       </DialogContent>

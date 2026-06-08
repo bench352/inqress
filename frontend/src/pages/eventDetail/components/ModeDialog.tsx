@@ -18,7 +18,6 @@ interface Props {
 
 export default function ModeDialog({
   open,
-  currentMode,
   pendingMode,
   loading,
   onClose,
@@ -27,27 +26,30 @@ export default function ModeDialog({
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>
-        Confirm changing from &ldquo;{currentMode}&rdquo; to &ldquo;
-        {pendingMode}&rdquo;
+        Confirm changing to "
+        {pendingMode &&
+          pendingMode.charAt(0).toUpperCase() + pendingMode.slice(1)}
+        " mode
       </DialogTitle>
       <DialogContent>
         {pendingMode === "test" && (
-          <Typography variant="body2">
-            Attendance will be temporarily recorded. However, any attendance
-            records created during Test mode will be deleted when switching back
-            to Disabled mode.
+          <Typography variant="body1">
+            Feel free to test the check-in flow as attendance records are
+            temporarily recorded. Once you switch back to Disabled mode, all
+            records created during Test mode will be rolled back.
           </Typography>
         )}
         {pendingMode === "disabled" && (
-          <Typography variant="body2">
-            Attendance records created in Live mode will be kept. However, those
-            created in Test mode will be deleted.
+          <Typography variant="body1">
+            Attendance will no longer be accepted. All attendance recorded
+            during Live mode will be kept, while those created during Test mode
+            will be rolled back.
           </Typography>
         )}
         {pendingMode === "live" && (
-          <Typography variant="body2">
-            The event will now accept live attendance. Attendance records will
-            persist even after check-in is disabled again.
+          <Typography variant="body1">
+            Attendance will be recorded permanently. It will be kept even if you
+            switch to Disabled mode later.
           </Typography>
         )}
       </DialogContent>

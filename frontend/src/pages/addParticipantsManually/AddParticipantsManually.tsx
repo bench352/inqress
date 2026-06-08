@@ -299,7 +299,7 @@ export default function AddParticipantsManually() {
               Next
             </Button>
             {hasValidationError && (
-              <Typography variant="body2" color="error">
+              <Typography variant="body1" color="error">
                 Complete the required fields
               </Typography>
             )}

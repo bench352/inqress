@@ -6,10 +6,11 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import PhoneIcon from "@mui/icons-material/Phone";
 import useSound from "use-sound";
 import successSound from "../../../assets/soundEffects/checkin_success.aac";
-import multipleParticipantsSound from "../../../assets/soundEffects/multiple_participants.aac";
+import checkinConfirmSound from "../../../assets/soundEffects/checkin_need_confirmation.aac";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/api.ts";
 import { maskEmail, maskPhone } from "@/utils/masking";
+import { useConfetti } from "@/hooks/useConfetti";
 
 const INITIAL_TIMEOUT_S = 60;
 const ALL_DONE_TIMEOUT_S = 5;
@@ -43,7 +44,8 @@ export default function MultipleParticipantsCheckInDialog({
   const queryClient = useQueryClient();
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
   const [playSuccess] = useSound(successSound);
-  const [playMultiple] = useSound(multipleParticipantsSound);
+  const [playConfirm] = useSound(checkinConfirmSound);
+  const { fire: fireConfetti } = useConfetti();
   const [countdown, setCountdown] = useState(INITIAL_TIMEOUT_S);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef(INITIAL_TIMEOUT_S);
@@ -89,9 +91,9 @@ export default function MultipleParticipantsCheckInDialog({
 
   useEffect(() => {
     if (open) {
-      playMultiple();
+      playConfirm();
     }
-  }, [open, playMultiple]);
+  }, [open, playConfirm]);
 
   const checkinMutation = useMutation({
     mutationFn: async (participantId: string) => {
@@ -113,6 +115,7 @@ export default function MultipleParticipantsCheckInDialog({
     onSuccess: (_, participantId) => {
       setCheckedInIds((prev) => new Set(prev).add(participantId));
       playSuccess();
+      fireConfetti();
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
       if (!allCheckedIn) {
         resetTimer(INITIAL_TIMEOUT_S);

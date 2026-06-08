@@ -69,7 +69,7 @@ export default function EmailTicketDialog({
       <DialogTitle>Email Ticket</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <Typography variant="body2">
+          <Typography variant="body1">
             This email will be sent to{" "}
             <Box component="strong">{participantEmail}</Box>.
           </Typography>
@@ -86,7 +86,7 @@ export default function EmailTicketDialog({
           {previewHtml && (
             <Paper variant="outlined" sx={{ overflow: "hidden" }}>
               <Box sx={{ p: 2 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body1" color="text.secondary">
                   Subject: [Ticket] {eventName}
                 </Typography>
               </Box>

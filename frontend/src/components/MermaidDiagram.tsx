@@ -1,4 +1,4 @@
-import { useEffect, useRef, useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import mermaid from "mermaid";
 
 let mermaidInitialized = false;

@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   Box,
   Button,
-  Chip,
   CircularProgress,
   Divider,
   IconButton,
@@ -17,7 +16,6 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
-import EmailIcon from "@mui/icons-material/Email";
 import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import SendIcon from "@mui/icons-material/Send";
@@ -26,6 +24,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ConflictDialog from "@/components/ConflictDialog";
 import DOMPurify from "dompurify";
 import { ApiError, useApi } from "../../api";
+import { useAppInfo } from "@/providers/useAppInfo";
 import type { ParticipantItem } from "../eventDetail/useEventDetail";
 import type { EventItem } from "../eventsList/useEvents";
 
@@ -36,6 +35,7 @@ export default function BulkTicketDelivery() {
   const navigate = useNavigate();
   const api = useApi();
   const queryClient = useQueryClient();
+  const { sendViaEmail } = useAppInfo();
 
   const eventQuery = useQuery<EventItem>({
     queryKey: ["event", eventId],
@@ -196,11 +196,11 @@ export default function BulkTicketDelivery() {
         >
           <Paper elevation={2} sx={{ p: 2, flexShrink: 0 }}>
             <Typography
-              variant="subtitle2"
+              variant="subtitle1"
               color="text.secondary"
-              sx={{ mb: 1.5, textAlign: "center" }}
+              sx={{ pb: 0.5, textAlign: "center" }}
             >
-              Preview email
+              <strong>Preview email</strong>
             </Typography>
             <Stack
               direction="row"
@@ -244,31 +244,27 @@ export default function BulkTicketDelivery() {
           >
             {currentParticipant ? (
               <>
-                <Box sx={{ p: 2, flexShrink: 0 }}>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    sx={{ alignItems: "center" }}
-                  >
-                    <Typography variant="body2" color="text.secondary">
-                      To:
-                    </Typography>
-                    <Chip
-                      icon={<EmailIcon />}
-                      label={currentParticipant.email}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </Stack>
-                </Box>
-                <Divider />
-                <Box sx={{ p: 2, flexShrink: 0 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Subject: [Ticket] {event?.name}
+                <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    <strong>From: </strong> {sendViaEmail}
                   </Typography>
                 </Box>
                 <Divider />
-                <Box sx={{ p: 2, flex: 1, overflow: "auto", minHeight: 0 }}>
+                <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    <strong>To: </strong> {currentParticipant.email}
+                  </Typography>
+                </Box>
+                <Divider />
+                <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    <strong>Subject:</strong> [Ticket] {event?.name}
+                  </Typography>
+                </Box>
+                <Divider />
+                <Box
+                  sx={{ px: 2, py: 1, flex: 1, overflow: "auto", minHeight: 0 }}
+                >
                   {previewLoading && (
                     <Box
                       sx={{ display: "flex", justifyContent: "center", py: 4 }}

@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Button, Dialog, Stack, Typography } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import EmailIcon from "@mui/icons-material/Email";
 import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 import PhoneIcon from "@mui/icons-material/Phone";
+import useSound from "use-sound";
+import confirmSound from "../../../assets/soundEffects/checkin_need_confirmation.aac";
 import { maskEmail, maskPhone } from "@/utils/masking";
-import { useApi } from "../../../api";
+import { useApi } from "@/api.ts";
 import CheckinResultDisplay from "./CheckinResultDisplay";
 import type { CheckinPhase, CheckinResponse } from "../types";
+
+const INITIAL_TIMEOUT_S = 60;
 
 interface Props {
   open: boolean;
@@ -19,6 +23,7 @@ interface Props {
   countryCode: string | null;
   phone: string | null;
   email: string | null;
+  accentColor: string;
   onClose: () => void;
 }
 
@@ -31,11 +36,41 @@ export default function AssistedConfirmationDialog({
   countryCode,
   phone,
   email,
+  accentColor,
   onClose,
 }: Props) {
   const api = useApi();
   const [phase, setPhase] = useState<CheckinPhase>("idle");
   const [result, setResult] = useState<CheckinResponse | null>(null);
+  const [playConfirm] = useSound(confirmSound);
+  const [countdown, setCountdown] = useState(INITIAL_TIMEOUT_S);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef(INITIAL_TIMEOUT_S);
+
+  useEffect(() => {
+    if (open) {
+      playConfirm();
+    }
+  }, [open, playConfirm]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    countdownRef.current = INITIAL_TIMEOUT_S;
+
+    timerRef.current = setInterval(() => {
+      countdownRef.current -= 1;
+      setCountdown(countdownRef.current);
+      if (countdownRef.current <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        onClose();
+      }
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [open, onClose]);
 
   const handleYes = () => {
     setPhase("loading");
@@ -83,7 +118,7 @@ export default function AssistedConfirmationDialog({
           p: 8,
         }}
       >
-        <PersonSearchIcon sx={{ fontSize: 120, color: "primary.main" }} />
+        <PersonSearchIcon sx={{ fontSize: 120, color: accentColor }} />
         <Typography variant="h2" color="text.secondary">
           Confirm this is you
         </Typography>
@@ -116,7 +151,7 @@ export default function AssistedConfirmationDialog({
             startIcon={<CancelIcon />}
             sx={{ py: 2, px: 4, fontSize: "2rem", width: "300px" }}
           >
-            No
+            No ({countdown}s)
           </Button>
           <Button
             variant="contained"

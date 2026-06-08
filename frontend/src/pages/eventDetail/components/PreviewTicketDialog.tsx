@@ -75,7 +75,7 @@ export default function PreviewTicketDialog({
       fullWidth
       key={`preview-ticket-${open}`}
     >
-      <DialogTitle>Ticket Preview</DialogTitle>
+      <DialogTitle>Preview Ticket</DialogTitle>
       <DialogContent>
         <Box
           sx={{

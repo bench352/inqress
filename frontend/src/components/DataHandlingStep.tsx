@@ -135,7 +135,7 @@ function OptionCard({
             >
               {label}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body1" color="text.secondary">
               {description}
             </Typography>
           </Stack>
@@ -172,7 +172,7 @@ export default function DataHandlingStep({
             onClick={() => setHelpOpen(true)}
             sx={{ lineHeight: 1.25 }}
           >
-            How are duplicates identified?
+            How are duplicates found?
           </Button>
         </Stack>
         <Stack direction="row" spacing={2}>
@@ -213,7 +213,7 @@ export default function DataHandlingStep({
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>How are duplicates identified?</DialogTitle>
+        <DialogTitle>How are duplicates found?</DialogTitle>
         <DialogContent>
           <Stack spacing={1}>
             <Typography variant="body1">

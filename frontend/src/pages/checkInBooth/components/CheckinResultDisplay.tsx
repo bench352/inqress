@@ -5,6 +5,7 @@ import ErrorIcon from "@mui/icons-material/Error";
 import useSound from "use-sound";
 import successSound from "../../../assets/soundEffects/checkin_success.aac";
 import failSound from "../../../assets/soundEffects/checkin_fail.aac";
+import { useConfetti } from "@/hooks/useConfetti";
 import type { CheckinPhase, CheckinResponse } from "../types";
 
 interface Props {
@@ -26,11 +27,15 @@ export default function CheckinResultDisplay({
 }: Props) {
   const [playSuccess] = useSound(successSound);
   const [playFail] = useSound(failSound);
+  const { fire: fireConfetti } = useConfetti();
 
   useEffect(() => {
-    if (phase === "success") playSuccess();
+    if (phase === "success") {
+      playSuccess();
+      fireConfetti();
+    }
     if (phase === "error") playFail();
-  }, [phase, playSuccess, playFail]);
+  }, [phase, playSuccess, playFail, fireConfetti]);
 
   useEffect(() => {
     if (phase === "loading") return;

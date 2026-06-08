@@ -158,7 +158,8 @@ export default function CustomizeBooth() {
 
           <Box>
             <Typography variant="subtitle1" gutterBottom>
-              Choose a booth cover image
+              Choose a booth cover image{" "}
+              <strong>(1:1 aspect ratio recommended)</strong>
             </Typography>
             <Box
               onClick={() => fileInputRef.current?.click()}
@@ -179,7 +180,7 @@ export default function CustomizeBooth() {
             >
               <CloudUploadIcon color="action" sx={{ fontSize: 40 }} />
               <Box sx={{ flex: 1 }}>
-                <Typography variant="body2">
+                <Typography variant="body1">
                   {selectedFile
                     ? selectedFile.name
                     : "Click to select an image file"}
@@ -217,7 +218,7 @@ export default function CustomizeBooth() {
 
           <Box>
             <Typography variant="subtitle1" gutterBottom>
-              Choose an accent color
+              Choose an accent color for icons and buttons
             </Typography>
             <MuiColorInput
               format="hex"
@@ -244,6 +245,9 @@ export default function CustomizeBooth() {
               Cancel
             </Button>
           </Stack>
+          <Typography variant="body1" sx={{ color: "text.secondary" }}>
+            (Note: Icons and buttons in the previews are not to scale)
+          </Typography>
         </Stack>
       </Box>
 

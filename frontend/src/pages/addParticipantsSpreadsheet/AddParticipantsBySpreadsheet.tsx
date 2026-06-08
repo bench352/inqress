@@ -332,7 +332,7 @@ export default function AddParticipantsBySpreadsheet() {
                     </Table>
                   </TableContainer>
                 ) : (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body1" color="text.secondary">
                     (empty sheet)
                   </Typography>
                 )}
@@ -422,7 +422,7 @@ export default function AddParticipantsBySpreadsheet() {
               </Table>
             </TableContainer>
           ) : (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body1" color="text.secondary">
               This sheet is empty.
             </Typography>
           )}

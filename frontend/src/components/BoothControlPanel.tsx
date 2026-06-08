@@ -79,7 +79,7 @@ export default function BoothControlPanel({ eventId, eventName }: Props) {
 
   return (
     <Box sx={{ px: 2, py: 0, pb: 1 }}>
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+      <Typography variant="subtitle2" sx={{ textAlign: "center", mb: 1 }}>
         {eventName}
       </Typography>
       <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
