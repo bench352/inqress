@@ -254,7 +254,7 @@ export default function AddParticipantsBySpreadsheet() {
                 </Typography>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
+                  color="textSecondary"
                   sx={{ display: "block" }}
                 >
                   Supports .xlsx, .csv
@@ -332,7 +332,7 @@ export default function AddParticipantsBySpreadsheet() {
                     </Table>
                   </TableContainer>
                 ) : (
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" color="textSecondary">
                     (empty sheet)
                   </Typography>
                 )}
@@ -422,7 +422,7 @@ export default function AddParticipantsBySpreadsheet() {
               </Table>
             </TableContainer>
           ) : (
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" color="textSecondary">
               This sheet is empty.
             </Typography>
           )}

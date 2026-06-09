@@ -140,10 +140,8 @@ export default function MultipleParticipantsCheckInDialog({
         }}
       >
         <GroupsIcon sx={{ fontSize: 120, color: accentColor }} />
-        <Typography variant="h2" color="text.secondary">
-          Multiple participants found
-        </Typography>
-        <Typography variant="h5" color="text.secondary">
+        <Typography variant="h2">Multiple participants found</Typography>
+        <Typography variant="h5">
           Select the correct participant to check in
         </Typography>
 
@@ -174,7 +172,7 @@ export default function MultipleParticipantsCheckInDialog({
                     sx={{ alignItems: "center" }}
                   >
                     <PhoneIcon sx={{ fontSize: 28 }} color="action" />
-                    <Typography variant="h6" color="text.secondary">
+                    <Typography variant="h6">
                       {p.countryCode && p.phone
                         ? `${p.countryCode} ${maskPhone(p.phone)}`
                         : "(No phone number)"}
@@ -186,7 +184,7 @@ export default function MultipleParticipantsCheckInDialog({
                     sx={{ alignItems: "center" }}
                   >
                     <EmailIcon sx={{ fontSize: 28 }} color="action" />
-                    <Typography variant="h6" color="text.secondary">
+                    <Typography variant="h6">
                       {p.email ? maskEmail(p.email) : "(No email address)"}
                     </Typography>
                   </Stack>

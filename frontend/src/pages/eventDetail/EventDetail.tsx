@@ -252,7 +252,7 @@ export default function EventDetail() {
   }
 
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1.25}>
       <Card>
         <Box sx={{ p: 2 }}>
           <Stack
@@ -294,11 +294,7 @@ export default function EventDetail() {
               Check-in Booth
             </Button>
           </Stack>
-          <Typography
-            variant="body1"
-            color="text.secondary"
-            sx={{ mt: 1, mb: 2 }}
-          >
+          <Typography variant="body1" sx={{ mt: 1, mb: 2 }}>
             {event.description || "No description."}
           </Typography>
           <Stack
@@ -322,10 +318,7 @@ export default function EventDetail() {
             direction="row"
             sx={{ justifyContent: "space-between", alignItems: "flex-end" }}
           >
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-              <Typography variant="body1" color="text.secondary">
-                Attendance mode:
-              </Typography>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
               <ToggleButtonGroup
                 color="primary"
                 exclusive
@@ -338,6 +331,9 @@ export default function EventDetail() {
                 <ToggleButton value="test">Test</ToggleButton>
                 <ToggleButton value="live">Live</ToggleButton>
               </ToggleButtonGroup>
+              <Typography variant="body1" color="textSecondary">
+                attendance mode
+              </Typography>
             </Stack>
             <Button
               variant="outlined"
@@ -377,10 +373,8 @@ export default function EventDetail() {
         sx={{ justifyContent: "space-between", alignItems: "center" }}
       >
         <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-          <GroupIcon sx={{ color: "#000000" }} />
-          <Typography variant="h5" color="text.secondary">
-            Participants
-          </Typography>
+          <GroupIcon />
+          <Typography variant="h5">Participants</Typography>
         </Stack>
         <TextField
           size="small"
@@ -432,7 +426,7 @@ export default function EventDetail() {
       {filteredNotDelivered.length > 0 && (
         <ParticipantGrid
           participants={filteredNotDelivered}
-          title="Ticket Not Delivered"
+          title="Not Delivered"
           onClick={(id) => setSelectedParticipantId(id)}
         />
       )}
@@ -450,7 +444,7 @@ export default function EventDetail() {
         filteredNotAttended.length === 0 &&
         filteredNotDelivered.length === 0 &&
         filteredTicketUndelivered.length === 0 && (
-          <Typography color="text.secondary">No matches found.</Typography>
+          <Typography color="textSecondary">No matches found.</Typography>
         )}
 
       <AddParticipantsSpeedDial eventId={eventId} />

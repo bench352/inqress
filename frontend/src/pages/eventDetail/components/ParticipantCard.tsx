@@ -30,15 +30,15 @@ export function ParticipantCard({ participant, onClick }: Props) {
   return (
     <Card variant="outlined" sx={{ height: "100%" }}>
       <CardActionArea onClick={onClick} sx={{ height: "100%" }}>
-        <Box sx={{ p: 2 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }} gutterBottom>
+        <Box sx={{ px: 2, py: 1 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             {participant.title ? `${participant.title} ` : ""}
             {participant.name}
           </Typography>
-          <Stack spacing={0.75}>
+          <Stack spacing={0.25}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <EmailIcon fontSize="small" color="action" />
-              <Typography variant="body1" color="text.secondary">
+              <Typography variant="body1">
                 {participant.email
                   ? maskEmail(participant.email)
                   : "(No email address)"}
@@ -46,7 +46,7 @@ export function ParticipantCard({ participant, onClick }: Props) {
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <PhoneIcon fontSize="small" color="action" />
-              <Typography variant="body1" color="text.secondary">
+              <Typography variant="body1">
                 {participant.countryCode && participant.phone
                   ? `${participant.countryCode} ${maskPhone(participant.phone)}`
                   : "(No phone number)"}
@@ -55,7 +55,7 @@ export function ParticipantCard({ participant, onClick }: Props) {
             {!participant.checkedInAt && (
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <ConfirmationNumberIcon fontSize="small" color="action" />
-                <Typography variant="body1" color="text.secondary">
+                <Typography variant="body1">
                   {getTicketStatus(participant)}
                 </Typography>
               </Stack>

@@ -64,7 +64,7 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
     >
       <DialogTitle>Edit Email Template</DialogTitle>
       <DialogContent sx={{ minHeight: 400 }}>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body1" color="textSecondary" sx={{ mb: 2 }}>
           Customize the HTML template below to personalize your ticket delivery
           email. Include these placeholders in the template, which will be
           automatically substituted by individual participant information when
@@ -85,7 +85,7 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
               key={code}
               variant="body1"
               component="li"
-              color="text.secondary"
+              color="textSecondary"
             >
               <Box
                 component="code"

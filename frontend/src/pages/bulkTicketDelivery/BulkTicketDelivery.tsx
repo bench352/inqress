@@ -116,7 +116,7 @@ export default function BulkTicketDelivery() {
       <Box sx={{ flex: 1, overflow: "auto", p: 4 }}>
         <Stack spacing={3}>
           <Typography variant="h4">{event?.name}</Typography>
-          <Typography variant="h6" color="text.secondary">
+          <Typography variant="h6">
             Bulk ticket delivery to undelivered guests
           </Typography>
           <Typography variant="body1">
@@ -146,7 +146,7 @@ export default function BulkTicketDelivery() {
               </Table>
             </TableContainer>
           ) : (
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               No undelivered guests with ready tickets and email addresses.
             </Typography>
           )}
@@ -197,7 +197,6 @@ export default function BulkTicketDelivery() {
           <Paper elevation={2} sx={{ p: 2, flexShrink: 0 }}>
             <Typography
               variant="subtitle1"
-              color="text.secondary"
               sx={{ pb: 0.5, textAlign: "center" }}
             >
               <strong>Preview email</strong>
@@ -245,19 +244,19 @@ export default function BulkTicketDelivery() {
             {currentParticipant ? (
               <>
                 <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1">
                     <strong>From: </strong> {sendViaEmail}
                   </Typography>
                 </Box>
                 <Divider />
                 <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1">
                     <strong>To: </strong> {currentParticipant.email}
                   </Typography>
                 </Box>
                 <Divider />
                 <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1">
                     <strong>Subject:</strong> [Ticket] {event?.name}
                   </Typography>
                 </Box>
@@ -280,7 +279,7 @@ export default function BulkTicketDelivery() {
                     />
                   )}
                   {!previewLoading && !displayHtml && (
-                    <Typography color="text.secondary">
+                    <Typography color="textSecondary">
                       Failed to load preview.
                     </Typography>
                   )}
@@ -296,7 +295,7 @@ export default function BulkTicketDelivery() {
                   justifyContent: "center",
                 }}
               >
-                <Typography color="text.secondary">
+                <Typography color="textSecondary">
                   Select a participant to preview
                 </Typography>
               </Box>

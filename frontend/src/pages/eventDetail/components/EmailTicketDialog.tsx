@@ -86,7 +86,7 @@ export default function EmailTicketDialog({
           {previewHtml && (
             <Paper variant="outlined" sx={{ overflow: "hidden" }}>
               <Box sx={{ p: 2 }}>
-                <Typography variant="body1" color="text.secondary">
+                <Typography variant="body1" color="textSecondary">
                   Subject: [Ticket] {eventName}
                 </Typography>
               </Box>

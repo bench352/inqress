@@ -62,9 +62,7 @@ export default function EventsList() {
         >
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <EventIcon />
-            <Typography variant="h5" color="text.secondary">
-              Your events
-            </Typography>
+            <Typography variant="h5">Your events</Typography>
           </Stack>
           <TextField
             variant="standard"
@@ -115,23 +113,22 @@ export default function EventsList() {
                   sx={{ height: "100%" }}
                 >
                   <CardContent>
-                    <Typography variant="h6" component="h2" gutterBottom noWrap>
+                    <Typography variant="h6" component="h2" noWrap>
                       {event.name}
                     </Typography>
                     <Typography
                       variant="body1"
-                      color="text.secondary"
                       sx={{
                         display: "-webkit-box",
                         WebkitLineClamp: 3,
                         WebkitBoxOrient: "vertical",
                         overflow: "hidden",
-                        mb: 1,
+                        mb: 0.25,
                       }}
                     >
                       {event.description || "No description"}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="body2" color="textSecondary">
                       {event.date}
                     </Typography>
                   </CardContent>

@@ -13,7 +13,7 @@ export default function AttendanceSummary({
     <Box sx={{ p: 2 }}>
       <Stack direction="row" spacing={2} sx={{ alignItems: "flex-end" }}>
         <Stack direction="column" spacing={0} sx={{ flexGrow: 1 }}>
-          <Typography variant="subtitle2" gutterBottom sx={{ fontSize: 20 }}>
+          <Typography variant="subtitle1" gutterBottom sx={{ fontSize: 18 }}>
             Attendance
           </Typography>
           <LinearProgress
@@ -23,7 +23,6 @@ export default function AttendanceSummary({
         </Stack>
         <Typography
           variant="subtitle1"
-          color="text.secondary"
           sx={{ whiteSpace: "nowrap", fontSize: 24 }}
         >
           {attendedCount} / {totalCount}

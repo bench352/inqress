@@ -299,6 +299,7 @@ export default function ParticipantDetailsDialog({
               startIcon={<HowToRegIcon />}
               onClick={() => assistedMutation.mutate()}
               loading={assistedMutation.isPending}
+              disabled={participant.checkedInAt}
               fullWidth
             >
               Confirm at Booth
@@ -345,7 +346,7 @@ export default function ParticipantDetailsDialog({
                     ? "Ticket image is still generating."
                     : !participant.email
                       ? "No email address."
-                      : "Send an email with the QR code."
+                      : "Send / resend email with the QR code."
                 }
               />
             </ListItemButton>

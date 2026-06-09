@@ -152,9 +152,7 @@ export default function CustomizeBooth() {
       <Box sx={{ flex: "1 1 0", minWidth: 0, overflow: "auto", p: 4 }}>
         <Stack spacing={3}>
           <Typography variant="h4">{event?.name}</Typography>
-          <Typography variant="h6" color="text.secondary">
-            Customize check-in booth
-          </Typography>
+          <Typography variant="h6">Customize check-in booth</Typography>
 
           <Box>
             <Typography variant="subtitle1" gutterBottom>
@@ -186,9 +184,7 @@ export default function CustomizeBooth() {
                     : "Click to select an image file"}
                 </Typography>
                 {!selectedFile && (
-                  <Typography variant="caption" color="text.secondary">
-                    PNG, JPEG or GIF
-                  </Typography>
+                  <Typography variant="caption">PNG, JPEG or GIF</Typography>
                 )}
               </Box>
               {selectedFile && (
@@ -245,7 +241,7 @@ export default function CustomizeBooth() {
               Cancel
             </Button>
           </Stack>
-          <Typography variant="body1" sx={{ color: "text.secondary" }}>
+          <Typography variant="body1" color="textSecondary">
             (Note: Icons and buttons in the previews are not to scale)
           </Typography>
         </Stack>

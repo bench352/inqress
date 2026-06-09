@@ -269,7 +269,6 @@ function ScannerInner({ eventId }: { eventId: string }) {
         >
           <Typography
             variant="h3"
-            color="text.secondary"
             sx={{ textAlign: "center", fontSize: 46, maxWidth: 540 }}
           >
             Present your QR code ticket to the camera to check in

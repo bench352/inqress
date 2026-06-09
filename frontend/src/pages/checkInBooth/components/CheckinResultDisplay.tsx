@@ -58,9 +58,7 @@ export default function CheckinResultDisplay({
       {phase === "loading" && (
         <>
           <CircularProgress size={LOADING_SIZE} />
-          <Typography variant="h2" color="text.secondary">
-            Just a moment...
-          </Typography>
+          <Typography variant="h2">Just a moment...</Typography>
         </>
       )}
       {phase === "success" && result?.success && (
@@ -69,7 +67,7 @@ export default function CheckinResultDisplay({
             sx={{ fontSize: RESULT_ICON_SIZE, color: "success.main" }}
           />
           <Typography variant="h2">Welcome</Typography>
-          <Typography variant="h1" color="text.secondary">
+          <Typography variant="h1">
             {"detail" in result && !("reason" in result.detail)
               ? `${result.detail.title} ${result.detail.name}`
               : ""}

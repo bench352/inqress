@@ -119,17 +119,15 @@ export default function AssistedConfirmationDialog({
         }}
       >
         <PersonSearchIcon sx={{ fontSize: 120, color: accentColor }} />
-        <Typography variant="h2" color="text.secondary">
-          Confirm this is you
-        </Typography>
-        <Typography variant="h1" color="text.secondary">
+        <Typography variant="h2">Confirm this is you</Typography>
+        <Typography variant="h1">
           {title ? `${title} ` : ""}
           {name}
         </Typography>
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <PhoneIcon fontSize="large" color="action" />
-            <Typography variant="h4" color="text.secondary">
+            <Typography variant="h4">
               {countryCode && phone
                 ? `${countryCode} ${maskPhone(phone)}`
                 : "(No phone number)"}
@@ -137,7 +135,7 @@ export default function AssistedConfirmationDialog({
           </Stack>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <EmailIcon fontSize="large" color="action" />
-            <Typography variant="h4" color="text.secondary">
+            <Typography variant="h4">
               {email ? maskEmail(email) : "(No email address)"}
             </Typography>
           </Stack>
