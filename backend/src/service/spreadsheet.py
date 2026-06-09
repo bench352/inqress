@@ -66,7 +66,7 @@ def parse_workbook(
 
 def store_workbook(workbook: dict[str, tuple[list[str], list[list[str]]]]) -> uuid.UUID:
     task_id = uuid.uuid4()
-    expiry = datetime.datetime.now() + _CACHE_TTL
+    expiry = datetime.datetime.now(datetime.timezone.utc) + _CACHE_TTL
     with _cache_lock:
         _cache[task_id] = (workbook, expiry)
     threading.Timer(_CACHE_TTL.total_seconds(), _cleanup, args=(task_id,)).start()
@@ -81,7 +81,7 @@ def get_workbook(
         if entry is None:
             return None
         workbook, expiry = entry
-        if datetime.datetime.now() > expiry:
+        if datetime.datetime.now(datetime.timezone.utc) > expiry:
             del _cache[task_id]
             return None
         return workbook

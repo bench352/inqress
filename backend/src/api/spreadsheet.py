@@ -36,7 +36,9 @@ def spreadsheet_preview(
         )
 
     task_id = service.spreadsheet.store_workbook(workbook)
-    expiry = datetime.datetime.now() + datetime.timedelta(minutes=30)
+    expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+        minutes=30
+    )
     sheets: dict[str, schema.rest.SheetPreview] = {}
     for name, (columns, rows) in workbook.items():
         sheets[name] = schema.rest.SheetPreview(columns=columns, heads=rows[:5])
