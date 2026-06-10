@@ -30,7 +30,7 @@ export default function ProgressCard({ title, progress }: Props) {
         />
         <Stack direction="row" sx={{ justifyContent: "space-between" }}>
           <Typography variant="body1" color="textSecondary">
-            {progress.numCompleted} / {progress.numTotal} {title.toLowerCase()}{" "}
+            {title.toLowerCase()} {progress.numCompleted} / {progress.numTotal}{" "}
             completed
             {progress.numErrors > 0 && (
               <>
