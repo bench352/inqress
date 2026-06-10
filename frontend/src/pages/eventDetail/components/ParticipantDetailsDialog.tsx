@@ -321,7 +321,7 @@ export default function ParticipantDetailsDialog({
               startIcon={<HowToRegIcon />}
               onClick={() => assistedMutation.mutate()}
               loading={assistedMutation.isPending}
-              disabled={participant.checkedInAt}
+              disabled={!!participant.checkedInAt}
               fullWidth
             >
               Confirm at Booth

@@ -8,6 +8,7 @@ import {
   ListItemText,
   Typography,
 } from "@mui/material";
+import ApiIcon from "@mui/icons-material/Api";
 import BusinessIcon from "@mui/icons-material/Business";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import EmailIcon from "@mui/icons-material/Email";
@@ -45,7 +46,7 @@ export default function Settings() {
             <EmailIcon />
           </ListItemIcon>
           <ListItemText
-            primary="Email for ticket delivery"
+            primary="Email (for ticket delivery)"
             secondary={sendViaEmail}
           />
         </ListItem>
@@ -59,7 +60,7 @@ export default function Settings() {
           </ListItemIcon>
           <ListItemText
             primary="Webcam settings"
-            secondary="These settings only apply to this device."
+            secondary="Settings only apply to this device"
           />
         </ListItemButton>
       </List>
@@ -72,6 +73,12 @@ export default function Settings() {
           </ListItemIcon>
           <ListItemText primary="App Version" secondary={appVersion} />
         </ListItem>
+        <ListItemButton onClick={() => window.open("/docs")}>
+          <ListItemIcon>
+            <ApiIcon />
+          </ListItemIcon>
+          <ListItemText primary="API Documentation" secondary="For the nerds" />
+        </ListItemButton>
         <ListItemButton onClick={() => setLicenseDialogOpen(true)}>
           <ListItemIcon>
             <DescriptionOutlinedIcon />
@@ -86,7 +93,7 @@ export default function Settings() {
           </ListItemIcon>
           <ListItemText
             primary="GitHub Repository"
-            secondary="Star this repository or report issues!"
+            secondary="Star this repository or report issues"
           />
         </ListItemButton>
       </List>

@@ -25,11 +25,14 @@ COPY backend/src /app/src
 
 FROM python:3.14-alpine
 
+ARG APP_VERSION=0.0.0
+
 COPY --from=backend-build /app/.venv /app/.venv
 COPY --from=backend-build /app/src /app/src
 COPY --from=frontend-build /frontend/dist /app/frontend
 
-ENV PATH="/app/.venv/bin:$PATH" \
+ENV APP_VERSION=${APP_VERSION} \
+    PATH="/app/.venv/bin:$PATH" \
     FRONTEND_DIR="/app/frontend" \
     PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0
