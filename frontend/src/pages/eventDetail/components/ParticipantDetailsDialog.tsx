@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import EmailIcon from "@mui/icons-material/Email";
@@ -20,11 +21,18 @@ import HowToRegIcon from "@mui/icons-material/HowToReg";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import PhoneIcon from "@mui/icons-material/Phone";
 import QrCodeIcon from "@mui/icons-material/QrCode";
+import dayjs from "dayjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useApi } from "@/api.ts";
 import type { ParticipantItem } from "../useEventDetail";
 import PreviewTicketDialog from "./PreviewTicketDialog";
+
+function getTicketStatus(participant: ParticipantItem): string {
+  if (!participant.isTicketReady) return "Generating...";
+  if (!participant.isTicketDelivered) return "Undelivered";
+  return "Delivered";
+}
 import EmailTicketDialog from "./EmailTicketDialog";
 import EditParticipantDialog from "./EditParticipantDialog";
 
@@ -291,6 +299,20 @@ export default function ParticipantDetailsDialog({
                   : "(No phone number)"}
               </Typography>
             </Stack>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <ConfirmationNumberIcon fontSize="small" color="action" />
+              <Typography variant="body1">
+                {getTicketStatus(participant)}
+              </Typography>
+            </Stack>
+            {participant.checkedInAt && (
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <CheckCircleIcon fontSize="small" color="success" />
+                <Typography variant="body1" color="success">
+                  {dayjs(participant.checkedInAt).format("MMM D, YYYY h:mm A")}
+                </Typography>
+              </Stack>
+            )}
           </Stack>
 
           {eventMode !== "disabled" && (

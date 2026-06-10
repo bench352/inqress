@@ -8,12 +8,12 @@ import {
   DialogTitle,
   Divider,
   Paper,
-  Stack,
   Typography,
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
-import { useApi } from "../../../api";
+import { useApi } from "@/api.ts";
+import { useAppInfo } from "@/providers/useAppInfo";
 
 interface Props {
   open: boolean;
@@ -34,6 +34,7 @@ export default function EmailTicketDialog({
 }: Props) {
   const api = useApi();
   const queryClient = useQueryClient();
+  const { sendViaEmail } = useAppInfo();
 
   const previewQuery = useQuery({
     queryKey: ["emailPreview", eventId, participantId],
@@ -68,13 +69,7 @@ export default function EmailTicketDialog({
     >
       <DialogTitle>Email Ticket</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <Typography variant="body1">
-            This email will be sent to{" "}
-            <Box component="strong">{participantEmail}</Box>.
-          </Typography>
-        </Stack>
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 1 }}>
           {previewQuery.isLoading && (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <CircularProgress />
@@ -85,18 +80,26 @@ export default function EmailTicketDialog({
           )}
           {previewHtml && (
             <Paper variant="outlined" sx={{ overflow: "hidden" }}>
-              <Box sx={{ p: 2 }}>
-                <Typography variant="body1" color="textSecondary">
-                  Subject: [Ticket] {eventName}
+              <Box sx={{ px: 2, py: 1 }}>
+                <Typography variant="body1">
+                  <strong>From: </strong> {sendViaEmail}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ px: 2, py: 1 }}>
+                <Typography variant="body1">
+                  <strong>To: </strong> {participantEmail}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ px: 2, py: 1 }}>
+                <Typography variant="body1">
+                  <strong>Subject:</strong> [Ticket] {eventName}
                 </Typography>
               </Box>
               <Divider />
               <Box
-                sx={{
-                  p: 2,
-                  maxHeight: 400,
-                  overflow: "auto",
-                }}
+                sx={{ p: 2 }}
                 dangerouslySetInnerHTML={{
                   __html: DOMPurify.sanitize(previewHtml),
                 }}

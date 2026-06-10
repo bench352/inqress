@@ -8,18 +8,10 @@ import {
 } from "@mui/material";
 import EmailIcon from "@mui/icons-material/Email";
 import PhoneIcon from "@mui/icons-material/Phone";
-import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
 import type { ParticipantItem } from "../useEventDetail";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import dayjs from "dayjs";
 import { maskEmail, maskPhone } from "@/utils/masking";
-
-function getTicketStatus(participant: ParticipantItem): string {
-  if (participant.checkedInAt != null) return "Checked in";
-  if (!participant.isTicketReady) return "Generating...";
-  if (!participant.isTicketDelivered) return "Undelivered";
-  return "Delivered";
-}
 
 interface Props {
   participant: ParticipantItem;
@@ -52,14 +44,6 @@ export function ParticipantCard({ participant, onClick }: Props) {
                   : "(No phone number)"}
               </Typography>
             </Stack>
-            {!participant.checkedInAt && (
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <ConfirmationNumberIcon fontSize="small" color="action" />
-                <Typography variant="body1">
-                  {getTicketStatus(participant)}
-                </Typography>
-              </Stack>
-            )}
           </Stack>
         </Box>
         {participant.checkedInAt && (

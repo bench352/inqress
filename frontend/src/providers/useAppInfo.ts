@@ -3,6 +3,7 @@ import { createContext, useContext } from "react";
 export interface AppInfoContextValue {
   orgName: string | null;
   sendViaEmail: string;
+  appVersion: string;
   isLoading: boolean;
 }
 

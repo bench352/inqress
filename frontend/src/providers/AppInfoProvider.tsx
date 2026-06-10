@@ -9,6 +9,7 @@ import { useApi } from "../api";
 interface AppInfo {
   orgName: string;
   sendViaEmail: string;
+  appVersion: string;
 }
 
 export default function AppInfoProvider({ children }: PropsWithChildren) {
@@ -26,6 +27,7 @@ export default function AppInfoProvider({ children }: PropsWithChildren) {
     () => ({
       orgName: data?.orgName ?? null,
       sendViaEmail: data?.sendViaEmail ?? "",
+      appVersion: data?.appVersion ?? "0.0.0",
       isLoading,
     }),
     [data, isLoading],
