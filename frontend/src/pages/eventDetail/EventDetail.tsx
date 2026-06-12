@@ -439,6 +439,12 @@ export default function EventDetail() {
         />
       )}
 
+      {participants.length === 0 && (
+        <Typography color="textSecondary">
+          No participants yet. Add some using the + button.
+        </Typography>
+      )}
+
       {participants.length > 0 &&
         filteredAttended.length === 0 &&
         filteredNotAttended.length === 0 &&
