@@ -152,13 +152,12 @@ export default function CustomizeBooth() {
       <Box sx={{ flex: "1 1 0", minWidth: 0, overflow: "auto", p: 4 }}>
         <Stack spacing={3}>
           <Typography variant="h4">{event?.name}</Typography>
-          <Typography variant="h6" color="text.secondary">
-            Customize check-in booth
-          </Typography>
+          <Typography variant="h6">Customize check-in booth</Typography>
 
           <Box>
             <Typography variant="subtitle1" gutterBottom>
-              Choose a booth cover image
+              Choose a booth cover image{" "}
+              <strong>(1:1 aspect ratio recommended)</strong>
             </Typography>
             <Box
               onClick={() => fileInputRef.current?.click()}
@@ -179,15 +178,13 @@ export default function CustomizeBooth() {
             >
               <CloudUploadIcon color="action" sx={{ fontSize: 40 }} />
               <Box sx={{ flex: 1 }}>
-                <Typography variant="body2">
+                <Typography variant="body1">
                   {selectedFile
                     ? selectedFile.name
                     : "Click to select an image file"}
                 </Typography>
                 {!selectedFile && (
-                  <Typography variant="caption" color="text.secondary">
-                    PNG, JPEG or GIF
-                  </Typography>
+                  <Typography variant="caption">PNG, JPEG or GIF</Typography>
                 )}
               </Box>
               {selectedFile && (
@@ -217,7 +214,7 @@ export default function CustomizeBooth() {
 
           <Box>
             <Typography variant="subtitle1" gutterBottom>
-              Choose an accent color
+              Choose an accent color for icons and buttons
             </Typography>
             <MuiColorInput
               format="hex"
@@ -244,6 +241,9 @@ export default function CustomizeBooth() {
               Cancel
             </Button>
           </Stack>
+          <Typography variant="body1" color="textSecondary">
+            (Note: Icons and buttons in the previews are not to scale)
+          </Typography>
         </Stack>
       </Box>
 

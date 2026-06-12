@@ -3,8 +3,8 @@ import { Box, Button, Typography } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
 import { useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useApi } from "../../api";
-import { useBoothStream } from "../../hooks/useBoothStream";
+import { useApi } from "@/api.ts";
+import { useBoothStream } from "@/hooks/useBoothStream.ts";
 import BoothImage from "./components/BoothImage";
 import CameraPreview from "./components/CameraPreview";
 import CheckinResultDialog from "./components/CheckinResultDialog";
@@ -178,6 +178,10 @@ function ScannerInner({ eventId }: { eventId: string }) {
     setPhoneDialogOpen(false);
   }, []);
 
+  const handleAssistedConfirmationClose = useCallback(() => {
+    dispatchAssisted({ type: "CLEAR" });
+  }, []);
+
   if (connectionRejected) {
     return <BoothRejectedDialog eventId={eventId} />;
   }
@@ -265,7 +269,6 @@ function ScannerInner({ eventId }: { eventId: string }) {
         >
           <Typography
             variant="h3"
-            color="text.secondary"
             sx={{ textAlign: "center", fontSize: 46, maxWidth: 540 }}
           >
             Present your QR code ticket to the camera to check in
@@ -312,7 +315,8 @@ function ScannerInner({ eventId }: { eventId: string }) {
           countryCode={assistedConfirmation.countryCode}
           phone={assistedConfirmation.phone}
           email={assistedConfirmation.email}
-          onClose={() => dispatchAssisted({ type: "CLEAR" })}
+          accentColor={accentColor}
+          onClose={handleAssistedConfirmationClose}
         />
       )}
     </Box>

@@ -3,8 +3,9 @@ import EmailIcon from "@mui/icons-material/Email";
 import QrCodeIcon from "@mui/icons-material/QrCode";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { useApi } from "../../../api";
+import { useApi } from "@/api.ts";
 import ProgressCard from "@/components/ProgressCard";
+import PlayCircleFilledWhiteOutlinedIcon from "@mui/icons-material/PlayCircleFilledWhiteOutlined";
 
 interface ProgressState {
   inProgress: boolean;
@@ -42,7 +43,10 @@ export default function ActionsSection({
 
   return (
     <>
-      <Typography variant="subtitle1">Actions</Typography>
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+        <PlayCircleFilledWhiteOutlinedIcon />
+        <Typography variant="h5">Actions</Typography>
+      </Stack>
       <Stack spacing={2}>
         <ProgressCard
           title="Importing participants..."
@@ -54,7 +58,7 @@ export default function ActionsSection({
           progress={generateTicketQrProgress}
         />
         {notReadyCount > 0 && !generateTicketQrProgress?.inProgress && (
-          <Card sx={{ p: 2 }}>
+          <Card variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={1.5}>
               <Stack
                 direction="row"
@@ -66,7 +70,7 @@ export default function ActionsSection({
                   Generate ticket QR codes for all participants
                 </Typography>
               </Stack>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body1">
                 {notReadyCount} participant(s) don't have a ticket QR code yet.
                 This must be done before delivering tickets.
               </Typography>
@@ -82,7 +86,7 @@ export default function ActionsSection({
         )}
 
         {undeliveredReadyCount > 0 && !sendEmailProgress?.inProgress && (
-          <Card sx={{ p: 2 }}>
+          <Card variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={1.5}>
               <Stack
                 direction="row"
@@ -94,7 +98,7 @@ export default function ActionsSection({
                   Deliver tickets to participants in one click
                 </Typography>
               </Stack>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body1">
                 {undeliveredReadyCount === 1
                   ? "1 participant is waiting for ticket delivery and has registered their email address. Click here to send the ticket at once."
                   : `${undeliveredReadyCount} participants are waiting for ticket delivery and have registered their email addresses. Click here to send tickets to them at once.`}

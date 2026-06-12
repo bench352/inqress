@@ -5,6 +5,7 @@ import ErrorIcon from "@mui/icons-material/Error";
 import useSound from "use-sound";
 import successSound from "../../../assets/soundEffects/checkin_success.aac";
 import failSound from "../../../assets/soundEffects/checkin_fail.aac";
+import { useConfetti } from "@/hooks/useConfetti";
 import type { CheckinPhase, CheckinResponse } from "../types";
 
 interface Props {
@@ -26,11 +27,15 @@ export default function CheckinResultDisplay({
 }: Props) {
   const [playSuccess] = useSound(successSound);
   const [playFail] = useSound(failSound);
+  const { fire: fireConfetti } = useConfetti();
 
   useEffect(() => {
-    if (phase === "success") playSuccess();
+    if (phase === "success") {
+      playSuccess();
+      fireConfetti();
+    }
     if (phase === "error") playFail();
-  }, [phase, playSuccess, playFail]);
+  }, [phase, playSuccess, playFail, fireConfetti]);
 
   useEffect(() => {
     if (phase === "loading") return;
@@ -53,9 +58,7 @@ export default function CheckinResultDisplay({
       {phase === "loading" && (
         <>
           <CircularProgress size={LOADING_SIZE} />
-          <Typography variant="h2" color="text.secondary">
-            Just a moment...
-          </Typography>
+          <Typography variant="h2">Just a moment...</Typography>
         </>
       )}
       {phase === "success" && result?.success && (
@@ -64,7 +67,7 @@ export default function CheckinResultDisplay({
             sx={{ fontSize: RESULT_ICON_SIZE, color: "success.main" }}
           />
           <Typography variant="h2">Welcome</Typography>
-          <Typography variant="h1" color="text.secondary">
+          <Typography variant="h1">
             {"detail" in result && !("reason" in result.detail)
               ? `${result.detail.title} ${result.detail.name}`
               : ""}

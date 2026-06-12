@@ -117,7 +117,7 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinRe
             )
 
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
-        checked_in_at = datetime.datetime.now().isoformat()
+        checked_in_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         session.execute(
             insert(schema.orm.AttendanceLog).values(
                 id=uuid.uuid4(),
@@ -232,7 +232,7 @@ def checkin_by_phone(
             )
 
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
-        checked_in_at = datetime.datetime.now().isoformat()
+        checked_in_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         session.execute(
             insert(schema.orm.AttendanceLog).values(
                 id=uuid.uuid4(),
@@ -275,7 +275,7 @@ def checkin_manual(
 
     with service.db.get_session() as session:
         is_test = 1 if info.event_mode == schema.enum.EventMode.TEST else 0
-        checked_in_at = datetime.datetime.now().isoformat()
+        checked_in_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         session.execute(
             insert(schema.orm.AttendanceLog).values(
                 id=uuid.uuid4(),

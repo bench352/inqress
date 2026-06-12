@@ -77,7 +77,9 @@ class EventStreamManager:
         data: schema.rest.BulkCreateResponse,
         ttl_minutes: int = 30,
     ) -> None:
-        expiry = datetime.datetime.now() + datetime.timedelta(minutes=ttl_minutes)
+        expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+            minutes=ttl_minutes
+        )
         with self._lock:
             self._results[result_id] = (expiry, data)
         threading.Timer(
@@ -90,7 +92,7 @@ class EventStreamManager:
             if entry is None:
                 return None
             expiry, data = entry
-            if datetime.datetime.now() > expiry:
+            if datetime.datetime.now(datetime.timezone.utc) > expiry:
                 del self._results[result_id]
                 return None
             return data

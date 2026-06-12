@@ -28,18 +28,10 @@ export default function BoothRejectedDialog({ eventId }: Props) {
         }}
       >
         <BlockIcon sx={{ fontSize: 128, color: "error.main" }} />
-        <Typography
-          variant="h4"
-          color="text.secondary"
-          sx={{ textAlign: "center" }}
-        >
+        <Typography variant="h4" sx={{ textAlign: "center" }}>
           This booth is already open in another window.
         </Typography>
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{ textAlign: "center" }}
-        >
+        <Typography variant="body1" sx={{ textAlign: "center" }}>
           Please close the other window first.
         </Typography>
         <Button variant="contained" size="large" onClick={handleClose}>

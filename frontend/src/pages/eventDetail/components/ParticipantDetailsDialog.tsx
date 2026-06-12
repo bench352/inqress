@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import EmailIcon from "@mui/icons-material/Email";
@@ -20,11 +21,18 @@ import HowToRegIcon from "@mui/icons-material/HowToReg";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import PhoneIcon from "@mui/icons-material/Phone";
 import QrCodeIcon from "@mui/icons-material/QrCode";
+import dayjs from "dayjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
-import { useApi } from "../../../api";
+import { useApi } from "@/api.ts";
 import type { ParticipantItem } from "../useEventDetail";
 import PreviewTicketDialog from "./PreviewTicketDialog";
+
+function getTicketStatus(participant: ParticipantItem): string {
+  if (!participant.isTicketReady) return "Generating...";
+  if (!participant.isTicketDelivered) return "Undelivered";
+  return "Delivered";
+}
 import EmailTicketDialog from "./EmailTicketDialog";
 import EditParticipantDialog from "./EditParticipantDialog";
 
@@ -242,7 +250,9 @@ export default function ParticipantDetailsDialog({
           <Typography>
             Are you sure you want to delete{" "}
             {participant.title ? `${participant.title} ` : ""}
-            {participant.name}? This action cannot be undone.
+            {participant.name}? This is irreversible and the participant's
+            ticket will be deactivated. If you want to add the participant
+            again, a different QR ticket will be generated instead.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -270,25 +280,39 @@ export default function ParticipantDetailsDialog({
       <DialogTitle>Participant Details</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <Typography variant="h6">
-            {participant.title ? `${participant.title} ` : ""}
-            {participant.name}
-          </Typography>
-          <Stack spacing={0.75}>
+          <Stack spacing={0.5}>
+            <Typography variant="h6">
+              {participant.title ? `${participant.title} ` : ""}
+              {participant.name}
+            </Typography>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <EmailIcon fontSize="small" color="action" />
-              <Typography variant="body2">
+              <Typography variant="body1">
                 {participant.email ?? "(No email address)"}
               </Typography>
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <PhoneIcon fontSize="small" color="action" />
-              <Typography variant="body2">
+              <Typography variant="body1">
                 {participant.countryCode && participant.phone
                   ? `${participant.countryCode} ${participant.phone}`
                   : "(No phone number)"}
               </Typography>
             </Stack>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <ConfirmationNumberIcon fontSize="small" color="action" />
+              <Typography variant="body1">
+                {getTicketStatus(participant)}
+              </Typography>
+            </Stack>
+            {participant.checkedInAt && (
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <CheckCircleIcon fontSize="small" color="success" />
+                <Typography variant="body1" color="success">
+                  {dayjs(participant.checkedInAt).format("MMM D, YYYY h:mm A")}
+                </Typography>
+              </Stack>
+            )}
           </Stack>
 
           {eventMode !== "disabled" && (
@@ -297,6 +321,7 @@ export default function ParticipantDetailsDialog({
               startIcon={<HowToRegIcon />}
               onClick={() => assistedMutation.mutate()}
               loading={assistedMutation.isPending}
+              disabled={!!participant.checkedInAt}
               fullWidth
             >
               Confirm at Booth
@@ -308,7 +333,10 @@ export default function ParticipantDetailsDialog({
               <ListItemIcon>
                 <EditIcon />
               </ListItemIcon>
-              <ListItemText primary="Edit information" />
+              <ListItemText
+                primary="Update personal information"
+                secondary="Change title, name, email, or phone."
+              />
             </ListItemButton>
             <ListItemButton
               onClick={() => setSubView("preview")}
@@ -321,8 +349,8 @@ export default function ParticipantDetailsDialog({
                 primary="Preview ticket"
                 secondary={
                   !participant.isTicketReady
-                    ? "Ticket image is still generating"
-                    : undefined
+                    ? "Ticket image is still generating."
+                    : "View QR code image or download it."
                 }
               />
             </ListItemButton>
@@ -337,10 +365,10 @@ export default function ParticipantDetailsDialog({
                 primary="Email ticket"
                 secondary={
                   !participant.isTicketReady
-                    ? "Ticket image is still generating"
+                    ? "Ticket image is still generating."
                     : !participant.email
-                      ? "No email address"
-                      : undefined
+                      ? "No email address."
+                      : "Send / resend email with the QR code."
                 }
               />
             </ListItemButton>
@@ -359,10 +387,10 @@ export default function ParticipantDetailsDialog({
                 primary="Mark ticket delivered"
                 secondary={
                   !participant.isTicketReady
-                    ? "Ticket image is still generating"
+                    ? "Ticket image is still generating."
                     : participant.isTicketDelivered
-                      ? "Already marked as delivered"
-                      : undefined
+                      ? "Already marked as delivered."
+                      : "Manually mark ticket as received."
                 }
               />
             </ListItemButton>
@@ -379,8 +407,8 @@ export default function ParticipantDetailsDialog({
                 primary="Mark attended"
                 secondary={
                   participant.checkedInAt != null
-                    ? "Already checked in"
-                    : undefined
+                    ? "Already checked in."
+                    : "Mark as checked in without any action from the participant."
                 }
               />
             </ListItemButton>
@@ -390,7 +418,11 @@ export default function ParticipantDetailsDialog({
               </ListItemIcon>
               <ListItemText
                 primary="Delete participant"
-                slotProps={{ primary: { sx: { color: "error.main" } } }}
+                secondary="Remove participant from this event. This will deactivate their ticket."
+                slotProps={{
+                  primary: { sx: { color: "error.main" } },
+                  secondary: { sx: { color: "error.main" } },
+                }}
               />
             </ListItemButton>
           </List>

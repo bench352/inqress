@@ -294,7 +294,7 @@ export default function ImportResultDialog({
               data.merged.length === 0 &&
               data.skipped.length === 0 &&
               data.errors.length === 0 && (
-                <Typography color="text.secondary">
+                <Typography color="textSecondary">
                   No participants were processed.
                 </Typography>
               )}

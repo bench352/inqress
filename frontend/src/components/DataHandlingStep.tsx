@@ -135,7 +135,7 @@ function OptionCard({
             >
               {label}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body1" color="textSecondary">
               {description}
             </Typography>
           </Stack>
@@ -155,7 +155,7 @@ export default function DataHandlingStep({
 
   return (
     <Stack spacing={3}>
-      <Typography variant="body1" color="text.secondary">
+      <Typography variant="body1">
         Choose how new participant data is combined with existing records. Pick
         the option that matches how the source data was created.
       </Typography>
@@ -172,7 +172,7 @@ export default function DataHandlingStep({
             onClick={() => setHelpOpen(true)}
             sx={{ lineHeight: 1.25 }}
           >
-            How are duplicates identified?
+            How are duplicates found?
           </Button>
         </Stack>
         <Stack direction="row" spacing={2}>
@@ -213,7 +213,7 @@ export default function DataHandlingStep({
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>How are duplicates identified?</DialogTitle>
+        <DialogTitle>How are duplicates found?</DialogTitle>
         <DialogContent>
           <Stack spacing={1}>
             <Typography variant="body1">
@@ -235,7 +235,7 @@ export default function DataHandlingStep({
             <Box sx={{ "& svg": { maxWidth: "100%", height: "auto" } }}>
               <MermaidDiagram chart={NAME_MATCH_FLOW_CHART} />
             </Box>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" color="textSecondary">
               If a name match is found but both email and phone are missing, the
               name match alone is treated as a potential duplicate. Choose the
               strategy that best fits how your data was collected.

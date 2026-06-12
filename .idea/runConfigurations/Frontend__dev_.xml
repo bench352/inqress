@@ -5,7 +5,8 @@
     <scripts>
       <script value="dev" />
     </scripts>
-    <node-interpreter value="wsl://Ubuntu@/home/ben/.nvm/versions/node/v24.14.1/bin/node" />
+    <arguments value="-- --host" />
+    <node-interpreter value="project" />
     <envs />
     <method v="2" />
   </configuration>

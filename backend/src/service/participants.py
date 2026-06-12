@@ -405,7 +405,8 @@ def bulk_create_and_notify(
         result_id = uuid.uuid4()
         manager.store_result(result_id, result)
         expire_on = (
-            datetime.datetime.now() + datetime.timedelta(minutes=30)
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(minutes=30)
         ).isoformat()
 
         manager.send(

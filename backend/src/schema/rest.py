@@ -182,3 +182,4 @@ class SpreadsheetImportRequest(RestModel):
 class InfoResponse(RestModel):
     org_name: str | None
     send_via_email: str
+    app_version: str

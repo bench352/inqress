@@ -9,9 +9,10 @@
     <option name="PARENT_ENVS" value="true" />
     <envs>
       <env name="PYTHONUNBUFFERED" value="1" />
+      <env name="APP_VERSION" value="test" />
     </envs>
     <option name="SDK_HOME" value="" />
-    <option name="SDK_NAME" value="InQRess / Backend" />
+    <option name="SDK_NAME" value="Python 3.14 (inqress)" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/backend/src" />
     <option name="IS_MODULE_SDK" value="false" />
     <option name="ADD_CONTENT_ROOTS" value="true" />

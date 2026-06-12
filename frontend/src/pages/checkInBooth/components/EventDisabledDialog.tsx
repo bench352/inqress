@@ -15,12 +15,8 @@ export default function EventDisabledDialog() {
           p: 8,
         }}
       >
-        <HourglassEmptyIcon sx={{ fontSize: 128, color: "grey.400" }} />
-        <Typography
-          variant="h4"
-          color="text.secondary"
-          sx={{ textAlign: "center" }}
-        >
+        <HourglassEmptyIcon sx={{ fontSize: 128 }} />
+        <Typography variant="h4" sx={{ textAlign: "center" }}>
           Please wait while the event organizer starts the check-in.
         </Typography>
       </Box>

@@ -1,17 +1,26 @@
 import { useMemo, useState } from "react";
 import {
+  Box,
   Button,
   Card,
   Chip,
+  Collapse,
+  Divider,
+  IconButton,
+  InputAdornment,
   LinearProgress,
   Stack,
+  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import ClearIcon from "@mui/icons-material/Clear";
 import EditIcon from "@mui/icons-material/Edit";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
+import GroupIcon from "@mui/icons-material/Group";
+import SearchIcon from "@mui/icons-material/Search";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Outlet,
@@ -31,7 +40,8 @@ import ImportResultDialog from "./components/ImportResultDialog";
 import ModeDialog from "./components/ModeDialog";
 import ModifyEventsDialog from "./components/ModifyEventsDialog";
 import ParticipantGrid from "@/components/ParticipantGrid";
-import { useApi } from "../../api";
+import { useApi } from "@/api.ts";
+import { useDebounce } from "@/hooks/useDebounce.ts";
 import { useEventStream } from "../../hooks/useEventStream";
 
 export default function EventDetail() {
@@ -45,9 +55,6 @@ export default function EventDetail() {
     isEventLoading,
     participants,
     attended,
-    notAttended,
-    ticketUndelivered,
-    notDelivered,
     isParticipantsLoading,
     updateEvent,
     isUpdating,
@@ -81,6 +88,11 @@ export default function EventDetail() {
   const [selectedParticipantId, setSelectedParticipantId] = useState<
     string | null
   >(null);
+  const [participantSearchQuery, setParticipantSearchQuery] = useState("");
+  const debouncedParticipantSearchQuery = useDebounce(
+    participantSearchQuery,
+    100,
+  );
 
   const selectedParticipant = selectedParticipantId
     ? (participants.find((a) => a.id === selectedParticipantId) ?? null)
@@ -137,12 +149,64 @@ export default function EventDetail() {
 
   const totalCount = participants.length;
   const attendedCount = attended.length;
+
+  const filteredParticipants = useMemo(
+    () =>
+      participants.filter((p) =>
+        p.name
+          .toLowerCase()
+          .includes(debouncedParticipantSearchQuery.toLowerCase()),
+      ),
+    [participants, debouncedParticipantSearchQuery],
+  );
+
+  const filteredAttended = useMemo(
+    () =>
+      filteredParticipants
+        .filter((a) => a.checkedInAt != null)
+        .sort((a, b) =>
+          (b.checkedInAt ?? "").localeCompare(a.checkedInAt ?? ""),
+        ),
+    [filteredParticipants],
+  );
+
+  const filteredNotAttended = useMemo(
+    () =>
+      filteredParticipants
+        .filter(
+          (a) =>
+            a.checkedInAt == null && a.isTicketReady && a.isTicketDelivered,
+        )
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [filteredParticipants],
+  );
+
+  const filteredTicketUndelivered = useMemo(
+    () =>
+      filteredParticipants
+        .filter((a) => a.checkedInAt == null && !a.isTicketReady)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [filteredParticipants],
+  );
+
+  const filteredNotDelivered = useMemo(
+    () =>
+      filteredParticipants
+        .filter(
+          (a) =>
+            a.checkedInAt == null && a.isTicketReady && !a.isTicketDelivered,
+        )
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [filteredParticipants],
+  );
+
   const undeliveredReadyCount = participants.filter(
     (a) => a.isTicketReady && !a.isTicketDelivered && a.email,
   ).length;
-  const notReadyParticipants = participants.filter((a) => !a.isTicketReady);
-  const notReadyCount = notReadyParticipants.length;
-  const notReadyIds = notReadyParticipants.map((a) => a.id);
+  const notReadyCount = participants.filter((a) => !a.isTicketReady).length;
+  const notReadyIds = participants
+    .filter((a) => a.checkedInAt == null && !a.isTicketReady)
+    .map((a) => a.id);
 
   const hasActionsContent =
     undeliveredReadyCount > 0 ||
@@ -188,97 +252,106 @@ export default function EventDetail() {
   }
 
   return (
-    <Stack spacing={2}>
-      <Card sx={{ p: 2 }}>
-        <Stack
-          direction="row"
-          sx={{ justifyContent: "space-between", alignItems: "flex-start" }}
-        >
-          <Typography variant="h4">{event.name}</Typography>
-          <Button
-            variant="contained"
-            startIcon={<QrCodeScannerIcon />}
-            onClick={async () => {
-              try {
-                const status = await api.get<{ connected: boolean }>(
-                  `/api/events/${eventId}/checkInBooth/status`,
-                );
-                if (status.connected) {
-                  enqueueSnackbar("Booth is already open", {
-                    variant: "warning",
-                  });
-                  return;
+    <Stack spacing={1.25}>
+      <Card>
+        <Box sx={{ p: 2 }}>
+          <Stack
+            direction="row"
+            sx={{ justifyContent: "space-between", alignItems: "flex-start" }}
+          >
+            <Typography variant="h4">{event.name}</Typography>
+            <Button
+              variant="contained"
+              startIcon={<QrCodeScannerIcon />}
+              onClick={async () => {
+                try {
+                  const status = await api.get<{ connected: boolean }>(
+                    `/api/events/${eventId}/checkInBooth/status`,
+                  );
+                  if (status.connected) {
+                    enqueueSnackbar("Booth is already open", {
+                      variant: "warning",
+                    });
+                    return;
+                  }
+                } catch {
+                  // fall through to open booth anyway
                 }
-              } catch {
-                // fall through to open booth anyway
-              }
-              const url = `/events/${eventId}/checkInBooth`;
-              const popup = window.open(
-                url,
-                "checkinBooth",
-                "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no",
-              );
-              if (!popup) {
-                navigate({
-                  to: "/events/$eventId/checkInBooth",
-                  params: { eventId },
-                });
-              }
-            }}
-          >
-            Check-in Booth
-          </Button>
-        </Stack>
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{ mt: 1, mb: 2 }}
-        >
-          {event.description || "No description."}
-        </Typography>
-        <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: "center" }}>
-          <Chip
-            icon={<CalendarTodayIcon />}
-            label={event.date}
-            onClick={() => setDateDialogOpen(true)}
-            variant="outlined"
-          />
-        </Stack>
-        <Stack
-          direction="row"
-          sx={{ justifyContent: "space-between", alignItems: "flex-end" }}
-        >
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <Typography variant="body2" color="text.secondary">
-              Attendance mode:
-            </Typography>
-            <ToggleButtonGroup
-              color="primary"
-              exclusive
-              value={event.mode}
-              onChange={handleModeChange}
-              disabled={isUpdatingMode}
-              size="small"
+                const url = `/events/${eventId}/checkInBooth`;
+                const popup = window.open(
+                  url,
+                  "checkinBooth",
+                  "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no",
+                );
+                if (!popup) {
+                  navigate({
+                    to: "/events/$eventId/checkInBooth",
+                    params: { eventId },
+                  });
+                }
+              }}
             >
-              <ToggleButton value="disabled">Disabled</ToggleButton>
-              <ToggleButton value="test">Test</ToggleButton>
-              <ToggleButton value="live">Live</ToggleButton>
-            </ToggleButtonGroup>
+              Check-in Booth
+            </Button>
           </Stack>
-          <Button
-            variant="outlined"
-            startIcon={<EditIcon />}
-            onClick={() => setSettingsDialogOpen(true)}
+          <Typography variant="body1" sx={{ mt: 1, mb: 2 }}>
+            {event.description || "No description."}
+          </Typography>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ mb: 2, alignItems: "center" }}
           >
-            Modify Events
-          </Button>
-        </Stack>
+            <Chip
+              icon={<CalendarTodayIcon sx={{ pl: "6px" }} />}
+              label={event.date}
+              onClick={() => setDateDialogOpen(true)}
+              variant="outlined"
+            />
+            <Chip
+              icon={<GroupIcon sx={{ pl: "6px" }} />}
+              label={`${totalCount} participants`}
+              variant="outlined"
+            />
+          </Stack>
+          <Stack
+            direction="row"
+            sx={{ justifyContent: "space-between", alignItems: "flex-end" }}
+          >
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+              <ToggleButtonGroup
+                color="primary"
+                exclusive
+                value={event.mode}
+                onChange={handleModeChange}
+                disabled={isUpdatingMode}
+                size="small"
+              >
+                <ToggleButton value="disabled">Disabled</ToggleButton>
+                <ToggleButton value="test">Test</ToggleButton>
+                <ToggleButton value="live">Live</ToggleButton>
+              </ToggleButtonGroup>
+              <Typography variant="body1" color="textSecondary">
+                attendance mode
+              </Typography>
+            </Stack>
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => setSettingsDialogOpen(true)}
+            >
+              Modify Events
+            </Button>
+          </Stack>
+        </Box>
+        <Collapse in={event.mode !== "disabled"}>
+          <Divider />
+          <AttendanceSummary
+            totalCount={totalCount}
+            attendedCount={attendedCount}
+          />
+        </Collapse>
       </Card>
-
-      <AttendanceSummary
-        totalCount={totalCount}
-        attendedCount={attendedCount}
-      />
 
       {hasActionsContent && (
         <ActionsSection
@@ -294,41 +367,91 @@ export default function EventDetail() {
 
       {isParticipantsLoading && <LinearProgress />}
 
-      {attended.length > 0 && (
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ justifyContent: "space-between", alignItems: "center" }}
+      >
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+          <GroupIcon />
+          <Typography variant="h5">Participants</Typography>
+        </Stack>
+        <TextField
+          size="small"
+          variant="standard"
+          placeholder="Search participants by name..."
+          value={participantSearchQuery}
+          onChange={(e) => setParticipantSearchQuery(e.target.value)}
+          sx={{ minWidth: 280 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: participantSearchQuery ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    aria-label="clear search"
+                    onClick={() => setParticipantSearchQuery("")}
+                    edge="end"
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            },
+          }}
+        />
+      </Stack>
+
+      {filteredAttended.length > 0 && (
         <ParticipantGrid
-          participants={attended}
+          participants={filteredAttended}
           title="Attended"
           onClick={(id) => setSelectedParticipantId(id)}
         />
       )}
 
-      {notAttended.length > 0 && (
+      {filteredNotAttended.length > 0 && (
         <ParticipantGrid
-          participants={notAttended}
+          participants={filteredNotAttended}
           title="Not Attended"
           onClick={(id) => setSelectedParticipantId(id)}
         />
       )}
 
-      {notDelivered.length > 0 && (
+      {filteredNotDelivered.length > 0 && (
         <ParticipantGrid
-          participants={notDelivered}
+          participants={filteredNotDelivered}
           title="Not Delivered"
           onClick={(id) => setSelectedParticipantId(id)}
         />
       )}
 
-      {ticketUndelivered.length > 0 && (
+      {filteredTicketUndelivered.length > 0 && (
         <ParticipantGrid
-          participants={ticketUndelivered}
+          participants={filteredTicketUndelivered}
           title="Ticket Undelivered"
           onClick={(id) => setSelectedParticipantId(id)}
         />
       )}
 
-      {participants.length === 0 && !isParticipantsLoading && (
-        <Typography color="text.secondary">No participants yet.</Typography>
+      {participants.length === 0 && (
+        <Typography color="textSecondary">
+          No participants yet. Add some using the + button.
+        </Typography>
       )}
+
+      {participants.length > 0 &&
+        filteredAttended.length === 0 &&
+        filteredNotAttended.length === 0 &&
+        filteredNotDelivered.length === 0 &&
+        filteredTicketUndelivered.length === 0 && (
+          <Typography color="textSecondary">No matches found.</Typography>
+        )}
 
       <AddParticipantsSpeedDial eventId={eventId} />
 

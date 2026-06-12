@@ -68,7 +68,6 @@ export default function Login() {
           <Typography
             variant="h6"
             component="h2"
-            color="text.secondary"
             sx={{ mb: 3, textAlign: "center" }}
           >
             Login as administrator

@@ -35,7 +35,8 @@ async def lifespan(app: fastapi.FastAPI):
     yield
 
 
-app = fastapi.FastAPI(title="InQRess", lifespan=lifespan)
+app_version = os.getenv("APP_VERSION", "0.0.0")
+app = fastapi.FastAPI(title="InQRess", version=app_version, lifespan=lifespan)
 
 app.include_router(api.health.router, prefix="/api")
 app.include_router(api.checkin.router_public, prefix="/api")

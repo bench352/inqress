@@ -64,14 +64,15 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
     >
       <DialogTitle>Edit Email Template</DialogTitle>
       <DialogContent sx={{ minHeight: 400 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           Customize the HTML template below to personalize your ticket delivery
-          email. Use the following placeholders; they will be replaced with
-          participant-specific information when the email is sent:
+          email. Include these placeholders in the template, which will be
+          automatically substituted by individual participant information when
+          the email is sent.
         </Typography>
         <Box component="ul" sx={{ pl: 3, mt: 0, mb: 2 }}>
           {[
-            { code: "{{ title }}", desc: "Honorific (e.g. Mr, Mrs, Dr)" },
+            { code: "{{ title }}", desc: "Title (e.g. Mr., Mrs., Dr.)" },
             { code: "{{ fullName }}", desc: "Full name of the participant" },
             { code: "{{ eventName }}", desc: "Name of the event" },
             {
@@ -80,12 +81,7 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
             },
             { code: "{{ ticketQR }}", desc: "Embedded QR code ticket image" },
           ].map(({ code, desc }) => (
-            <Typography
-              key={code}
-              variant="body2"
-              component="li"
-              color="text.secondary"
-            >
+            <Typography key={code} variant="body1" component="li">
               <Box
                 component="code"
                 sx={{ fontFamily: "monospace", fontWeight: 600 }}
