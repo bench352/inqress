@@ -1,9 +1,12 @@
 import contextlib
 import logging
 import os
+import pathlib
 
 import fastapi.staticfiles
 import uvicorn
+from alembic.config import Config
+from alembic import command
 
 import api.admin
 import api.booth
@@ -15,7 +18,6 @@ import api.participants
 import api.spreadsheet
 import api.streams
 import config
-import schema.orm
 import service.auth
 import service.db
 import service.ticket
@@ -28,9 +30,10 @@ cfg = config.get_config()
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
-    logger.info("Initializing DB schema")
-    schema.orm.Base.metadata.create_all(service.db.ENGINE)
-    logger.info("Initializing ticket keys")
+    logger.info("Running DB migrations")
+    _alembic_cfg = Config(str(pathlib.Path(__file__).resolve().parent / "alembic.ini"))
+    command.upgrade(_alembic_cfg, "head")
+    logger.info("DB migrations completed!")
     service.ticket.init_keys()
     yield
 

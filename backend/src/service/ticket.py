@@ -35,7 +35,7 @@ def init_keys() -> None:
     global _private_key, _public_key
 
     if _KEY_PATH.exists() and _PUB_PATH.exists():
-        logger.info("Loading existing PASETO keys from %s", _DATA_DIR)
+        logger.info("Loading existing key pair from %s", _DATA_DIR)
         _private_key = pyseto.Key.new(
             version=2, purpose="public", key=_KEY_PATH.read_bytes()
         )
@@ -43,7 +43,7 @@ def init_keys() -> None:
             version=2, purpose="public", key=_PUB_PATH.read_bytes()
         )
     else:
-        logger.info("Generating new PASETO Ed25519 key pair")
+        logger.info("Generating new key pair for secure ticket generation...")
         private = ed25519.Ed25519PrivateKey.generate()
         public = private.public_key()
 
@@ -62,6 +62,8 @@ def init_keys() -> None:
 
         _private_key = pyseto.Key.new(version=2, purpose="public", key=private_pem)
         _public_key = pyseto.Key.new(version=2, purpose="public", key=public_pem)
+
+        logger.info("Key pair is ready to use!")
 
 
 def verify_ticket(token_str: str) -> schema.service.TicketPayload:
