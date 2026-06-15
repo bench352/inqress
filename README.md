@@ -6,10 +6,10 @@
 
 ##  Quick Start
 
-Get InQRess installed by running the interactive install script using the bash command below. [Docker](https://www.docker.com/) must be installed and running on your system before you start.
+Get InQRess installed by running the interactive install script using the bash command below for a guided set up. [Docker](https://www.docker.com/) must be installed and running on your system before you start.
 
 ```bash
-# TODO: Add the actual one-liner or docker-compose command here
+bash <(curl -fsSL https://raw.githubusercontent.com/bench352/inqress/main/install.sh)
 ```
 
 See the **System Requirements** section below for more details.
@@ -71,27 +71,6 @@ InQRess keeps track of attendance in real time, so you always know who has arriv
 
 ![](assets/screenshots/attendance_log.png)
 
-### The sounds that give InQRess its character
-
-All the sound effects for the check-in booth are created by me using [MuseScore Studio](https://musescore.org/en).
-
-**Check-in success**
-
-<audio controls>
-  <source src="frontend/src/assets/soundEffects/checkin_success.aac" type="audio/aac">
-</audio>
-
-**Check-in fail**
-
-<audio controls>
-  <source src="frontend/src/assets/soundEffects/checkin_fail.aac" type="audio/aac">
-</audio>
-
-**Confirmation needed at the booth**
-
-<audio controls>
-  <source src="frontend/src/assets/soundEffects/checkin_need_confirmation.aac" type="audio/aac">
-</audio>
 ## 💻 System Requirements
 
 **InQRess** can be installed on any ARM/X64 system with [Docker](https://www.docker.com/) installed.
