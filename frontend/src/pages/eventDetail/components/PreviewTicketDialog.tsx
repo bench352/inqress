@@ -125,11 +125,7 @@ export default function PreviewTicketDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
-        <Button
-          onClick={handleDownloadQr}
-          variant="text"
-          disabled={!imageUrl}
-        >
+        <Button onClick={handleDownloadQr} variant="text" disabled={!imageUrl}>
           Download QR code
         </Button>
         <Button

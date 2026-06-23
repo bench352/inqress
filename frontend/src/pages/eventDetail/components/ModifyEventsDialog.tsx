@@ -193,20 +193,20 @@ export default function ModifyEventsDialog({
   if (view === "export") {
     return (
       <Dialog open>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 3,
-              p: 3,
-            }}
-          >
-            <CircularProgress />
-            <Typography variant="body1" sx={{fontSize: 20}}>
-              Exporting all guest information to ticket images...
-            </Typography>
-          </Box>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 3,
+            p: 3,
+          }}
+        >
+          <CircularProgress />
+          <Typography variant="body1" sx={{ fontSize: 20 }}>
+            Exporting all guest information to ticket images...
+          </Typography>
+        </Box>
       </Dialog>
     );
   }

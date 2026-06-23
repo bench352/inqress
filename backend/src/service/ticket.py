@@ -33,10 +33,10 @@ _DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # For bulk QR ticket export
 _TICKET_TEMPLATE_PATH = (
-        Path(__file__).resolve().parent.parent / "assets" / "ticket_template.html"
+    Path(__file__).resolve().parent.parent / "assets" / "ticket_template.html"
 )
 _TICKET_CSS_PATH = (
-        Path(__file__).resolve().parent.parent / "assets" / "ticket_template.css"
+    Path(__file__).resolve().parent.parent / "assets" / "ticket_template.css"
 )
 _TICKET_ICON_PATH = (
     Path(__file__).resolve().parent.parent / "assets" / "ticket_icon.png"
@@ -305,7 +305,6 @@ def generate_qrs_and_notify(
         manager.mark_job_done(event_id, "ticket_qr")
 
 
-
 def _load_ticket_template() -> str:
     return _TICKET_TEMPLATE_PATH.read_text()
 
@@ -373,9 +372,13 @@ def generate_single_ticket_image(
     participant_id: uuid.UUID,
 ) -> tuple[io.BytesIO, str]:
     with service.db.get_session() as session:
-        event = session.execute(
-            select(schema.orm.Event).where(schema.orm.Event.id == event_id)
-        ).scalars().first()
+        event = (
+            session.execute(
+                select(schema.orm.Event).where(schema.orm.Event.id == event_id)
+            )
+            .scalars()
+            .first()
+        )
         if event is None:
             raise ValueError("Event not found")
 
@@ -432,17 +435,14 @@ def export_ticket_images_zip(event_id: uuid.UUID) -> io.BytesIO:
         event_name = event.name
         event_date = event.date
 
-        participant_rows = (
-            session.execute(
-                select(
-                    schema.orm.Participant.id,
-                    schema.orm.Participant.name,
-                    schema.orm.Participant.title,
-                    schema.orm.Participant.ticket_token,
-                ).where(schema.orm.Participant.event_id == event_id)
-            )
-            .all()
-        )
+        participant_rows = session.execute(
+            select(
+                schema.orm.Participant.id,
+                schema.orm.Participant.name,
+                schema.orm.Participant.title,
+                schema.orm.Participant.ticket_token,
+            ).where(schema.orm.Participant.event_id == event_id)
+        ).all()
 
     cfg = config.get_config()
     organization_name = cfg.app.organization_name or ""
