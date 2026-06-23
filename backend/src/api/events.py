@@ -7,6 +7,7 @@ import api.booth
 import schema.rest
 import schema.sse
 import service.events
+import service.ticket
 
 router = fastapi.APIRouter(prefix="/events", tags=["Events"])
 
@@ -158,3 +159,42 @@ def set_accent_color(
         ),
     )
     return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{event_id}/ticketImages")
+def export_ticket_images(
+    event_id: uuid.UUID,
+) -> fastapi.responses.Response:
+    try:
+        zip_bytes = service.ticket.export_ticket_images_zip(event_id)
+    except ValueError:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
+        )
+    return fastapi.responses.Response(
+        content=zip_bytes.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=tickets.zip"},
+    )
+
+
+@router.get("/{event_id}/participants/{participant_id}/ticketImage")
+def export_single_ticket_image(
+    event_id: uuid.UUID,
+    participant_id: uuid.UUID,
+) -> fastapi.responses.Response:
+    try:
+        img_bytes, safe_name = service.ticket.generate_single_ticket_image(
+            event_id, participant_id
+        )
+    except ValueError as e:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    filename = f"{safe_name} - {participant_id}.png"
+    return fastapi.responses.Response(
+        content=img_bytes.getvalue(),
+        media_type="image/png",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
