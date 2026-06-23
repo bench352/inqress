@@ -1,6 +1,8 @@
 import { useState } from "react";
 import {
+  Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -13,13 +15,16 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import CropOriginalIcon from "@mui/icons-material/CropOriginal";
 import DeleteIcon from "@mui/icons-material/Delete";
+import DownloadIcon from "@mui/icons-material/Download";
 import EditIcon from "@mui/icons-material/Edit";
 import EmailIcon from "@mui/icons-material/Email";
-import CropOriginalIcon from "@mui/icons-material/CropOriginal";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useNavigate } from "@tanstack/react-router";
 import dayjs from "dayjs";
+import { useApi } from "@/api.ts";
+import { useSnackbar } from "notistack";
 import EmailTemplateDialog from "./EmailTemplateDialog";
 
 interface EventData {
@@ -40,7 +45,7 @@ interface Props {
   onDelete: () => void;
 }
 
-type DialogView = "settings" | "edit" | "email" | "delete";
+type DialogView = "settings" | "edit" | "email" | "delete" | "export";
 
 export default function ModifyEventsDialog({
   open,
@@ -58,6 +63,26 @@ export default function ModifyEventsDialog({
   const [editDate, setEditDate] = useState<dayjs.Dayjs | null>(null);
 
   const navigate = useNavigate();
+  const api = useApi();
+  const { enqueueSnackbar } = useSnackbar();
+
+  const handleExportTickets = async () => {
+    setView("export");
+    try {
+      const blob = await api.getBlob(`/api/events/${eventId}/ticketImages`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "tickets.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      enqueueSnackbar("Failed to export tickets", { variant: "error" });
+    }
+    setView("settings");
+  };
 
   const openEdit = () => {
     setEditName(event.name);
@@ -165,6 +190,27 @@ export default function ModifyEventsDialog({
     );
   }
 
+  if (view === "export") {
+    return (
+      <Dialog open>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 3,
+            p: 3,
+          }}
+        >
+          <CircularProgress />
+          <Typography variant="body1" sx={{ fontSize: 20 }}>
+            Exporting all guest information to ticket images...
+          </Typography>
+        </Box>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle>Modify Events</DialogTitle>
@@ -194,6 +240,12 @@ export default function ModifyEventsDialog({
             <CropOriginalIcon />
           </ListItemIcon>
           <ListItemText primary="Customize check-in booth" />
+        </ListItemButton>
+        <ListItemButton onClick={handleExportTickets}>
+          <ListItemIcon>
+            <DownloadIcon />
+          </ListItemIcon>
+          <ListItemText primary="Export all tickets to image" />
         </ListItemButton>
         <ListItemButton onClick={() => setView("delete")}>
           <ListItemIcon>

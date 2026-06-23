@@ -23,6 +23,7 @@ smtp_username=""
 smtp_password=""
 smtp_display_email=""
 smtp_wait="5"
+exposed_port="8000"
 
 info()  { printf "${CYAN}%s${NC}\n" "$*"; }
 success() { printf "${GREEN}✓ %s${NC}\n" "$*"; }
@@ -167,6 +168,13 @@ prompt_smtp_config() {
 
 prompt_container_name() {
   echo ""
+  bold "Exposed port"
+  echo "  Port on the host machine to access the dashboard."
+  prompt_optional "  Exposed port" exposed_port "8000"
+}
+
+prompt_exposed_port() {
+  echo ""
   bold "Docker container name"
   prompt_optional "  Container name" container_name "inqress"
 }
@@ -238,13 +246,13 @@ run_docker() {
     --restart unless-stopped \
     --name "$container_name" \
     -v "$CONFIG_DIR:/app/data" \
-    -p 8000:8000 \
+    -p "${exposed_port}:8000" \
     bench352/inqress:latest
 
   echo ""
   success "Container started successfully!"
   echo ""
-  bold "  Dashboard:  http://localhost:8000"
+  bold "  Web UI:  http://localhost:${exposed_port}"
   bold "  Container:  $container_name"
   echo ""
   echo "  View logs:   docker logs -f $container_name"
@@ -269,6 +277,7 @@ main() {
     prompt_country_code
     prompt_admin_credentials
     prompt_smtp_config
+    prompt_exposed_port
     prompt_container_name
     generate_config
   else

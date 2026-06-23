@@ -8,7 +8,8 @@ import {
   DialogContent,
   DialogTitle,
 } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useSnackbar } from "notistack";
 import { useApi } from "../../../api";
 
 interface Props {
@@ -25,6 +26,7 @@ export default function PreviewTicketDialog({
   onClose,
 }: Props) {
   const api = useApi();
+  const { enqueueSnackbar } = useSnackbar();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
@@ -35,6 +37,28 @@ export default function PreviewTicketDialog({
         `/api/events/${eventId}/participants/${participantId}/ticket/preview`,
       ),
     enabled: open,
+  });
+
+  const fullTicketMutation = useMutation({
+    mutationFn: () =>
+      api.getBlob(
+        `/api/events/${eventId}/participants/${participantId}/ticketImage`,
+      ),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ticket-${participantId}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+    onError: () => {
+      enqueueSnackbar("Failed to download full ticket image", {
+        variant: "error",
+      });
+    },
   });
 
   useEffect(() => {
@@ -57,7 +81,7 @@ export default function PreviewTicketDialog({
     };
   }, [ticketQuery.data]);
 
-  const handleDownload = () => {
+  const handleDownloadQr = () => {
     if (!imageUrl) return;
     const a = document.createElement("a");
     a.href = imageUrl;
@@ -101,12 +125,20 @@ export default function PreviewTicketDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
+        <Button onClick={handleDownloadQr} variant="text" disabled={!imageUrl}>
+          Download QR code
+        </Button>
         <Button
-          onClick={handleDownload}
+          onClick={() => fullTicketMutation.mutate()}
           variant="contained"
-          disabled={!imageUrl}
+          disabled={!participantId || fullTicketMutation.isPending}
+          startIcon={
+            fullTicketMutation.isPending ? (
+              <CircularProgress size={16} />
+            ) : undefined
+          }
         >
-          Download
+          Download full ticket image
         </Button>
       </DialogActions>
     </Dialog>

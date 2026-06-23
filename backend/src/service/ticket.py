@@ -1,9 +1,13 @@
+import config
 import io
 import json
 import logging
 import math
+import os
+import tempfile
 import time
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +15,8 @@ import pyseto
 import qrcode
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
+from html2pic import Html2Pic  # type: ignore[import-untyped]
+from jinja2 import Template
 from sqlalchemy import select, update
 
 import schema.orm
@@ -24,6 +30,17 @@ _KEY_PATH = _DATA_DIR / "key.pem"
 _PUB_PATH = _DATA_DIR / "pub.pem"
 
 _DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# For bulk QR ticket export
+_TICKET_TEMPLATE_PATH = (
+    Path(__file__).resolve().parent.parent / "assets" / "ticket_template.html"
+)
+_TICKET_CSS_PATH = (
+    Path(__file__).resolve().parent.parent / "assets" / "ticket_template.css"
+)
+_TICKET_ICON_PATH = (
+    Path(__file__).resolve().parent.parent / "assets" / "ticket_icon.png"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -286,3 +303,180 @@ def generate_qrs_and_notify(
         generate_qrs_task(event_id, participant_ids)
     finally:
         manager.mark_job_done(event_id, "ticket_qr")
+
+
+def _load_ticket_template() -> str:
+    return _TICKET_TEMPLATE_PATH.read_text()
+
+
+def _load_ticket_css() -> str:
+    css = _TICKET_CSS_PATH.read_text()
+    font_base = "FONT_PATH_PLACEHOLDER"
+    if font_base not in css:
+        return css
+    for candidate in [
+        "/usr/share/fonts/liberation/LiberationSans",
+        "/usr/share/fonts/truetype/liberation/LiberationSans",
+    ]:
+        if Path(f"{candidate}-Regular.ttf").exists():
+            css = css.replace(font_base, candidate)
+            break
+    return css
+
+
+def _render_ticket_image(
+    event_name: str,
+    event_date: str,
+    participant_id: uuid.UUID,
+    participant_name: str,
+    participant_title: str | None,
+    ticket_token: str,
+    organization_name: str,
+) -> io.BytesIO:
+    template_str = _load_ticket_template()
+    jinja_template = Template(template_str)
+    css = _load_ticket_css()
+
+    qr_img = qrcode.make(ticket_token)
+    qr_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            qr_img.save(tmp, format="PNG")  # type: ignore[call-arg]
+            qr_path = tmp.name
+
+        html_str = jinja_template.render(
+            ticketQR=qr_path,
+            ticketIcon=str(_TICKET_ICON_PATH),
+            organizationName=organization_name,
+            eventName=event_name,
+            title=participant_title or "",
+            fullName=participant_name,
+            eventDate=event_date,
+        )
+
+        renderer = Html2Pic(html_str, css)
+        image = renderer.render()
+        pil_image = image.to_pillow()
+
+        img_buf = io.BytesIO()
+        pil_image.save(img_buf, format="PNG")  # type: ignore
+        img_buf.seek(0)
+        return img_buf
+    finally:
+        if qr_path is not None:
+            os.unlink(qr_path)
+
+
+def generate_single_ticket_image(
+    event_id: uuid.UUID,
+    participant_id: uuid.UUID,
+) -> tuple[io.BytesIO, str]:
+    with service.db.get_session() as session:
+        event = (
+            session.execute(
+                select(schema.orm.Event).where(schema.orm.Event.id == event_id)
+            )
+            .scalars()
+            .first()
+        )
+        if event is None:
+            raise ValueError("Event not found")
+
+        event_name = event.name
+        event_date = event.date
+
+        participant = session.execute(
+            select(
+                schema.orm.Participant.id,
+                schema.orm.Participant.name,
+                schema.orm.Participant.title,
+                schema.orm.Participant.ticket_token,
+            ).where(
+                schema.orm.Participant.id == participant_id,
+                schema.orm.Participant.event_id == event_id,
+            )
+        ).first()
+        if participant is None:
+            raise ValueError("Participant not found")
+
+        p_id, p_name, p_title, p_token = participant
+        if not p_token:
+            raise ValueError("Participant has no ticket token")
+
+    cfg = config.get_config()
+    organization_name = cfg.app.organization_name or ""
+    safe_name = p_name.replace("/", "_").replace("\\", "_")
+
+    img_bytes = _render_ticket_image(
+        event_name,
+        event_date,
+        p_id,
+        p_name,
+        p_title,
+        p_token,
+        organization_name,
+    )
+
+    return img_bytes, safe_name
+
+
+def export_ticket_images_zip(event_id: uuid.UUID) -> io.BytesIO:
+    with service.db.get_session() as session:
+        event = (
+            session.execute(
+                select(schema.orm.Event).where(schema.orm.Event.id == event_id)
+            )
+            .scalars()
+            .first()
+        )
+        if event is None:
+            raise ValueError("Event not found")
+
+        event_name = event.name
+        event_date = event.date
+
+        participant_rows = session.execute(
+            select(
+                schema.orm.Participant.id,
+                schema.orm.Participant.name,
+                schema.orm.Participant.title,
+                schema.orm.Participant.ticket_token,
+            ).where(schema.orm.Participant.event_id == event_id)
+        ).all()
+
+    cfg = config.get_config()
+    organization_name = cfg.app.organization_name or ""
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for row in participant_rows:
+            participant_id, participant_name, participant_title, ticket_token = row
+
+            if not ticket_token:
+                logger.warning(
+                    "Skipping participant %s: no ticket token", participant_id
+                )
+                continue
+
+            try:
+                img_buf = _render_ticket_image(
+                    event_name,
+                    event_date,
+                    participant_id,
+                    participant_name,
+                    participant_title,
+                    ticket_token,
+                    organization_name,
+                )
+                safe_name = participant_name.replace("/", "_").replace("\\", "_")
+                filename = f"{safe_name} - {participant_id}.png"
+                zf.writestr(filename, img_buf.getvalue())
+            except Exception:
+                logger.warning(
+                    "Failed to render ticket for participant %s",
+                    participant_id,
+                    exc_info=True,
+                )
+
+    buf.seek(0)
+    return buf
