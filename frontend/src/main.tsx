@@ -9,6 +9,7 @@ import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
+import "./assets/fonts/Reglo/reglo.css";
 import QueryClientProvider from "./providers/QueryClientProvider";
 import SessionAuthProvider from "./providers/SessionAuthProvider";
 import AppInfoProvider from "./providers/AppInfoProvider";

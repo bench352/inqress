@@ -189,6 +189,7 @@ generate_config() {
     echo "  host: 0.0.0.0"
     echo "  port: 8000"
     echo "  debug: false"
+    echo "  api_docs: false"
     echo ""
     echo "app:"
     if [ -n "$org_name" ]; then
@@ -201,6 +202,17 @@ generate_config() {
     echo "auth:"
     echo '  admin_username: "'"$(yaml_quote "$admin_username")"'"'
     echo '  admin_password: "'"$(yaml_quote "$admin_password")"'"'
+    echo "  # Keep true when TLS ends at the reverse proxy. The app does not terminate TLS."
+    echo "  cookie_secure: true"
+    echo "  session_idle_days: 30"
+    echo "  session_absolute_days: 90"
+    echo "  login_rate_limit:"
+    echo "    enabled: true"
+    echo "    max_failures: 10"
+    echo "    window_seconds: 900"
+    echo "    # Address or CIDR of the reverse proxy only. Never 0.0.0.0/0."
+    echo "    # Leave empty when clients connect to this process directly."
+    echo "    trusted_proxies: []"
     echo ""
     echo "email_smtp:"
     if [ -n "$smtp_host" ]; then

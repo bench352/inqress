@@ -8,8 +8,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { isSafeRedirectPath } from "../../providers/redirectToLogin";
-import { useAuth } from "../../providers/useAuth";
+import { brandFontFamily } from "@/brandFont.ts";
+import { isSafeRedirectPath } from "@/providers/redirectToLogin.ts";
+import { useAuth } from "@/providers/useAuth.ts";
 
 export default function Login() {
   const { login } = useAuth();
@@ -59,10 +60,13 @@ export default function Login() {
       <Card sx={{ width: 500, mx: 2 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography
-            variant="h3"
-            component="h1"
+            variant="h1"
             gutterBottom
-            sx={{ textAlign: "center" }}
+            sx={{
+              fontFamily: brandFontFamily,
+              fontWeight: 700,
+              textAlign: "center",
+            }}
           >
             InQRess
           </Typography>
