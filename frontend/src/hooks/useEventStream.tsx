@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@mui/material";
 import type { QueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
-import { apiUrl } from "../api";
+import { apiUrl, sessionStatus } from "../api";
+import { redirectToLogin } from "../providers/redirectToLogin";
 import { useAuth } from "../providers/useAuth";
 
 interface ProgressState {
@@ -68,7 +69,7 @@ export function useEventStream(
   eventId: string,
   queryClient: QueryClient,
 ): UseEventStreamReturn {
-  const { username, password } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
   const stoppedRef = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -111,15 +112,14 @@ export function useEventStream(
   }, []);
 
   useEffect(() => {
-    if (!eventId || !username || !password) return;
+    if (!eventId || !isAuthenticated) return;
 
-    const token = btoa(`${username}:${password}`);
     stoppedRef.current = false;
 
     const connect = () => {
       if (stoppedRef.current) return;
-      const url = `${apiUrl}/api/events/${eventId}/streams?token=${encodeURIComponent(token)}`;
-      const es = new EventSource(url);
+      const url = `${apiUrl}/api/events/${eventId}/streams`;
+      const es = new EventSource(url, { withCredentials: true });
       eventSourceRef.current = es;
 
       es.onopen = () => console.log("[SSE] connection opened");
@@ -133,11 +133,20 @@ export function useEventStream(
       };
 
       es.onerror = () => {
-        console.log("[SSE] error, reconnecting in 3s");
         es.close();
-        if (!stoppedRef.current) {
-          reconnectTimerRef.current = setTimeout(connect, 3000);
-        }
+        if (stoppedRef.current) return;
+        void (async () => {
+          const status = await sessionStatus();
+          if (status === 401) {
+            stoppedRef.current = true;
+            redirectToLogin();
+            return;
+          }
+          console.log("[SSE] error, reconnecting in 3s");
+          if (!stoppedRef.current) {
+            reconnectTimerRef.current = setTimeout(connect, 3000);
+          }
+        })();
       };
     };
 
@@ -279,7 +288,7 @@ export function useEventStream(
       eventSourceRef.current?.close();
       eventSourceRef.current = null;
     };
-  }, [eventId, username, password]);
+  }, [eventId, isAuthenticated]);
 
   return {
     createParticipantProgress,

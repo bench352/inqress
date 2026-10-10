@@ -3,7 +3,6 @@ import logging
 import queue
 import uuid
 from collections.abc import AsyncIterable
-from typing import Annotated
 
 import fastapi
 import fastapi.sse
@@ -12,7 +11,6 @@ import api.utils
 import schema.booth
 import schema.sse
 import service.admin_stream
-import service.auth
 import service.booth_stream
 
 logger = logging.getLogger(__name__)
@@ -27,9 +25,7 @@ router = fastapi.APIRouter(
 @router.get("/streams", response_class=fastapi.sse.EventSourceResponse)
 async def booth_stream(
     event_id: uuid.UUID,
-    token: Annotated[str | None, fastapi.Query()] = None,
 ) -> AsyncIterable[fastapi.sse.ServerSentEvent]:
-    service.auth.verify_basic_auth_query(token=token)
     event = api.utils.check_event_exists(event_id)
 
     try:
@@ -90,7 +86,6 @@ async def booth_stream(
 @router.get("/status")
 def booth_status(
     event_id: uuid.UUID,
-    _: str = fastapi.Depends(service.auth.verify_basic_auth),
 ) -> schema.booth.BoothStatusResponse:
     api.utils.check_event_exists(event_id)
     return schema.booth.BoothStatusResponse(
@@ -102,7 +97,6 @@ def booth_status(
 def booth_command(
     event_id: uuid.UUID,
     payload: schema.booth.BoothCommandRequest,
-    _: str = fastapi.Depends(service.auth.verify_basic_auth),
 ) -> None:
     api.utils.check_event_exists(event_id)
     booth_manager.send(

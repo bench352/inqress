@@ -1,0 +1,22 @@
+server:
+  host: 0.0.0.0
+  port: 8000
+  debug: false
+  frontend_dir: null
+
+app:
+  organization_name: "Example Ltd."
+  default_country_code: "HK"
+
+auth:
+  admin_username: "NeverGonnaGiveYouUp"
+  admin_password: "NeverGonnaLetYouDown"
+
+# Email sending functionalities are not available in hot-reload dev server
+email_smtp:
+  host: "smtp.example.com"
+  port: 420
+  username: "noreply@example.com"
+  password: "<not-a-password>"
+  display_email: chriswong@example.com
+  wait_between_delivery_second: 5

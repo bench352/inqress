@@ -8,13 +8,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useNavigate } from "@tanstack/react-router";
+import { isSafeRedirectPath } from "../../providers/redirectToLogin";
 import { useAuth } from "../../providers/useAuth";
-import { apiUrl } from "../../api";
 
 export default function Login() {
   const { login } = useAuth();
-  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,20 +24,23 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${apiUrl}/api/events`, {
-        headers: {
-          Authorization: `Basic ${btoa(`${username}:${password}`)}`,
-        },
-      });
-
-      if (response.ok) {
-        login(username, password);
-        await navigate({ to: "/" });
+      await login(username, password);
+      // Read redirect param if present
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get("redirect");
+      const safeRedirect =
+        redirect && isSafeRedirectPath(redirect) ? redirect : "/";
+      window.location.assign(safeRedirect);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "";
+      if (
+        message.startsWith("Too many login attempts") ||
+        message.startsWith("Session cookie was not stored")
+      ) {
+        setError(message);
       } else {
         setError("Invalid username or password");
       }
-    } catch {
-      setError("Unable to connect to the server");
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 import sqlalchemy
 from sqlalchemy.orm import (
@@ -8,6 +9,7 @@ from sqlalchemy.orm import (
     relationship,
     column_property,
 )
+
 
 import schema.enum
 
@@ -105,3 +107,19 @@ Participant.checkedInAt = column_property(
 Participant.isTicketReady = column_property(Participant.ticket_img.isnot(None))
 
 Event.hasBoothImage = column_property(Event.booth_image.isnot(None))
+
+
+class AdminSession(Base):
+    __tablename__ = "admin_session"
+
+    id: Mapped[str] = mapped_column(sqlalchemy.String(64), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        sqlalchemy.DateTime(timezone=True), nullable=False
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        sqlalchemy.DateTime(timezone=True), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        sqlalchemy.DateTime(timezone=True), nullable=False
+    )
+    password_tag: Mapped[str] = mapped_column(sqlalchemy.String(64), nullable=False)

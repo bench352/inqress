@@ -1,3 +1,4 @@
 #!/bin/bash
-docker build --no-cache --build-arg APP_VERSION=dev -t notbench352/inqress:dev .
-docker run -v ./backend/data:/app/data -p 7000:8000 --rm notbench352/inqress:dev
+# Uses Compose Watch for hot-reloading backend source while keeping the
+# exact same release image build as production.
+docker compose -f dev-compose.yaml up --watch --build

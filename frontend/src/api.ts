@@ -1,10 +1,17 @@
 import { useMemo } from "react";
-import { useAuth } from "./providers/useAuth";
+import { redirectToLogin } from "./providers/redirectToLogin";
 
 export const apiUrl = import.meta.env.VITE_BACKEND_API_URL ?? "";
 
-function basicAuth(username: string, password: string): string {
-  return `Basic ${btoa(`${username}:${password}`)}`;
+export async function sessionStatus(): Promise<number | null> {
+  try {
+    const res = await fetch(`${apiUrl}/api/auth/session`, {
+      credentials: "include",
+    });
+    return res.status;
+  } catch {
+    return null;
+  }
 }
 
 export class ApiError extends Error {
@@ -25,84 +32,104 @@ async function parseApiError(res: Response): Promise<ApiError> {
 }
 
 export function useApi() {
-  const { username, password } = useAuth();
-
   return useMemo(() => {
-    const authHeaders = (): Record<string, string> => {
-      if (!username || !password) return {};
-      return { Authorization: basicAuth(username, password) };
-    };
+    const fetchWithCreds = (path: string, init?: RequestInit) =>
+      fetch(`${apiUrl}${path}`, {
+        ...init,
+        credentials: "include",
+      });
 
     return {
       get: async <T>(path: string): Promise<T> => {
-        const res = await fetch(`${apiUrl}${path}`, {
-          headers: authHeaders(),
-        });
+        const res = await fetchWithCreds(path);
+        if (res.status === 401) {
+          // Session expired or invalid
+          redirectToLogin(window.location.pathname);
+          throw await parseApiError(res);
+        }
         if (!res.ok) throw await parseApiError(res);
         if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       post: async <T>(path: string, body?: unknown): Promise<T> => {
-        const res = await fetch(`${apiUrl}${path}`, {
+        const res = await fetchWithCreds(path, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeaders(),
-          },
+          headers: { "Content-Type": "application/json" },
           body: body !== undefined ? JSON.stringify(body) : undefined,
         });
+        if (res.status === 401) {
+          // Session expired or invalid
+          redirectToLogin(window.location.pathname);
+          throw await parseApiError(res);
+        }
         if (!res.ok) throw await parseApiError(res);
         if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       put: async <T>(path: string, body: unknown): Promise<T> => {
-        const res = await fetch(`${apiUrl}${path}`, {
+        const res = await fetchWithCreds(path, {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeaders(),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
+        if (res.status === 401) {
+          // Session expired or invalid
+          redirectToLogin(window.location.pathname);
+          throw await parseApiError(res);
+        }
         if (!res.ok) throw await parseApiError(res);
         if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       del: async <T>(path: string, body?: unknown): Promise<T> => {
-        const res = await fetch(`${apiUrl}${path}`, {
+        const res = await fetchWithCreds(path, {
           method: "DELETE",
-          headers: {
-            ...(body !== undefined
-              ? { "Content-Type": "application/json" }
-              : {}),
-            ...authHeaders(),
-          },
-          body: body !== undefined ? JSON.stringify(body) : undefined,
+          ...(body !== undefined
+            ? {
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              }
+            : {}),
         });
+        if (res.status === 401) {
+          // Session expired or invalid
+          redirectToLogin(window.location.pathname);
+          throw await parseApiError(res);
+        }
         if (!res.ok) throw await parseApiError(res);
         if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
       getBlob: async (path: string): Promise<Blob> => {
-        const res = await fetch(`${apiUrl}${path}`, {
-          headers: authHeaders(),
-        });
+        const res = await fetchWithCreds(path);
+        if (res.status === 401) {
+          // Session expired or invalid
+          redirectToLogin(window.location.pathname);
+          throw await parseApiError(res);
+        }
         if (!res.ok) throw await parseApiError(res);
         return res.blob();
       },
       getText: async (path: string): Promise<string> => {
-        const res = await fetch(`${apiUrl}${path}`, {
-          headers: authHeaders(),
-        });
+        const res = await fetchWithCreds(path);
+        if (res.status === 401) {
+          // Session expired or invalid
+          redirectToLogin(window.location.pathname);
+          throw await parseApiError(res);
+        }
         if (!res.ok) throw await parseApiError(res);
         return res.text();
       },
       postFormData: async <T>(path: string, formData: FormData): Promise<T> => {
-        const res = await fetch(`${apiUrl}${path}`, {
+        const res = await fetchWithCreds(path, {
           method: "POST",
-          headers: authHeaders(),
           body: formData,
         });
+        if (res.status === 401) {
+          // Session expired or invalid
+          redirectToLogin(window.location.pathname);
+          throw await parseApiError(res);
+        }
         if (!res.ok) throw await parseApiError(res);
         if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
@@ -113,14 +140,15 @@ export function useApi() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
+        if (res.status === 401) {
+          // Session expired or invalid
+          redirectToLogin(window.location.pathname);
+          throw await parseApiError(res);
+        }
         if (!res.ok) throw await parseApiError(res);
         if (res.status === 204) return undefined as unknown as Promise<T>;
         return res.json() as Promise<T>;
       },
-      getAuthToken: (): string | null => {
-        if (!username || !password) return null;
-        return btoa(`${username}:${password}`);
-      },
     };
-  }, [username, password]);
+  }, []);
 }

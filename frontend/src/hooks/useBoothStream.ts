@@ -30,7 +30,7 @@ export interface UseBoothStreamReturn {
 }
 
 export function useBoothStream(eventId: string): UseBoothStreamReturn {
-  const { username, password } = useAuth();
+  const { isAuthenticated } = useAuth();
   const stoppedRef = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,15 +43,14 @@ export function useBoothStream(eventId: string): UseBoothStreamReturn {
   const dismissCommand = () => setControlCommand(null);
 
   useEffect(() => {
-    if (!eventId || !username || !password) return;
+    if (!eventId || !isAuthenticated) return;
 
-    const token = btoa(`${username}:${password}`);
     stoppedRef.current = false;
 
     const connect = () => {
       if (stoppedRef.current) return;
-      const url = `${apiUrl}/api/events/${eventId}/checkInBooth/streams?token=${encodeURIComponent(token)}`;
-      const es = new EventSource(url);
+      const url = `${apiUrl}/api/events/${eventId}/checkInBooth/streams`;
+      const es = new EventSource(url, { withCredentials: true });
       eventSourceRef.current = es;
 
       es.onopen = () => console.log("[SSE Booth] connection opened");
@@ -99,7 +98,7 @@ export function useBoothStream(eventId: string): UseBoothStreamReturn {
       eventSourceRef.current?.close();
       eventSourceRef.current = null;
     };
-  }, [eventId, username, password]);
+  }, [eventId, isAuthenticated]);
 
   return { mode, controlCommand, dismissCommand, connectionRejected };
 }

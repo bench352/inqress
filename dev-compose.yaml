@@ -1,0 +1,41 @@
+services:
+  inqress:
+    restart: unless-stopped
+    build:
+      context: .
+      args:
+        APP_VERSION: dev
+    image: notbench352/inqress:dev
+    ports:
+      - "7000:8000"
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+    volumes:
+      - ./local_dev/data:/app/data
+      - ./local_dev/config.yaml:/app/config.yaml
+    develop:
+      watch:
+        # Backend source: sync then restart (release process)
+        - action: sync+restart
+          path: ./backend/src
+          target: /app/src
+          initial_sync: true
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+
+        # Frontend source and lockfiles: full rebuild (baked into image)
+        - action: rebuild
+          path: ./frontend
+          ignore:
+            - node_modules/
+            - dist/
+
+        - action: rebuild
+          path: ./backend/pyproject.toml
+
+        - action: rebuild
+          path: ./backend/uv.lock
+
+        - action: rebuild
+          path: ./Dockerfile

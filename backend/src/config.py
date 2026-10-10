@@ -11,6 +11,7 @@ class ServerConfig(pydantic.BaseModel):
     host: str = "localhost"
     port: int = 8000
     debug: bool = False
+    api_docs: bool = False
 
 
 class AppConfig(pydantic.BaseModel):
@@ -18,9 +19,20 @@ class AppConfig(pydantic.BaseModel):
     default_country_code: str = "HK"
 
 
+class LoginRateLimitConfig(pydantic.BaseModel):
+    enabled: bool = True
+    max_failures: int = 10
+    window_seconds: int = 900
+    trusted_proxies: list[str] = []
+
+
 class AuthConfig(pydantic.BaseModel):
     admin_username: str = pydantic.Field(min_length=1)
     admin_password: str = pydantic.Field(min_length=1)
+    cookie_secure: bool = True
+    session_idle_days: int = 30
+    session_absolute_days: int = 90
+    login_rate_limit: LoginRateLimitConfig = LoginRateLimitConfig()
 
 
 class EmailSmtpConfig(pydantic.BaseModel):

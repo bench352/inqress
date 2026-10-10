@@ -21,13 +21,9 @@ import {
   Menu as MenuIcon,
   Settings as SettingsIcon,
 } from "@mui/icons-material";
-import {
-  Outlet,
-  useMatches,
-  useNavigate,
-  useRouter,
-} from "@tanstack/react-router";
+import { Outlet, useMatches, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../providers/useAuth";
+import { redirectToLogin } from "../providers/redirectToLogin";
 import { useAdminStream } from "../hooks/useAdminStream";
 import BoothControlPanel from "../components/BoothControlPanel";
 import CoPresentIcon from "@mui/icons-material/CoPresent";
@@ -95,7 +91,6 @@ function DrawerContent() {
 
 export default function AppShell() {
   const { isAuthenticated } = useAuth();
-  const router = useRouter();
   const matches = useMatches();
   const [mobileOpen, setMobileOpen] = useState(false);
   const fullWidth = useMemo(
@@ -105,9 +100,9 @@ export default function AppShell() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.navigate({ to: "/login" });
+      redirectToLogin(`${window.location.pathname}${window.location.search}`);
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated]);
 
   if (!isAuthenticated) {
     return null;

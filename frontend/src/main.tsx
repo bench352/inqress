@@ -10,7 +10,7 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import QueryClientProvider from "./providers/QueryClientProvider";
-import BasicAuthProvider from "./providers/BasicAuthProvider";
+import SessionAuthProvider from "./providers/SessionAuthProvider";
 import AppInfoProvider from "./providers/AppInfoProvider";
 import { router } from "./router";
 
@@ -33,11 +33,11 @@ createRoot(document.getElementById("root")!).render(
       <SnackbarProvider maxSnack={6} autoHideDuration={10000}>
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <QueryClientProvider>
-            <BasicAuthProvider>
+            <SessionAuthProvider>
               <AppInfoProvider>
                 <RouterProvider router={router} />
               </AppInfoProvider>
-            </BasicAuthProvider>
+            </SessionAuthProvider>
           </QueryClientProvider>
         </LocalizationProvider>
       </SnackbarProvider>

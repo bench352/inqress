@@ -1,13 +1,11 @@
 import asyncio
 import collections.abc
 import logging
-import typing
 
 import fastapi
 import fastapi.sse
 
 import service.admin_stream
-import service.auth
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +14,7 @@ router = fastapi.APIRouter(prefix="/admin", tags=["Admin"])
 
 
 @router.get("/streams", response_class=fastapi.sse.EventSourceResponse)
-async def admin_streams(
-    token: typing.Annotated[str | None, fastapi.Query()] = None,
-) -> collections.abc.AsyncIterable[fastapi.sse.ServerSentEvent]:
-    service.auth.verify_basic_auth_query(token=token)
+async def admin_streams() -> collections.abc.AsyncIterable[fastapi.sse.ServerSentEvent]:
 
     q: asyncio.Queue = admin_manager.subscribe()
     try:

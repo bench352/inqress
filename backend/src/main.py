@@ -9,6 +9,7 @@ from alembic.config import Config
 from alembic import command
 
 import api.admin
+import api.auth
 import api.booth
 import api.checkin
 import api.events
@@ -39,42 +40,66 @@ async def lifespan(app: fastapi.FastAPI):
 
 
 app_version = os.getenv("APP_VERSION", "0.0.0")
-app = fastapi.FastAPI(title="InQRess", version=app_version, lifespan=lifespan)
+
+cfg_for_docs = config.get_config()
+app = fastapi.FastAPI(
+    title="InQRess",
+    version=app_version,
+    lifespan=lifespan,
+    docs_url="/docs" if cfg_for_docs.server.api_docs else None,
+    redoc_url="/redoc" if cfg_for_docs.server.api_docs else None,
+    openapi_url="/openapi.json" if cfg_for_docs.server.api_docs else None,
+)
 
 app.include_router(api.health.router, prefix="/api")
 app.include_router(api.checkin.router_public, prefix="/api")
+app.include_router(api.auth.router, prefix="/api")
+
+# All authenticated routes now use the session cookie
 app.include_router(
     api.events.router,
     prefix="/api",
-    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
 )
 app.include_router(
     api.participants.router,
     prefix="/api",
-    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
 )
 app.include_router(
     api.participants.bulk_email_router,
     prefix="/api",
-    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
 )
 app.include_router(
     api.checkin.router_authed,
     prefix="/api",
-    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
 )
 app.include_router(
     api.spreadsheet.router,
     prefix="/api",
-    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
 )
-app.include_router(api.streams.router, prefix="/api")
-app.include_router(api.booth.router, prefix="/api")
-app.include_router(api.admin.router, prefix="/api")
+app.include_router(
+    api.streams.router,
+    prefix="/api",
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
+)
+app.include_router(
+    api.booth.router,
+    prefix="/api",
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
+)
+app.include_router(
+    api.admin.router,
+    prefix="/api",
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
+)
 app.include_router(
     api.info.router,
     prefix="/api",
-    dependencies=[fastapi.Depends(service.auth.verify_basic_auth)],
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
 )
 
 frontend_dir = os.environ.get("FRONTEND_DIR")

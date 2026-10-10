@@ -168,3 +168,7 @@ cython_debug/
 
 # InQRess server config
 backend/data/config.yaml
+.cortexkit/magic-context/
+
+# Local dev data directory (git-ignored, committed config is in local_dev/config.yaml)
+local_dev/data/
