@@ -115,9 +115,7 @@ def login(
 
     _clear_login_failures(key)
 
-    token = service.auth.create_session()
-    idle_days, absolute_days = service.auth._get_session_durations()
-    max_age = min(idle_days, absolute_days) * 24 * 3600
+    token, max_age = service.auth.create_session()
     service.auth._set_session_cookie(response, token, max_age)
     service.auth.clear_legacy_session_cookie(response)
 

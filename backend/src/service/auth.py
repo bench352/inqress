@@ -81,12 +81,18 @@ def _session_deadline(now: datetime, created_at: datetime) -> datetime:
     )
 
 
-def create_session() -> str:
-    """Create a new admin session and return the raw token (to be set as cookie)."""
+def create_session() -> tuple[str, int]:
+    """Create a new admin session.
+
+    Returns the raw token and the cookie max-age in seconds. max-age is the
+    remaining lifetime of the stored expires_at, which is the sooner of the
+    idle and absolute deadlines — not a fresh full window of either.
+    """
     token = secrets.token_urlsafe(32)
     token_hash = _hash_token(token)
     now = _now()
     expires = _session_deadline(now, now)
+    max_age = int((expires - now).total_seconds())
 
     with service.db.get_session() as session:
         db_session = schema.orm.AdminSession(
@@ -98,7 +104,7 @@ def create_session() -> str:
         )
         session.add(db_session)
 
-    return token
+    return token, max_age
 
 
 def verify_session_cookie(
