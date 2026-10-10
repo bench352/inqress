@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { apiUrl } from "../api";
+import { apiUrl, sessionStatus } from "../api";
+import { redirectToLogin } from "../providers/redirectToLogin";
 import { useAuth } from "../providers/useAuth";
 
 interface BoothLifecycleData {
@@ -24,7 +25,7 @@ export interface UseAdminStreamReturn {
 }
 
 export function useAdminStream(): UseAdminStreamReturn {
-  const { username, password } = useAuth();
+  const { isAuthenticated } = useAuth();
   const stoppedRef = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -32,15 +33,14 @@ export function useAdminStream(): UseAdminStreamReturn {
   const [activeBooths, setActiveBooths] = useState<ActiveBooth[]>([]);
 
   useEffect(() => {
-    if (!username || !password) return;
+    if (!isAuthenticated) return;
 
-    const token = btoa(`${username}:${password}`);
     stoppedRef.current = false;
 
     const connect = () => {
       if (stoppedRef.current) return;
-      const url = `${apiUrl}/api/admin/streams?token=${encodeURIComponent(token)}`;
-      const es = new EventSource(url);
+      const url = `${apiUrl}/api/admin/streams`;
+      const es = new EventSource(url, { withCredentials: true });
       eventSourceRef.current = es;
 
       es.onopen = () => console.log("[SSE Admin] connection opened");
@@ -54,11 +54,20 @@ export function useAdminStream(): UseAdminStreamReturn {
       };
 
       es.onerror = () => {
-        console.log("[SSE Admin] error, reconnecting in 3s");
         es.close();
-        if (!stoppedRef.current) {
-          reconnectTimerRef.current = setTimeout(connect, 3000);
-        }
+        if (stoppedRef.current) return;
+        void (async () => {
+          const status = await sessionStatus();
+          if (status === 401) {
+            stoppedRef.current = true;
+            redirectToLogin();
+            return;
+          }
+          console.log("[SSE Admin] error, reconnecting in 3s");
+          if (!stoppedRef.current) {
+            reconnectTimerRef.current = setTimeout(connect, 3000);
+          }
+        })();
       };
     };
 
@@ -92,7 +101,7 @@ export function useAdminStream(): UseAdminStreamReturn {
       eventSourceRef.current?.close();
       eventSourceRef.current = null;
     };
-  }, [username, password]);
+  }, [isAuthenticated]);
 
   return { activeBooths };
 }

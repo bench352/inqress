@@ -2,14 +2,12 @@ import logging
 import queue
 import uuid
 from collections.abc import Iterable
-from typing import Annotated
 
 import fastapi
 import fastapi.sse
 
 import api.utils
 import schema.rest
-import service.auth
 import service.event_stream
 
 logger = logging.getLogger(__name__)
@@ -21,9 +19,7 @@ router = fastapi.APIRouter(prefix="/events/{event_id}", tags=["Streams"])
 @router.get("/streams", response_class=fastapi.sse.EventSourceResponse)
 def stream_events(
     event_id: uuid.UUID,
-    token: Annotated[str | None, fastapi.Query()] = None,
 ) -> Iterable[fastapi.sse.ServerSentEvent]:
-    service.auth.verify_basic_auth_query(token=token)
     api.utils.check_event_exists(event_id)
 
     q: queue.Queue = manager.subscribe(event_id)
@@ -44,7 +40,6 @@ def stream_events(
 def get_import_result(
     event_id: uuid.UUID,
     result_id: uuid.UUID,
-    _: str = fastapi.Depends(service.auth.verify_basic_auth),
 ) -> schema.rest.BulkCreateResponse:
     api.utils.check_event_exists(event_id)
     result = manager.get_result(result_id)

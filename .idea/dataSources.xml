@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="inqress.db" uuid="a477f951-b25d-436a-b969-ccd44ba8f152">
+    <data-source source="LOCAL" name="Local Dev InQRess" uuid="dd780e4d-db24-4236-b268-296ad1307a87">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
-      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/backend/data/inqress.db</jdbc-url>
+      <jdbc-url>jdbc:sqlite:/home/ben/repositories/inqress/local_dev/data/inqress.db</jdbc-url>
+      <jdbc-additional-properties>
+        <property name="datasource.use.eel" value="true" />
+      </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
   </component>

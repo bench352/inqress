@@ -8,13 +8,12 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useNavigate } from "@tanstack/react-router";
-import { useAuth } from "../../providers/useAuth";
-import { apiUrl } from "../../api";
+import { brandFontFamily } from "@/brandFont.ts";
+import { isSafeRedirectPath } from "@/providers/redirectToLogin.ts";
+import { useAuth } from "@/providers/useAuth.ts";
 
 export default function Login() {
   const { login } = useAuth();
-  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,20 +25,23 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${apiUrl}/api/events`, {
-        headers: {
-          Authorization: `Basic ${btoa(`${username}:${password}`)}`,
-        },
-      });
-
-      if (response.ok) {
-        login(username, password);
-        await navigate({ to: "/" });
+      await login(username, password);
+      // Read redirect param if present
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get("redirect");
+      const safeRedirect =
+        redirect && isSafeRedirectPath(redirect) ? redirect : "/";
+      window.location.assign(safeRedirect);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "";
+      if (
+        message.startsWith("Too many login attempts") ||
+        message.startsWith("Session cookie was not stored")
+      ) {
+        setError(message);
       } else {
         setError("Invalid username or password");
       }
-    } catch {
-      setError("Unable to connect to the server");
     } finally {
       setLoading(false);
     }
@@ -58,10 +60,13 @@ export default function Login() {
       <Card sx={{ width: 500, mx: 2 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography
-            variant="h3"
-            component="h1"
+            variant="h1"
             gutterBottom
-            sx={{ textAlign: "center" }}
+            sx={{
+              fontFamily: brandFontFamily,
+              fontWeight: 700,
+              textAlign: "center",
+            }}
           >
             InQRess
           </Typography>
