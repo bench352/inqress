@@ -18,9 +18,9 @@ auth:
     enabled: true
     max_failures: 10
     window_seconds: 900
-    # Address or CIDR of the reverse proxy only. Never 0.0.0.0/0.
-    # Leave empty when clients connect to this process directly.
-    trusted_proxies: []
+    # CIDR of the Docker "dev" network used by the HTTPS reverse proxy (Caddy).
+    # Only the proxy container receives addresses from this range.
+    trusted_proxies: ["172.31.210.0/24"]
 
 # Email sending functionalities are not available in hot-reload dev server
 email_smtp:

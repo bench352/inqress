@@ -1,6 +1,6 @@
 services:
   inqress:
-    restart: unless-stopped
+    restart: always
     build:
       context: .
       args:
@@ -13,6 +13,8 @@ services:
     volumes:
       - ./local_dev/data:/app/data
       - ./local_dev/config.yaml:/app/config.yaml
+    networks:
+      - dev
     develop:
       watch:
         # Backend source: sync then restart (release process)
@@ -39,3 +41,23 @@ services:
 
         - action: rebuild
           path: ./Dockerfile
+  # Reverse proxy for HTTPS
+  caddy:
+    image: caddy:2-alpine
+    user: "0:0"
+    restart: always
+    ports:
+      - "7443:443"
+    volumes:
+      - ./local_dev/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ~/.certs:/certs:ro
+    networks:
+      - dev
+    depends_on:
+      - inqress
+
+networks:
+  dev:
+    ipam:
+      config:
+        - subnet: 172.31.210.0/24

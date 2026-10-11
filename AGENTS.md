@@ -24,7 +24,7 @@ If `inqress-inqress-1` is up and healthy, use it. Do not start a second stack.
 If it is not running:
 
 ```bash
-docker compose -f dev-compose.yaml up --watch --build
+docker compose -f dev-compose.yaml watch
 ```
 
 - Backend source changes under `backend/src/` are synced and restart the container.
