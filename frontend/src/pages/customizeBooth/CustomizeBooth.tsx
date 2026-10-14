@@ -184,7 +184,9 @@ export default function CustomizeBooth() {
                     : "Click to select an image file"}
                 </Typography>
                 {!selectedFile && (
-                  <Typography variant="caption">PNG, JPEG or GIF</Typography>
+                  <Typography variant="caption">
+                    PNG, JPEG, GIF or WebP
+                  </Typography>
                 )}
               </Box>
               {selectedFile && (
@@ -206,7 +208,7 @@ export default function CustomizeBooth() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/gif,image/webp"
               hidden
               onChange={handleFileSelect}
             />

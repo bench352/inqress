@@ -16,7 +16,6 @@ import qrcode
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from html2pic import Html2Pic  # type: ignore[import-untyped]
-from jinja2 import Template
 from sqlalchemy import select, update
 
 import schema.orm
@@ -24,6 +23,8 @@ import schema.service
 import schema.sse
 import service.db
 import service.event_stream
+import service.filenames
+import service.markup
 
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _KEY_PATH = _DATA_DIR / "key.pem"
@@ -334,7 +335,6 @@ def _render_ticket_image(
     organization_name: str,
 ) -> io.BytesIO:
     template_str = _load_ticket_template()
-    jinja_template = Template(template_str)
     css = _load_ticket_css()
 
     qr_img = qrcode.make(ticket_token)
@@ -344,14 +344,17 @@ def _render_ticket_image(
             qr_img.save(tmp, format="PNG")  # type: ignore[call-arg]
             qr_path = tmp.name
 
-        html_str = jinja_template.render(
-            ticketQR=qr_path,
-            ticketIcon=str(_TICKET_ICON_PATH),
-            organizationName=organization_name,
-            eventName=event_name,
-            title=participant_title or "",
-            fullName=participant_name,
-            eventDate=event_date,
+        html_str = service.markup.fill_placeholders(
+            template_str,
+            {
+                "ticketQR": qr_path,
+                "ticketIcon": str(_TICKET_ICON_PATH),
+                "organizationName": organization_name,
+                "eventName": event_name,
+                "title": participant_title or "",
+                "fullName": participant_name,
+                "eventDate": event_date,
+            },
         )
 
         renderer = Html2Pic(html_str, css)
@@ -405,7 +408,7 @@ def generate_single_ticket_image(
 
     cfg = config.get_config()
     organization_name = cfg.app.organization_name or ""
-    safe_name = p_name.replace("/", "_").replace("\\", "_")
+    safe_name = service.filenames.safe_name(p_name)
 
     img_bytes = _render_ticket_image(
         event_name,
@@ -468,8 +471,7 @@ def export_ticket_images_zip(event_id: uuid.UUID) -> io.BytesIO:
                     ticket_token,
                     organization_name,
                 )
-                safe_name = participant_name.replace("/", "_").replace("\\", "_")
-                filename = f"{safe_name} - {participant_id}.png"
+                filename = f"{service.filenames.safe_name(participant_name)} - {participant_id}.png"
                 zf.writestr(filename, img_buf.getvalue())
             except Exception:
                 logger.warning(

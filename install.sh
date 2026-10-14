@@ -198,6 +198,7 @@ generate_config() {
       echo "  organization_name:"
     fi
     echo '  default_country_code: "'"$(yaml_quote "$country_code")"'"'
+    echo "  max_upload_mb: 30"
     echo ""
     echo "auth:"
     echo '  admin_username: "'"$(yaml_quote "$admin_username")"'"'

@@ -8,6 +8,7 @@ import api.utils
 import schema.rest
 import service.participants
 import service.spreadsheet
+import service.uploads
 import service.event_stream
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,17 @@ def spreadsheet_preview(
 ) -> schema.rest.SpreadsheetPreviewResponse:
     api.utils.check_event_exists(event_id)
     try:
+        file_bytes = service.uploads.read_limited(
+            file.file, service.uploads.max_upload_bytes()
+        )
+    except ValueError:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="File is too large",
+        )
+    try:
         workbook = service.spreadsheet.parse_workbook(
-            file.file.read(), file.filename or "upload.xlsx"
+            file_bytes, file.filename or "upload.xlsx"
         )
     except ValueError as e:
         raise fastapi.HTTPException(

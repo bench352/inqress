@@ -8,11 +8,10 @@ import smtplib
 import time
 import uuid
 
-from jinja2 import Template
-
 import config
 import schema.sse
 import service.event_stream
+import service.markup
 
 logger = logging.getLogger(__name__)
 
@@ -24,19 +23,12 @@ def _render_template(
     event_name: str,
     sender_name: str,
 ) -> str:
-    template = Template(template_str)
-    ticket_qr = (
-        '<p style="text-align: center; margin: 20px 0;">'
-        '<img src="cid:qr_code" alt="Your QR Code Ticket"'
-        ' style="max-width: 320px; border: 2px solid #ddd; padding: 12px; border-radius: 8px;"/>'
-        "</p>"
-    )
-    return template.render(
-        title=title,
-        fullName=full_name,
-        eventName=event_name,
-        ticketQR=ticket_qr,
-        senderName=sender_name,
+    return service.markup.render_email_html(
+        template_str,
+        title,
+        full_name,
+        event_name,
+        sender_name,
     )
 
 

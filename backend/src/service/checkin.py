@@ -4,6 +4,7 @@ import uuid
 
 import fastapi
 from sqlalchemy import insert, select
+from sqlalchemy.exc import IntegrityError
 
 import schema.enum
 import schema.orm
@@ -16,6 +17,39 @@ import service.event_stream
 import service.ticket
 
 logger = logging.getLogger(__name__)
+
+
+def _is_duplicate_checkin(exc: IntegrityError) -> bool:
+    message = str(exc.orig or exc).lower()
+    return "unique constraint failed" in message and "attendance_log" in message
+
+
+def _insert_attendance(
+    event_id: uuid.UUID,
+    participant_id: uuid.UUID,
+    method: str,
+    is_test: int,
+) -> str | None:
+    """Insert a check-in. None means that participant is already checked in."""
+    checked_in_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    try:
+        with service.db.get_session() as session:
+            session.execute(
+                insert(schema.orm.AttendanceLog).values(
+                    id=uuid.uuid4(),
+                    event_id=event_id,
+                    participant_id=participant_id,
+                    checked_in_at=checked_in_at,
+                    method=method,
+                    device_info=None,
+                    is_test=is_test,
+                )
+            )
+    except IntegrityError as exc:
+        if _is_duplicate_checkin(exc):
+            return None
+        raise
+    return checked_in_at
 
 
 def _emit_attendance(
@@ -117,35 +151,33 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinRe
             )
 
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
-        checked_in_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        session.execute(
-            insert(schema.orm.AttendanceLog).values(
-                id=uuid.uuid4(),
-                event_id=event_id,
-                participant_id=payload.participant_id,
-                checked_in_at=checked_in_at,
-                method="scan",
-                device_info=None,
-                is_test=is_test,
-            )
-        )
+        participant_title = participant.title
+        participant_name = participant.name
+        participant_id = payload.participant_id
 
-        _emit_attendance(
-            event_id,
-            payload.participant_id,
-            participant.title,
-            participant.name,
-            "scan",
-            checked_in_at,
-        )
-
+    checked_in_at = _insert_attendance(event_id, participant_id, "scan", is_test)
+    if checked_in_at is None:
         return schema.rest.CheckinResponse(
-            success=True,
-            detail=schema.rest.CheckinSuccessDetail(
-                title=participant.title,
-                name=participant.name,
-            ),
+            success=False,
+            detail=schema.rest.CheckinErrorDetail(reason="Already checked in."),
         )
+
+    _emit_attendance(
+        event_id,
+        participant_id,
+        participant_title,
+        participant_name,
+        "scan",
+        checked_in_at,
+    )
+
+    return schema.rest.CheckinResponse(
+        success=True,
+        detail=schema.rest.CheckinSuccessDetail(
+            title=participant_title,
+            name=participant_name,
+        ),
+    )
 
 
 def checkin_by_phone(
@@ -232,35 +264,33 @@ def checkin_by_phone(
             )
 
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
-        checked_in_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        session.execute(
-            insert(schema.orm.AttendanceLog).values(
-                id=uuid.uuid4(),
-                event_id=event_id,
-                participant_id=participant.id,
-                checked_in_at=checked_in_at,
-                method="phone",
-                device_info=None,
-                is_test=is_test,
-            )
-        )
+        participant_title = participant.title
+        participant_name = participant.name
+        participant_id = participant.id
 
-        _emit_attendance(
-            event_id,
-            participant.id,
-            participant.title,
-            participant.name,
-            "phone",
-            checked_in_at,
-        )
-
+    checked_in_at = _insert_attendance(event_id, participant_id, "phone", is_test)
+    if checked_in_at is None:
         return schema.rest.CheckinResponse(
-            success=True,
-            detail=schema.rest.CheckinSuccessDetail(
-                title=participant.title,
-                name=participant.name,
-            ),
+            success=False,
+            detail=schema.rest.CheckinErrorDetail(reason="Already checked in"),
         )
+
+    _emit_attendance(
+        event_id,
+        participant_id,
+        participant_title,
+        participant_name,
+        "phone",
+        checked_in_at,
+    )
+
+    return schema.rest.CheckinResponse(
+        success=True,
+        detail=schema.rest.CheckinSuccessDetail(
+            title=participant_title,
+            name=participant_name,
+        ),
+    )
 
 
 def checkin_manual(
@@ -273,37 +303,32 @@ def checkin_manual(
             success=False, detail=schema.rest.CheckinErrorDetail(reason=str(e.detail))
         )
 
-    with service.db.get_session() as session:
-        is_test = 1 if info.event_mode == schema.enum.EventMode.TEST else 0
-        checked_in_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        session.execute(
-            insert(schema.orm.AttendanceLog).values(
-                id=uuid.uuid4(),
-                event_id=event_id,
-                participant_id=participant_id,
-                checked_in_at=checked_in_at,
-                method="manual",
-                device_info=None,
-                is_test=is_test,
-            )
-        )
-
-        _emit_attendance(
-            event_id,
-            participant_id,
-            info.participant_title,
-            info.participant_name,
-            "manual",
-            checked_in_at,
-        )
-
+    is_test = 1 if info.event_mode == schema.enum.EventMode.TEST else 0
+    checked_in_at = _insert_attendance(event_id, participant_id, "manual", is_test)
+    if checked_in_at is None:
         return schema.rest.CheckinResponse(
-            success=True,
-            detail=schema.rest.CheckinSuccessDetail(
-                title=info.participant_title,
-                name=info.participant_name,
+            success=False,
+            detail=schema.rest.CheckinErrorDetail(
+                reason="Participant is already checked in"
             ),
         )
+
+    _emit_attendance(
+        event_id,
+        participant_id,
+        info.participant_title,
+        info.participant_name,
+        "manual",
+        checked_in_at,
+    )
+
+    return schema.rest.CheckinResponse(
+        success=True,
+        detail=schema.rest.CheckinSuccessDetail(
+            title=info.participant_title,
+            name=info.participant_name,
+        ),
+    )
 
 
 def get_ticket_image(event_id: uuid.UUID, participant_id: uuid.UUID) -> bytes | None:

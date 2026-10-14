@@ -76,6 +76,13 @@ class Participant(Base):
 
 class AttendanceLog(Base):
     __tablename__ = "attendance_log"
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint(
+            "event_id",
+            "participant_id",
+            name="uq_attendance_event_participant",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(sqlalchemy.Uuid, primary_key=True)
     event_id: Mapped[uuid.UUID] = mapped_column(

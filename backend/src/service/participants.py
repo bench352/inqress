@@ -3,6 +3,7 @@ import logging
 import math
 import time
 import uuid
+from dataclasses import dataclass
 
 import phonenumbers
 import rapidfuzz
@@ -36,68 +37,146 @@ def _parse_phone(raw_phone: str | None, default_region: str) -> tuple[str, str] 
     return country_code, phone
 
 
-def _names_match(
+def _name_relation(
     name1: str, name2: str, name_match_mode: schema.enum.NameMatchMode
-) -> bool:
+) -> str:
     n1 = name1.strip().lower()
     n2 = name2.strip().lower()
     if n1 == n2:
-        return True
+        return "exact"
     if name_match_mode is schema.enum.NameMatchMode.FUZZY:
         score = rapidfuzz.fuzz.token_sort_ratio(n1, n2)
         if score >= _FUZZY_THRESHOLD:
-            return True
-    return False
+            return "fuzzy"
+    return "none"
+
+
+def _text(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    return value.strip()
 
 
 ExistingParticipant = schema.orm.Participant | schema.rest.ParticipantResponse
 
 
-def _is_duplicate(
+@dataclass
+class _Match:
+    participant: ExistingParticipant
+    replace_name: bool
+
+
+def _contact_keys(
     new_p: schema.rest.ParticipantCreate,
     existing: ExistingParticipant,
+    default_region: str,
+) -> tuple[str | None, str | None, str | None, str | None]:
+    new_email = _text(new_p.email)
+    existing_email = _text(existing.email)
+    new_phone = _parse_phone(new_p.raw_phone, default_region)
+    existing_phone = _parse_phone(existing.raw_phone, default_region)
+    return (
+        new_email.lower() if new_email else None,
+        existing_email.lower() if existing_email else None,
+        new_phone[1] if new_phone else None,
+        existing_phone[1] if existing_phone else None,
+    )
+
+
+def _find_match(
+    new_p: schema.rest.ParticipantCreate,
+    existing_rows: list[ExistingParticipant],
     name_match_mode: schema.enum.NameMatchMode,
     default_region: str,
-) -> bool:
-    if not _names_match(new_p.name, existing.name, name_match_mode):
-        return False
+) -> _Match | None | str:
+    sure: list[ExistingParticipant] = []
+    name_only: list[ExistingParticipant] = []
+    exact_unconfirmed: list[ExistingParticipant] = []
+    exact_holders: list[ExistingParticipant] = []
 
-    new_has_email = bool(new_p.email)
-    existing_has_email = bool(existing.email)
-    new_has_phone = bool(new_p.raw_phone)
-    existing_has_phone = bool(existing.raw_phone)
+    for existing in existing_rows:
+        relation = _name_relation(new_p.name, existing.name, name_match_mode)
+        if relation == "exact":
+            exact_holders.append(existing)
+        if relation == "none":
+            continue
 
-    if new_has_email and existing_has_email:
-        assert new_p.email is not None and existing.email is not None
-        if new_p.email.strip().lower() != existing.email.strip().lower():
-            return False
-    if new_has_phone and existing_has_phone:
-        new_parsed = _parse_phone(new_p.raw_phone, default_region)
-        existing_parsed = _parse_phone(existing.raw_phone, default_region)
-        if new_parsed and existing_parsed:
-            if new_parsed[1] != existing_parsed[1]:
-                return False
+        new_email, existing_email, new_phone, existing_phone = _contact_keys(
+            new_p, existing, default_region
+        )
+        emails_differ = (
+            new_email is not None
+            and existing_email is not None
+            and new_email != existing_email
+        )
+        phones_differ = (
+            new_phone is not None
+            and existing_phone is not None
+            and new_phone != existing_phone
+        )
+        if emails_differ or phones_differ:
+            continue
 
-    return True
+        emails_match = (
+            new_email is not None
+            and existing_email is not None
+            and new_email == existing_email
+        )
+        phones_match = (
+            new_phone is not None
+            and existing_phone is not None
+            and new_phone == existing_phone
+        )
+        if emails_match or phones_match:
+            sure.append(existing)
+            continue
+        if relation != "exact":
+            continue
+        if (
+            new_email is None
+            and existing_email is None
+            and new_phone is None
+            and existing_phone is None
+        ):
+            name_only.append(existing)
+        else:
+            exact_unconfirmed.append(existing)
+
+    if len(sure) > 1:
+        return "ambiguous"
+    if len(sure) == 1:
+        return _Match(
+            participant=sure[0],
+            replace_name=name_match_mode is schema.enum.NameMatchMode.FUZZY,
+        )
+
+    if len(exact_holders) == 1:
+        holder = exact_holders[0]
+        if holder in exact_unconfirmed or holder in name_only:
+            return _Match(participant=holder, replace_name=False)
+        return None
+
+    if name_only or exact_unconfirmed:
+        return "ambiguous"
+    return None
 
 
 def _apply_smart_merge(
     existing: ExistingParticipant,
     new_p: schema.rest.ParticipantCreate,
     default_region: str,
+    replace_name: bool,
 ) -> dict:
     title = new_p.title if new_p.title is not None else existing.title
-    name = new_p.name if new_p.name is not None else existing.name
-    email = (
-        new_p.email
-        if new_p.email is not None and new_p.email.strip()
-        else existing.email
-    )
+    name = new_p.name if replace_name else existing.name
+    email = new_p.email if _text(existing.email) is None else existing.email
+    if _text(new_p.email) is None:
+        email = existing.email
     raw_phone = (
-        new_p.raw_phone
-        if new_p.raw_phone is not None and new_p.raw_phone.strip()
-        else existing.raw_phone
+        new_p.raw_phone if _text(existing.raw_phone) is None else existing.raw_phone
     )
+    if _text(new_p.raw_phone) is None:
+        raw_phone = existing.raw_phone
 
     phone_info = _parse_phone(raw_phone, default_region)
     if phone_info:
@@ -298,17 +377,27 @@ def bulk_create_and_notify(
                     .scalars()
                     .all()
                 )
-                all_existing = list(existing_db) + [
-                    r for r in created + overwritten + merged
-                ]
+                by_id: dict[uuid.UUID, ExistingParticipant] = {
+                    row.id: row for row in existing_db
+                }
+                for updated in created + overwritten + merged:
+                    by_id[updated.id] = updated
 
-                dup = None
-                for ex in all_existing:
-                    if _is_duplicate(p, ex, name_match_mode, default_region):
-                        dup = ex
-                        break
+                found = _find_match(
+                    p, list(by_id.values()), name_match_mode, default_region
+                )
+                if found == "ambiguous":
+                    errors.append(
+                        schema.rest.BulkCreateError(
+                            participant=p,
+                            reason="More than one participant has this name, and this row does not say which one.",
+                        )
+                    )
+                    continue
 
-                if dup is not None:
+                if found is not None:
+                    assert isinstance(found, _Match)
+                    dup = found.participant
                     if strategy is schema.enum.DuplicateStrategy.SKIP:
                         skipped.append(p)
                         continue
@@ -326,7 +415,9 @@ def bulk_create_and_notify(
                         )
                         continue
                     elif strategy is schema.enum.DuplicateStrategy.SMART_MERGE:
-                        values = _apply_smart_merge(dup, p, default_region)
+                        values = _apply_smart_merge(
+                            dup, p, default_region, found.replace_name
+                        )
                         db_result = session.execute(
                             update(schema.orm.Participant)
                             .where(schema.orm.Participant.id == dup.id)

@@ -33,7 +33,8 @@ def _parse_xlsx(file_bytes: bytes) -> dict[str, tuple[list[str], list[list[str]]
                 result[sheet_name] = ([], [])
                 continue
             columns = [str(c) if c is not None else "" for c in rows[0]]
-            data = [[str(c) if c is not None else "" for c in row] for row in rows[1:]]
+            data_rows = rows[1:]
+            data = [[str(c) if c is not None else "" for c in row] for row in data_rows]
             result[sheet_name] = (columns, data)
         return result
     finally:
@@ -48,7 +49,8 @@ def _parse_csv(file_bytes: bytes) -> dict[str, tuple[list[str], list[list[str]]]
     if not rows:
         return {"Sheet1": ([], [])}
     columns = [str(c) for c in rows[0]]
-    data = [[str(c) for c in row] for row in rows[1:]]
+    data_rows = rows[1:]
+    data = [[str(c) for c in row] for row in data_rows]
     return {"Sheet1": (columns, data)}
 
 
@@ -58,10 +60,9 @@ def parse_workbook(
     name_lower = filename.lower()
     if name_lower.endswith(".csv"):
         return _parse_csv(file_bytes)
-    elif name_lower.endswith(".xlsx") or name_lower.endswith(".xls"):
+    if name_lower.endswith(".xlsx"):
         return _parse_xlsx(file_bytes)
-    else:
-        raise ValueError(f"Unsupported file type: {filename}")
+    raise ValueError("Only .xlsx and .csv files are supported")
 
 
 def store_workbook(workbook: dict[str, tuple[list[str], list[list[str]]]]) -> uuid.UUID:
