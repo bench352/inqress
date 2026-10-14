@@ -13,7 +13,7 @@ import service.db
 _DEFAULT_TEMPLATE_PATH = (
     pathlib.Path(__file__).resolve().parent.parent
     / "assets"
-    / "default_email_template.html"
+    / "default_email_template.md"
 )
 
 

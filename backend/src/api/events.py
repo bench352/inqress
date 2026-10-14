@@ -7,7 +7,9 @@ import api.booth
 import schema.rest
 import schema.sse
 import service.events
+import service.filenames
 import service.ticket
+import service.uploads
 
 router = fastapi.APIRouter(prefix="/events", tags=["Events"])
 
@@ -105,17 +107,40 @@ def get_booth_image(event_id: uuid.UUID) -> fastapi.responses.Response:
             status_code=fastapi.status.HTTP_404_NOT_FOUND,
             detail="Booth image not found",
         )
-    image_bytes, content_type = result
-    return fastapi.responses.Response(content=image_bytes, media_type=content_type)
+    image_bytes, _stored_type = result
+    media_type = service.uploads.sniff_image_type(image_bytes)
+    if media_type is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail="Booth image not found",
+        )
+    return fastapi.responses.Response(
+        content=image_bytes,
+        media_type=media_type,
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.post("/{event_id}/boothImage", status_code=fastapi.status.HTTP_204_NO_CONTENT)
 def upload_booth_image(
     event_id: uuid.UUID, file: fastapi.UploadFile = fastapi.File(...)
 ) -> fastapi.responses.Response:
-    updated = service.events.set_booth_image(
-        event_id, file.file.read(), file.content_type or "image/png"
-    )
+    try:
+        image_bytes = service.uploads.read_limited(
+            file.file, service.uploads.max_upload_bytes()
+        )
+    except ValueError:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="File is too large",
+        )
+    media_type = service.uploads.sniff_image_type(image_bytes)
+    if media_type is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail="Only PNG, JPEG, GIF, and WebP images are supported",
+        )
+    updated = service.events.set_booth_image(event_id, image_bytes, media_type)
     if not updated:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
@@ -174,7 +199,11 @@ def export_ticket_images(
     return fastapi.responses.Response(
         content=zip_bytes.getvalue(),
         media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=tickets.zip"},
+        headers={
+            "Content-Disposition": service.filenames.attachment_disposition(
+                "tickets.zip"
+            )
+        },
     )
 
 
@@ -196,5 +225,7 @@ def export_single_ticket_image(
     return fastapi.responses.Response(
         content=img_bytes.getvalue(),
         media_type="image/png",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        headers={
+            "Content-Disposition": service.filenames.attachment_disposition(filename)
+        },
     )
