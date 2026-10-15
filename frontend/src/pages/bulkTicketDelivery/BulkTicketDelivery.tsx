@@ -30,7 +30,7 @@ import type { EventItem } from "../eventsList/useEvents";
 
 export default function BulkTicketDelivery() {
   const { eventId } = useParams({
-    from: "/app-shell/events/$eventId/bulkTicketDelivery",
+    from: "/app-shell/admin/events/$eventId/bulkTicketDelivery",
   });
   const navigate = useNavigate();
   const api = useApi();
@@ -89,7 +89,7 @@ export default function BulkTicketDelivery() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
-      navigate({ to: "/events/$eventId", params: { eventId } });
+      navigate({ to: "/admin/events/$eventId", params: { eventId } });
     },
     onError: (err: ApiError) => {
       if (err.status === 409) {
@@ -103,7 +103,7 @@ export default function BulkTicketDelivery() {
     setPreviewIndex((i) => Math.min(undeliveredReady.length - 1, i + 1));
 
   const goBack = () =>
-    navigate({ to: "/events/$eventId", params: { eventId } });
+    navigate({ to: "/admin/events/$eventId", params: { eventId } });
 
   if (eventQuery.isLoading || participantsQuery.isLoading) {
     return <LinearProgress />;

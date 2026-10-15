@@ -38,6 +38,8 @@ The Chrome browser with remote debugging is available. Use it to access `http://
 
 If a login form is presented, read credentials from the committed file `local_dev/config.yaml`, fill the username and password fields, then submit the form.
 
+> Note: Only perform a full-stack browser inspection when the user specifically requested it. For usual implementation, just perform linting and formatting
+
 ## Linting and formatting (must pass CI)
 
 Run these commands from the respective directories. Fix all issues before committing.
@@ -83,6 +85,10 @@ These relationships must be kept in sync. Breaking any of them causes runtime or
 ### Frontend ↔ Backend
 - REST response shapes in `backend/src/schema/rest.py` (camelCase) must match what `frontend/src/api.ts` and the generated hooks expect.
 - Any change to a response model requires corresponding frontend updates.
+
+### Frontend
+
+- Use conventional MUI components, following the code examples in official MUI documentation (accessible via `mui-mcp`)
 
 ## Never
 

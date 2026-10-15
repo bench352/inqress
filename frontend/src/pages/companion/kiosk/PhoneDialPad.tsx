@@ -22,6 +22,7 @@ const digits = [
 export const DIAL_DIGIT_FONT_SIZE = "2rem";
 export const DIAL_ACTION_FONT_SIZE = "1.3rem";
 export const DIAL_BUTTON_HEIGHT = 68;
+export const DIAL_PAD_MAX_WIDTH = 360;
 
 export default function PhoneDialPad({
   onDigit,
@@ -32,7 +33,7 @@ export default function PhoneDialPad({
   accentColor,
 }: Props) {
   return (
-    <Grid container spacing={1} sx={{ maxWidth: 360 }}>
+    <Grid container spacing={1} sx={{ maxWidth: DIAL_PAD_MAX_WIDTH }}>
       {digits.map((row, ri) =>
         row.map((digit) => (
           <Grid key={ri * 3 + row.indexOf(digit)} size={4}>

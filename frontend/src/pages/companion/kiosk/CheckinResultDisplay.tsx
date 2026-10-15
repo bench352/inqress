@@ -3,13 +3,13 @@ import { Box, CircularProgress, Typography } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import useSound from "use-sound";
-import successSound from "../../../assets/soundEffects/checkin_success.aac";
-import failSound from "../../../assets/soundEffects/checkin_fail.aac";
+import successSound from "@/assets/soundEffects/checkin_success.aac";
+import failSound from "@/assets/soundEffects/checkin_fail.aac";
 import { useConfetti } from "@/hooks/useConfetti";
-import type { CheckinPhase, CheckinResponse } from "../types";
+import { isErrorDetail, isSuccessDetail, type CheckinResponse } from "./types";
 
 interface Props {
-  phase: CheckinPhase;
+  phase: "loading" | "success" | "error";
   result: CheckinResponse | null;
   errorMessage?: string;
   onDismiss: () => void;
@@ -18,6 +18,16 @@ interface Props {
 const RESULT_ICON_SIZE = 128;
 const LOADING_SIZE = 96;
 const DISMISS_DELAY_MS = 3000;
+const RESULT_CONTAINER_SX = {
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  gap: 4,
+  p: 4,
+} as const;
 
 export default function CheckinResultDisplay({
   phase,
@@ -44,41 +54,29 @@ export default function CheckinResultDisplay({
   }, [phase, onDismiss]);
 
   return (
-    <Box
-      sx={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 4,
-        p: 8,
-      }}
-    >
+    <Box sx={RESULT_CONTAINER_SX}>
       {phase === "loading" && (
         <>
           <CircularProgress size={LOADING_SIZE} />
           <Typography variant="h2">Just a moment...</Typography>
         </>
       )}
-      {phase === "success" && result?.success && (
-        <>
-          <CheckCircleIcon
-            sx={{ fontSize: RESULT_ICON_SIZE, color: "success.main" }}
-          />
-          <Typography variant="h2">Welcome</Typography>
-          <Typography variant="h1">
-            {"detail" in result && !("reason" in result.detail)
-              ? `${result.detail.title} ${result.detail.name}`
-              : ""}
-          </Typography>
-        </>
-      )}
+      {phase === "success" &&
+        result?.success &&
+        isSuccessDetail(result.detail) && (
+          <>
+            <CheckCircleIcon
+              sx={{ fontSize: RESULT_ICON_SIZE, color: "success.main" }}
+            />
+            <Typography variant="h2">Welcome</Typography>
+            <Typography variant="h1">{result.detail.name}</Typography>
+          </>
+        )}
       {phase === "error" && (
         <>
           <ErrorIcon sx={{ fontSize: RESULT_ICON_SIZE, color: "error.main" }} />
           <Typography variant="h2" color="error.main">
-            {result && !result.success && "reason" in result.detail
+            {result && !result.success && isErrorDetail(result.detail)
               ? result.detail.reason
               : errorMessage || "Unknown error"}
           </Typography>

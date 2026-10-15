@@ -9,7 +9,7 @@ export function isSafeRedirectPath(p: string): boolean {
     return false;
   if (p.includes("\\") || p.includes("%5C") || p.includes("%5c")) return false;
   if (p.includes("://")) return false;
-  if (p.startsWith("/login")) return false;
+  if (p.startsWith("/login") || p.startsWith("/companion")) return false;
   // Final origin check
   try {
     const u = new URL(p, window.location.origin);

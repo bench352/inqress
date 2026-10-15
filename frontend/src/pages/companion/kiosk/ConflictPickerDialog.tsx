@@ -5,46 +5,39 @@ import EmailIcon from "@mui/icons-material/Email";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PhoneIcon from "@mui/icons-material/Phone";
 import useSound from "use-sound";
-import successSound from "../../../assets/soundEffects/checkin_success.aac";
-import checkinConfirmSound from "../../../assets/soundEffects/checkin_need_confirmation.aac";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApi } from "@/api.ts";
+import successSound from "@/assets/soundEffects/checkin_success.aac";
+import failSound from "@/assets/soundEffects/checkin_fail.aac";
+import confirmSound from "@/assets/soundEffects/checkin_need_confirmation.aac";
+import { useCompanionApi } from "@/api";
 import { maskEmail, maskPhone } from "@/utils/masking";
 import { useConfetti } from "@/hooks/useConfetti";
+import type { ConflictParticipant } from "./types";
 
 const INITIAL_TIMEOUT_S = 60;
 const ALL_DONE_TIMEOUT_S = 5;
-
-interface Participant {
-  id: string;
-  title: string | null;
-  name: string;
-  email: string | null;
-  countryCode: string | null;
-  phone: string | null;
-  checkedInAt: string | null;
-}
 
 interface Props {
   open: boolean;
   eventId: string;
   accentColor: string;
-  participants: Participant[];
+  participants: ConflictParticipant[];
   onClose: () => void;
 }
 
-export default function MultipleParticipantsCheckInDialog({
+export default function ConflictPickerDialog({
   open,
   eventId,
   accentColor,
   participants,
   onClose,
 }: Props) {
-  const api = useApi();
-  const queryClient = useQueryClient();
+  const api = useCompanionApi();
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [errorById, setErrorById] = useState<Record<string, string>>({});
   const [playSuccess] = useSound(successSound);
-  const [playConfirm] = useSound(checkinConfirmSound);
+  const [playFail] = useSound(failSound);
+  const [playConfirm] = useSound(confirmSound);
   const { fire: fireConfetti } = useConfetti();
   const [countdown, setCountdown] = useState(INITIAL_TIMEOUT_S);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -60,14 +53,8 @@ export default function MultipleParticipantsCheckInDialog({
     allCheckedInRef.current = allCheckedIn;
   }, [allCheckedIn]);
 
-  const resetTimer = useCallback((seconds: number) => {
-    countdownRef.current = seconds;
-    setCountdown(seconds);
-  }, []);
-
   useEffect(() => {
     if (!open) return;
-
     timerRef.current = setInterval(() => {
       if (allCheckedInRef.current && !allCheckedInHandledRef.current) {
         allCheckedInHandledRef.current = true;
@@ -75,7 +62,6 @@ export default function MultipleParticipantsCheckInDialog({
         setCountdown(ALL_DONE_TIMEOUT_S);
         return;
       }
-
       countdownRef.current -= 1;
       setCountdown(countdownRef.current);
       if (countdownRef.current <= 0) {
@@ -83,49 +69,61 @@ export default function MultipleParticipantsCheckInDialog({
         onClose();
       }
     }, 1000);
-
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [open, onClose]);
 
   useEffect(() => {
-    if (open) {
-      playConfirm();
-    }
+    if (open) playConfirm();
   }, [open, playConfirm]);
 
-  const checkinMutation = useMutation({
-    mutationFn: async (participantId: string) => {
-      const data = await api.post<{
-        success: boolean;
-        detail: { reason?: string } | Record<string, unknown>;
-      }>(`/api/events/${eventId}/checkin/manual`, {
-        participantId,
+  const handleCheckin = useCallback(
+    async (participantId: string) => {
+      setPendingId(participantId);
+      setErrorById((prev) => {
+        if (!(participantId in prev)) return prev;
+        const next = { ...prev };
+        delete next[participantId];
+        return next;
       });
-      if (!data.success) {
-        throw new Error(
-          "reason" in data.detail && typeof data.detail.reason === "string"
-            ? data.detail.reason
-            : "Check-in failed",
-        );
+      try {
+        const data = await api.post<{
+          success: boolean;
+          detail: { reason?: string } | Record<string, unknown>;
+        }>(`/api/events/${eventId}/companion/checkin/manual`, {
+          participantId,
+        });
+        if (!data.success) {
+          throw new Error(
+            "reason" in data.detail && typeof data.detail.reason === "string"
+              ? data.detail.reason
+              : "Check-in failed",
+          );
+        }
+        setCheckedInIds((prev) => new Set(prev).add(participantId));
+        playSuccess();
+        fireConfetti();
+        countdownRef.current = INITIAL_TIMEOUT_S;
+        setCountdown(INITIAL_TIMEOUT_S);
+      } catch (e: unknown) {
+        // keep the picker open; guest can try another entry or Close
+        playFail();
+        const detail =
+          e && typeof e === "object" && "detail" in e
+            ? (e as { detail: unknown }).detail
+            : null;
+        setErrorById((prev) => ({
+          ...prev,
+          [participantId]:
+            typeof detail === "string" ? detail : "Check-in failed",
+        }));
+      } finally {
+        setPendingId(null);
       }
-      return data;
     },
-    onSuccess: (_, participantId) => {
-      setCheckedInIds((prev) => new Set(prev).add(participantId));
-      playSuccess();
-      fireConfetti();
-      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
-      if (!allCheckedIn) {
-        resetTimer(INITIAL_TIMEOUT_S);
-      }
-    },
-  });
-
-  const handleCheckin = (participantId: string) => {
-    checkinMutation.mutate(participantId);
-  };
+    [api, eventId, playSuccess, playFail, fireConfetti],
+  );
 
   return (
     <Dialog open={open} scroll="body" fullScreen>
@@ -139,8 +137,8 @@ export default function MultipleParticipantsCheckInDialog({
           p: 4,
         }}
       >
-        <GroupsIcon sx={{ fontSize: 120, color: accentColor }} />
-        <Typography variant="h2">Multiple participants found</Typography>
+        <GroupsIcon sx={{ fontSize: 96, color: accentColor }} />
+        <Typography variant="h3">Multiple participants found</Typography>
         <Typography variant="h5">
           Select the correct participant to check in
         </Typography>
@@ -151,15 +149,12 @@ export default function MultipleParticipantsCheckInDialog({
             <Card
               key={p.id}
               variant="outlined"
-              sx={{ minWidth: "800px", p: 3 }}
+              sx={{ width: "100%", maxWidth: 900, p: 3 }}
             >
               <Stack
                 direction="row"
                 spacing={3}
-                sx={{
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
+                sx={{ alignItems: "center", justifyContent: "space-between" }}
               >
                 <Stack spacing={1}>
                   <Typography variant="h5">
@@ -189,17 +184,19 @@ export default function MultipleParticipantsCheckInDialog({
                     </Typography>
                   </Stack>
                 </Stack>
+                {errorById[p.id] && (
+                  <Typography color="error" sx={{ mt: 1 }}>
+                    {errorById[p.id]}
+                  </Typography>
+                )}
                 <Button
                   variant="contained"
                   color="success"
-                  startIcon={<CheckCircleIcon sx={{ fontSize: 40 }} />}
+                  startIcon={<CheckCircleIcon sx={{ fontSize: 32 }} />}
                   onClick={() => handleCheckin(p.id)}
-                  disabled={isCheckedIn || checkinMutation.isPending}
-                  loading={
-                    checkinMutation.isPending &&
-                    checkinMutation.variables === p.id
-                  }
-                  sx={{ py: 1, px: 2, fontSize: "1.6rem", width: "230px" }}
+                  disabled={isCheckedIn || pendingId !== null}
+                  loading={pendingId === p.id}
+                  sx={{ py: 1, px: 2, fontSize: "1.3rem", width: 220 }}
                 >
                   {isCheckedIn ? "Checked in" : "Check in"}
                 </Button>

@@ -107,7 +107,7 @@ export default function ActionsSection({
                 variant="contained"
                 onClick={() =>
                   navigate({
-                    to: "/events/$eventId/bulkTicketDelivery",
+                    to: "/admin/events/$eventId/bulkTicketDelivery",
                     params: { eventId },
                   })
                 }

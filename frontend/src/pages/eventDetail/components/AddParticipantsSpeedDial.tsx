@@ -23,7 +23,7 @@ export default function AddParticipantsSpeedDial({ eventId }: Props) {
         slotProps={{ tooltip: { title: "Add manually" } }}
         onClick={() =>
           navigate({
-            to: "/events/$eventId/addParticipantsManually",
+            to: "/admin/events/$eventId/addParticipantsManually",
             params: { eventId },
           })
         }
@@ -33,7 +33,7 @@ export default function AddParticipantsSpeedDial({ eventId }: Props) {
         slotProps={{ tooltip: { title: "By spreadsheet" } }}
         onClick={() =>
           navigate({
-            to: "/events/$eventId/addParticipantsBySpreadsheet",
+            to: "/admin/events/$eventId/addParticipantsBySpreadsheet",
             params: { eventId },
           })
         }

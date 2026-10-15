@@ -119,6 +119,10 @@ class PhoneCheckinRequest(RestModel):
     phone_no: str
 
 
+class EmailCheckinRequest(RestModel):
+    email: str
+
+
 class ManualCheckinRequest(RestModel):
     participant_id: uuid.UUID
 
@@ -183,3 +187,25 @@ class InfoResponse(RestModel):
     org_name: str | None
     send_via_email: str
     app_version: str
+
+
+class CompanionSessionRequest(RestModel):
+    event_id: uuid.UUID
+    token: str
+
+
+class CompanionSessionResponse(RestModel):
+    event_id: uuid.UUID
+    name: str
+
+
+class CompanionTokenResponse(RestModel):
+    token: str
+
+
+class KioskMessageRequest(RestModel):
+    message: str
+
+
+class KioskMessageResponse(RestModel):
+    message: str

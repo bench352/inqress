@@ -13,6 +13,7 @@ import "./assets/fonts/Reglo/reglo.css";
 import QueryClientProvider from "./providers/QueryClientProvider";
 import SessionAuthProvider from "./providers/SessionAuthProvider";
 import AppInfoProvider from "./providers/AppInfoProvider";
+import SystemClockProvider from "./providers/SystemClockProvider";
 import { router } from "./router";
 
 const theme = createTheme({
@@ -36,7 +37,9 @@ createRoot(document.getElementById("root")!).render(
           <QueryClientProvider>
             <SessionAuthProvider>
               <AppInfoProvider>
-                <RouterProvider router={router} />
+                <SystemClockProvider>
+                  <RouterProvider router={router} />
+                </SystemClockProvider>
               </AppInfoProvider>
             </SessionAuthProvider>
           </QueryClientProvider>

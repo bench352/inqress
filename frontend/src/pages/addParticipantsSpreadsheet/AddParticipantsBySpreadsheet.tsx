@@ -64,7 +64,7 @@ interface SpreadsheetImportRequest {
 
 export default function AddParticipantsBySpreadsheet() {
   const { eventId } = useParams({
-    from: "/app-shell/events/$eventId/addParticipantsBySpreadsheet",
+    from: "/app-shell/admin/events/$eventId/addParticipantsBySpreadsheet",
   });
   const navigate = useNavigate();
   const api = useApi();
@@ -98,7 +98,7 @@ export default function AddParticipantsBySpreadsheet() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
-      navigate({ to: "/events/$eventId", params: { eventId } });
+      navigate({ to: "/admin/events/$eventId", params: { eventId } });
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError && err.status === 409) {

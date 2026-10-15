@@ -3,7 +3,7 @@ import logging
 import uuid
 
 import fastapi
-from sqlalchemy import insert, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.exc import IntegrityError
 
 import schema.enum
@@ -11,7 +11,8 @@ import schema.orm
 import schema.rest
 import schema.service
 import schema.sse
-import service.booth_stream
+
+import service.companion_stream
 import service.db
 import service.event_stream
 import service.ticket
@@ -60,20 +61,20 @@ def _emit_attendance(
     method: str,
     checked_in_at: str,
 ) -> None:
-    service.event_stream.event_stream_manager.send(
-        event_id,
-        schema.sse.SseEvent[schema.sse.AttendanceNotificationData](
-            event_type=schema.sse.SseEventType.ATTENDANCE,
-            type=schema.sse.SseType.NOTIFICATION,
-            data=schema.sse.AttendanceNotificationData(
-                participant_id=str(participant_id),
-                title=title,
-                name=name,
-                check_in_method=method,
-                check_in_at=checked_in_at,
-            ),
+    evt = schema.sse.SseEvent[schema.sse.AttendanceNotificationData](
+        event_type=schema.sse.SseEventType.ATTENDANCE,
+        type=schema.sse.SseType.NOTIFICATION,
+        data=schema.sse.AttendanceNotificationData(
+            participant_id=str(participant_id),
+            title=title,
+            name=name,
+            check_in_method=method,
+            check_in_at=checked_in_at,
         ),
     )
+    service.event_stream.event_stream_manager.send(event_id, evt)
+    # Also deliver attendance to companion devices (kiosk shows scanner success etc.)
+    service.companion_stream.companion_stream_manager.send(event_id, evt)
 
 
 def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinResponse:
@@ -293,6 +294,117 @@ def checkin_by_phone(
     )
 
 
+def checkin_by_email(event_id: uuid.UUID, email: str) -> schema.rest.CheckinResponse:
+    email = (email or "").strip().lower()
+    if not email:
+        return schema.rest.CheckinResponse(
+            success=False,
+            detail=schema.rest.CheckinErrorDetail(
+                reason="No participant found with this email address"
+            ),
+        )
+
+    with service.db.get_session() as session:
+        event = (
+            session.execute(
+                select(schema.orm.Event).where(schema.orm.Event.id == event_id)
+            )
+            .scalars()
+            .first()
+        )
+        if event is None:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(reason="Event not found"),
+            )
+
+        if event.mode == schema.enum.EventMode.DISABLED:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(
+                    reason="Event check-in is not active"
+                ),
+            )
+
+        participants = (
+            session.execute(
+                select(schema.orm.Participant).where(
+                    schema.orm.Participant.event_id == event_id,
+                    func.lower(schema.orm.Participant.email) == email,
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not participants:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(
+                    reason="No participant found with this email address"
+                ),
+            )
+
+        if len(participants) > 1:
+            conflicting = [
+                schema.rest.ParticipantResponse.model_validate(p) for p in participants
+            ]
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinConflictDetail(
+                    reason="Multiple participants share the same email address",
+                    conflicting_participants=conflicting,
+                ),
+            )
+
+        participant = participants[0]
+
+        already_checked_in = (
+            session.execute(
+                select(schema.orm.AttendanceLog).where(
+                    schema.orm.AttendanceLog.event_id == event_id,
+                    schema.orm.AttendanceLog.participant_id == participant.id,
+                )
+            )
+            .scalars()
+            .first()
+            is not None
+        )
+        if already_checked_in:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(reason="Already checked in"),
+            )
+
+        is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
+        participant_title = participant.title
+        participant_name = participant.name
+        participant_id = participant.id
+
+    checked_in_at = _insert_attendance(event_id, participant_id, "email", is_test)
+    if checked_in_at is None:
+        return schema.rest.CheckinResponse(
+            success=False,
+            detail=schema.rest.CheckinErrorDetail(reason="Already checked in"),
+        )
+
+    _emit_attendance(
+        event_id,
+        participant_id,
+        participant_title,
+        participant_name,
+        "email",
+        checked_in_at,
+    )
+
+    return schema.rest.CheckinResponse(
+        success=True,
+        detail=schema.rest.CheckinSuccessDetail(
+            title=participant_title,
+            name=participant_name,
+        ),
+    )
+
+
 def checkin_manual(
     event_id: uuid.UUID, participant_id: uuid.UUID
 ) -> schema.rest.CheckinResponse:
@@ -406,8 +518,8 @@ def checkin_assisted(
 ) -> schema.rest.AssistedCheckinResponse:
     info = _lookup_participant_for_checkin(event_id, participant_id)
 
-    booth_manager = service.booth_stream.booth_stream_manager
-    sent = booth_manager.send(
+    comp_mgr = service.companion_stream.companion_stream_manager
+    sent = comp_mgr.send(
         event_id,
         schema.sse.SseEvent[schema.sse.ControlCommandData](
             event_type=schema.sse.SseEventType.CONTROL,
@@ -424,12 +536,13 @@ def checkin_assisted(
                 },
             ),
         ),
+        modes={"kiosk"},
     )
 
-    if not sent:
+    if sent == 0:
         raise fastapi.HTTPException(
             status_code=422,
-            detail="No check-in booth is currently connected for this event",
+            detail="No kiosk is currently connected for this event",
         )
 
     return schema.rest.AssistedCheckinResponse(success=True)

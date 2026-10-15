@@ -1,7 +1,6 @@
 import enum
 import typing
 
-import schema.booth
 import schema.rest
 
 T = typing.TypeVar("T")
@@ -14,7 +13,6 @@ class SseEventType(enum.StrEnum):
     GENERATE_TICKET_QR = "GENERATE_TICKET_QR"
     CHANGE_MODE = "CHANGE_MODE"
     CONTROL = "CONTROL"
-    BOOTH_LIFECYCLE = "BOOTH_LIFECYCLE"
 
 
 class SseType(enum.StrEnum):
@@ -97,9 +95,3 @@ class ChangeModeData(schema.rest.RestModel):
 class ControlCommandData(schema.rest.RestModel):
     command: str
     params: dict = {}
-
-
-class BoothLifecycleData(schema.rest.RestModel):
-    event_id: str
-    event_name: str
-    status: schema.booth.BoothLifecycleStatus

@@ -5,6 +5,10 @@ import {
   Card,
   Chip,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   IconButton,
   InputAdornment,
@@ -15,8 +19,11 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
+import { QRCodeSVG } from "qrcode.react";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import CheckIcon from "@mui/icons-material/Check";
 import ClearIcon from "@mui/icons-material/Clear";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import EditIcon from "@mui/icons-material/Edit";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import GroupIcon from "@mui/icons-material/Group";
@@ -44,8 +51,57 @@ import { useApi } from "@/api.ts";
 import { useDebounce } from "@/hooks/useDebounce.ts";
 import { useEventStream } from "../../hooks/useEventStream";
 
+function CopyableField({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setFailed(true);
+      setTimeout(() => setFailed(false), 1500);
+    }
+  };
+
+  return (
+    <TextField
+      fullWidth
+      label={label}
+      value={value}
+      slotProps={{
+        input: {
+          readOnly: true,
+          sx: { fontFamily: "monospace", fontSize: 13 },
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                edge="end"
+                size="small"
+                aria-label={`Copy ${label}`}
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <CheckIcon fontSize="small" color="success" />
+                ) : (
+                  <ContentCopyIcon
+                    fontSize="small"
+                    color={failed ? "error" : "inherit"}
+                  />
+                )}
+              </IconButton>
+            </InputAdornment>
+          ),
+        },
+      }}
+    />
+  );
+}
+
 export default function EventDetail() {
-  const { eventId } = useParams({ from: "/app-shell/events/$eventId" });
+  const { eventId } = useParams({ from: "/app-shell/admin/events/$eventId" });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const api = useApi();
@@ -85,6 +141,8 @@ export default function EventDetail() {
   const [modeDialogOpen, setModeDialogOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<string | null>(null);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [pairDialogOpen, setPairDialogOpen] = useState(false);
+  const [companionToken, setCompanionToken] = useState<string | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<
     string | null
   >(null);
@@ -142,9 +200,41 @@ export default function EventDetail() {
   const handleDeleteEvent = () => {
     deleteEvent(undefined, {
       onSuccess: () => {
-        navigate({ to: "/events" });
+        navigate({ to: "/admin/events" });
       },
     });
+  };
+
+  const openPairDialog = async () => {
+    try {
+      const t = await api.get<{ token: string }>(
+        `/api/admin/events/${eventId}/companion/token`,
+      );
+      setCompanionToken(t.token);
+      setPairDialogOpen(true);
+    } catch {
+      enqueueSnackbar("Failed to load pairing token", { variant: "error" });
+    }
+  };
+
+  const handleRotateToken = async () => {
+    try {
+      const t = await api.post<{ token: string }>(
+        `/api/admin/events/${eventId}/companion/rotate`,
+      );
+      setCompanionToken(t.token);
+      enqueueSnackbar(
+        "Pairing token rotated - all paired devices will disconnect shortly",
+        { variant: "success" },
+      );
+    } catch {
+      enqueueSnackbar("Rotate failed", { variant: "error" });
+    }
+  };
+
+  const handleClosePair = () => {
+    setPairDialogOpen(false);
+    setCompanionToken(null);
   };
 
   const totalCount = participants.length;
@@ -263,35 +353,9 @@ export default function EventDetail() {
             <Button
               variant="contained"
               startIcon={<QrCodeScannerIcon />}
-              onClick={async () => {
-                try {
-                  const status = await api.get<{ connected: boolean }>(
-                    `/api/events/${eventId}/checkInBooth/status`,
-                  );
-                  if (status.connected) {
-                    enqueueSnackbar("Booth is already open", {
-                      variant: "warning",
-                    });
-                    return;
-                  }
-                } catch {
-                  // fall through to open booth anyway
-                }
-                const url = `/events/${eventId}/checkInBooth`;
-                const popup = window.open(
-                  url,
-                  "checkinBooth",
-                  "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no",
-                );
-                if (!popup) {
-                  navigate({
-                    to: "/events/$eventId/checkInBooth",
-                    params: { eventId },
-                  });
-                }
-              }}
+              onClick={openPairDialog}
             >
-              Check-in Booth
+              Pair companion device
             </Button>
           </Stack>
           <Typography variant="body1" sx={{ mt: 1, mb: 2 }}>
@@ -498,6 +562,59 @@ export default function EventDetail() {
         onUpdate={handleSettingsSave}
         onDelete={handleDeleteEvent}
       />
+
+      <Dialog
+        open={pairDialogOpen}
+        onClose={handleClosePair}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Pair companion device</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1} sx={{ mb: 2 }}>
+            <Typography>
+              On the kiosk or phone, open a browser and go to
+            </Typography>
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 600, wordBreak: "break-all" }}
+            >
+              {window.location.origin}
+            </Typography>
+            <Typography>
+              Open <strong>Companion devices</strong>, tap
+              <strong> Pair a new device</strong>, then scan the QR code below
+              with the camera. You&apos;ll choose whether the device is a kiosk
+              or a scanner.
+            </Typography>
+          </Stack>
+          {companionToken && (
+            <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
+              <QRCodeSVG
+                value={`${window.location.origin}/companion/join#v1.${eventId}.${companionToken}`}
+                size={220}
+              />
+            </Box>
+          )}
+          <Divider sx={{ my: 2 }}>Can&apos;t scan the QR code?</Divider>
+          <Stack spacing={1.5}>
+            <CopyableField label="Event ID" value={eventId} />
+            {companionToken && (
+              <CopyableField label="Pairing token" value={companionToken} />
+            )}
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Or enter these values on the device's pairing screen. Rotate the
+            pairing token to revoke all paired devices.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleRotateToken} color="error">
+            Rotate pairing token
+          </Button>
+          <Button onClick={handleClosePair}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {selectedParticipant && (
         <ParticipantDetailsDialog

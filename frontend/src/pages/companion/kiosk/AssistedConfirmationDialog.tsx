@@ -5,17 +5,19 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import EmailIcon from "@mui/icons-material/Email";
 import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 import PhoneIcon from "@mui/icons-material/Phone";
+import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
 import useSound from "use-sound";
-import confirmSound from "../../../assets/soundEffects/checkin_need_confirmation.aac";
+import confirmSound from "@/assets/soundEffects/checkin_need_confirmation.aac";
 import { maskEmail, maskPhone } from "@/utils/masking";
-import { useApi } from "@/api.ts";
+import { useCompanionApi } from "@/api";
 import CheckinResultDisplay from "./CheckinResultDisplay";
-import type { CheckinPhase, CheckinResponse } from "../types";
+import type { CheckinResponse } from "./types";
+
+type ConfirmPhase = "input" | "loading" | "success" | "error";
 
 const INITIAL_TIMEOUT_S = 60;
 
 interface Props {
-  open: boolean;
   eventId: string;
   participantId: string;
   title: string | null;
@@ -24,11 +26,11 @@ interface Props {
   phone: string | null;
   email: string | null;
   accentColor: string;
+  onOwnCheckin: (name: string) => void;
   onClose: () => void;
 }
 
 export default function AssistedConfirmationDialog({
-  open,
   eventId,
   participantId,
   title,
@@ -37,10 +39,11 @@ export default function AssistedConfirmationDialog({
   phone,
   email,
   accentColor,
+  onOwnCheckin,
   onClose,
 }: Props) {
-  const api = useApi();
-  const [phase, setPhase] = useState<CheckinPhase>("idle");
+  const api = useCompanionApi();
+  const [phase, setPhase] = useState<ConfirmPhase>("input");
   const [result, setResult] = useState<CheckinResponse | null>(null);
   const [playConfirm] = useSound(confirmSound);
   const [countdown, setCountdown] = useState(INITIAL_TIMEOUT_S);
@@ -48,14 +51,10 @@ export default function AssistedConfirmationDialog({
   const countdownRef = useRef(INITIAL_TIMEOUT_S);
 
   useEffect(() => {
-    if (open) {
-      playConfirm();
-    }
-  }, [open, playConfirm]);
+    playConfirm();
+  }, [playConfirm]);
 
   useEffect(() => {
-    if (!open) return;
-
     countdownRef.current = INITIAL_TIMEOUT_S;
 
     timerRef.current = setInterval(() => {
@@ -70,30 +69,35 @@ export default function AssistedConfirmationDialog({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [open, onClose]);
+  }, [onClose]);
 
   const handleYes = () => {
     setPhase("loading");
     api
-      .post<CheckinResponse>(`/api/events/${eventId}/checkin/manual`, {
-        participantId,
-      })
+      .post<CheckinResponse>(
+        `/api/events/${eventId}/companion/checkin/manual`,
+        { participantId },
+      )
       .then((data) => {
         setResult(data);
         setPhase(data.success ? "success" : "error");
+        if (data.success) onOwnCheckin(name);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
+        const detail =
+          err && typeof err === "object" && "detail" in err
+            ? (err as { detail: unknown }).detail
+            : null;
         setResult({
           success: false,
-          detail: { reason: err.message || "Check-in failed" },
+          detail: {
+            reason: typeof detail === "string" ? detail : "Check-in failed",
+          },
         });
         setPhase("error");
       });
   };
-
-  if (!open) return null;
-
-  if (phase !== "idle") {
+  if (phase !== "input") {
     return (
       <Dialog open fullScreen>
         <CheckinResultDisplay
@@ -161,6 +165,21 @@ export default function AssistedConfirmationDialog({
           >
             Yes
           </Button>
+        </Stack>
+
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            justifyContent: "center",
+            color: "text.secondary",
+          }}
+        >
+          <TouchAppOutlinedIcon fontSize="small" />
+          <Typography variant="body2">
+            Tap an option on the screen to confirm.
+          </Typography>
         </Stack>
       </Box>
     </Dialog>
