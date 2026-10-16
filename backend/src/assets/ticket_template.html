@@ -1,12 +1,22 @@
-<div class="ticket-container">
-  <img class="ticket-icon" src="{{ ticketIcon }}">
-  <div class="title">{{ organizationName }}</div>
-  <div class="subtitle">QR Code ticket</div>
-  <div class="section-gap"></div>
-  <div class="event-name">{{ eventName }}</div>
-  <div class="section-gap"></div>
-  <img class="qr-image" src="{{ ticketQR }}">
-  <div class="section-gap"></div>
-  <div class="title">{{ title }} {{ fullName }}</div>
-  <div class="subtitle">{{ eventDate }}</div>
+<div class="ticket">
+  <div class="qr-wrap">
+    <img class="qr" src="{{ ticketQR }}">
+  </div>
+  <div class="text">
+    <div class="header">
+      <div class="event">{{ eventName }}</div>
+      <div class="org">{{ organizationName }}</div>
+    </div>
+    <div class="meta">
+      <div class="pair">
+        <div class="k">PARTICIPANT</div>
+        <div class="v">{{ fullName }}</div>
+      </div>
+      <div class="pair">
+        <div class="k">EVENT DATE</div>
+        <div class="v">{{ eventDate }}</div>
+      </div>
+      <div class="msg">Please present this QR code for event check-in.</div>
+    </div>
+  </div>
 </div>
