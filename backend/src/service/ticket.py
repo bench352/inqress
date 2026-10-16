@@ -39,10 +39,6 @@ _TICKET_TEMPLATE_PATH = (
 _TICKET_CSS_PATH = (
     Path(__file__).resolve().parent.parent / "assets" / "ticket_template.css"
 )
-_TICKET_ICON_PATH = (
-    Path(__file__).resolve().parent.parent / "assets" / "ticket_icon.png"
-)
-
 logger = logging.getLogger(__name__)
 
 _private_key: pyseto.KeyInterface | None = None
@@ -312,16 +308,13 @@ def _load_ticket_template() -> str:
 
 def _load_ticket_css() -> str:
     css = _TICKET_CSS_PATH.read_text()
-    font_base = "FONT_PATH_PLACEHOLDER"
-    if font_base not in css:
+    ph = "ASSETS_PATH_PLACEHOLDER"
+    if ph not in css:
         return css
-    for candidate in [
-        "/usr/share/fonts/liberation/LiberationSans",
-        "/usr/share/fonts/truetype/liberation/LiberationSans",
-    ]:
-        if Path(f"{candidate}-Regular.ttf").exists():
-            css = css.replace(font_base, candidate)
-            break
+    fonts_dir = str(
+        (Path(__file__).resolve().parent.parent / "assets" / "fonts").resolve()
+    )
+    css = css.replace(ph, fonts_dir)
     return css
 
 
@@ -337,22 +330,40 @@ def _render_ticket_image(
     template_str = _load_ticket_template()
     css = _load_ticket_css()
 
-    qr_img = qrcode.make(ticket_token)
+    # Generate QR to fit inside the white 1440px square with 60px padding on all sides.
+    # The white container + padding gives scanners a reliable quiet zone.
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=1,
+        border=2,
+    )
+    qr.add_data(ticket_token)
+    qr.make(fit=True)
+    modules = qr.modules_count + 4
+    if modules > 0:
+        qr.box_size = max(1, 1320 // modules)
+    qr_img = qr.make_image(fill_color="black", back_color="white")
+
     qr_path = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
             qr_img.save(tmp, format="PNG")  # type: ignore[call-arg]
             qr_path = tmp.name
 
+        display_name = (
+            f"{participant_title} {participant_name}".strip()
+            if participant_title
+            else participant_name
+        )
+
         html_str = service.markup.fill_placeholders(
             template_str,
             {
                 "ticketQR": qr_path,
-                "ticketIcon": str(_TICKET_ICON_PATH),
                 "organizationName": organization_name,
                 "eventName": event_name,
-                "title": participant_title or "",
-                "fullName": participant_name,
+                "fullName": display_name,
                 "eventDate": event_date,
             },
         )
