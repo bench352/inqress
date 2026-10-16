@@ -106,7 +106,7 @@ export default function EventsList() {
                 <CardActionArea
                   onClick={() =>
                     navigate({
-                      to: "/events/$eventId",
+                      to: "/admin/events/$eventId",
                       params: { eventId: event.id },
                     })
                   }

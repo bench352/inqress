@@ -152,3 +152,49 @@ export function useApi() {
     };
   }, []);
 }
+
+export function useCompanionApi() {
+  // Companion calls must never trigger the global admin login redirect.
+  return useMemo(() => {
+    const fetchWithCreds = (path: string, init?: RequestInit) =>
+      fetch(`${apiUrl}${path}`, {
+        ...init,
+        credentials: "include",
+      });
+
+    return {
+      get: async <T>(path: string): Promise<T> => {
+        const res = await fetchWithCreds(path);
+        if (res.status === 401) {
+          throw await parseApiError(res);
+        }
+        if (!res.ok) throw await parseApiError(res);
+        if (res.status === 204) return undefined as unknown as Promise<T>;
+        return res.json() as Promise<T>;
+      },
+      post: async <T>(path: string, body?: unknown): Promise<T> => {
+        const res = await fetchWithCreds(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: body !== undefined ? JSON.stringify(body) : undefined,
+        });
+        if (res.status === 401) {
+          throw await parseApiError(res);
+        }
+        if (!res.ok) throw await parseApiError(res);
+        if (res.status === 204) return undefined as unknown as Promise<T>;
+        return res.json() as Promise<T>;
+      },
+      postNoAuth: async <T>(path: string, body: unknown): Promise<T> => {
+        const res = await fetch(`${apiUrl}${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw await parseApiError(res);
+        if (res.status === 204) return undefined as unknown as Promise<T>;
+        return res.json() as Promise<T>;
+      },
+    };
+  }, []);
+}

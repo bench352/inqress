@@ -40,7 +40,7 @@ interface ParticipantInput {
 
 export default function AddParticipantsManually() {
   const { eventId } = useParams({
-    from: "/app-shell/events/$eventId/addParticipantsManually",
+    from: "/app-shell/admin/events/$eventId/addParticipantsManually",
   });
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
@@ -94,7 +94,7 @@ export default function AddParticipantsManually() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
-      navigate({ to: "/events/$eventId", params: { eventId } });
+      navigate({ to: "/admin/events/$eventId", params: { eventId } });
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError && err.status === 409) {

@@ -40,6 +40,12 @@ class Event(Base):
     accent_color: Mapped[str] = mapped_column(
         sqlalchemy.String, nullable=False, default="#000000", server_default="#000000"
     )
+    companion_token: Mapped[str] = mapped_column(
+        sqlalchemy.String, nullable=False, unique=True
+    )
+    kiosk_message: Mapped[str] = mapped_column(
+        sqlalchemy.Text, nullable=False, default=""
+    )
 
     participants: Mapped[list["Participant"]] = relationship(back_populates="event")
     attendance_logs: Mapped[list["AttendanceLog"]] = relationship(

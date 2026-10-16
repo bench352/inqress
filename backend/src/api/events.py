@@ -3,9 +3,9 @@ import uuid
 import fastapi
 import fastapi.responses
 
-import api.booth
 import schema.rest
 import schema.sse
+import service.companion_stream
 import service.events
 import service.filenames
 import service.ticket
@@ -43,6 +43,16 @@ def update_event(
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
         )
+    # The kiosk renders the event name, so it needs to reload to pick it up.
+    service.companion_stream.companion_stream_manager.send(
+        event_id,
+        schema.sse.SseEvent[schema.sse.ControlCommandData](
+            event_type=schema.sse.SseEventType.CONTROL,
+            type=schema.sse.SseType.COMMAND,
+            data=schema.sse.ControlCommandData(command="REFRESH", params={}),
+        ),
+        modes={"kiosk"},
+    )
     return event
 
 
@@ -55,7 +65,7 @@ def update_event_mode(
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
         )
-    api.booth.booth_manager.send(
+    service.companion_stream.companion_stream_manager.send(
         event_id,
         schema.sse.SseEvent[schema.sse.ChangeModeData](
             event_type=schema.sse.SseEventType.CHANGE_MODE,
@@ -145,13 +155,16 @@ def upload_booth_image(
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
         )
-    api.booth.booth_manager.send(
+    import service.companion_stream as _cs
+
+    _cs.companion_stream_manager.send(
         event_id,
         schema.sse.SseEvent[schema.sse.ControlCommandData](
             event_type=schema.sse.SseEventType.CONTROL,
             type=schema.sse.SseType.COMMAND,
-            data=schema.sse.ControlCommandData(command="REFRESH"),
+            data=schema.sse.ControlCommandData(command="REFRESH", params={}),
         ),
+        modes={"kiosk"},
     )
     return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
@@ -175,13 +188,16 @@ def set_accent_color(
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
         )
-    api.booth.booth_manager.send(
+    import service.companion_stream as _cs
+
+    _cs.companion_stream_manager.send(
         event_id,
         schema.sse.SseEvent[schema.sse.ControlCommandData](
             event_type=schema.sse.SseEventType.CONTROL,
             type=schema.sse.SseType.COMMAND,
-            data=schema.sse.ControlCommandData(command="REFRESH"),
+            data=schema.sse.ControlCommandData(command="REFRESH", params={}),
         ),
+        modes={"kiosk"},
     )
     return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 

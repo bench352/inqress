@@ -10,8 +10,8 @@ from alembic import command
 
 import api.admin
 import api.auth
-import api.booth
 import api.checkin
+import api.companion
 import api.events
 import api.health
 import api.info
@@ -53,6 +53,7 @@ app = fastapi.FastAPI(
 
 app.include_router(api.health.router, prefix="/api")
 app.include_router(api.checkin.router_public, prefix="/api")
+app.include_router(api.companion.router, prefix="/api")
 app.include_router(api.auth.router, prefix="/api")
 
 # All authenticated routes now use the session cookie
@@ -83,11 +84,6 @@ app.include_router(
 )
 app.include_router(
     api.streams.router,
-    prefix="/api",
-    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
-)
-app.include_router(
-    api.booth.router,
     prefix="/api",
     dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
 )

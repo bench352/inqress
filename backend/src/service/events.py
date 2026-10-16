@@ -1,4 +1,5 @@
 import pathlib
+import secrets
 import uuid
 
 import phonenumbers
@@ -43,6 +44,7 @@ def get_event(event_id: uuid.UUID) -> schema.rest.EventResponse | None:
 
 def create_event(payload: schema.rest.EventCreate) -> schema.rest.EventResponse:
     default_template = _load_default_template()
+    token = secrets.token_urlsafe(32)
     with service.db.get_session() as session:
         result = session.execute(
             insert(schema.orm.Event)
@@ -52,6 +54,8 @@ def create_event(payload: schema.rest.EventCreate) -> schema.rest.EventResponse:
                 description=payload.description,
                 date=payload.date,
                 email_template=default_template,
+                companion_token=token,
+                kiosk_message="",
             )
             .returning(schema.orm.Event)
         )
@@ -201,3 +205,47 @@ def get_unique_country_codes(event_id: uuid.UUID) -> schema.rest.CountryCodesRes
         default = options[0] if options else ""
 
     return schema.rest.CountryCodesResponse(default=default, options=options)
+
+
+def get_companion_token(event_id: uuid.UUID) -> str | None:
+    """Return the current companion token (for admin QR display)."""
+    with service.db.get_session() as session:
+        result = session.execute(
+            select(schema.orm.Event.companion_token).where(
+                schema.orm.Event.id == event_id
+            )
+        )
+        return result.scalars().first()
+
+
+def rotate_companion_token(event_id: uuid.UUID) -> str | None:
+    """Generate and store a new companion token. Returns the new token or None if event missing."""
+    new_token = secrets.token_urlsafe(32)
+    with service.db.get_session() as session:
+        result = session.execute(
+            update(schema.orm.Event)
+            .where(schema.orm.Event.id == event_id)
+            .values(companion_token=new_token)
+            .returning(schema.orm.Event.companion_token)
+        )
+        return result.scalars().first()
+
+
+def get_kiosk_message(event_id: uuid.UUID) -> str | None:
+    with service.db.get_session() as session:
+        result = session.execute(
+            select(schema.orm.Event.kiosk_message).where(
+                schema.orm.Event.id == event_id
+            )
+        )
+        return result.scalars().first()
+
+
+def set_kiosk_message(event_id: uuid.UUID, message: str) -> bool:
+    with service.db.get_session() as session:
+        result = session.execute(
+            update(schema.orm.Event)
+            .where(schema.orm.Event.id == event_id)
+            .values(kiosk_message=message)
+        )
+        return result.rowcount > 0  # type: ignore[attr-defined]

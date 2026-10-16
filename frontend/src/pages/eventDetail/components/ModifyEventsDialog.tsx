@@ -231,7 +231,7 @@ export default function ModifyEventsDialog({
           onClick={() => {
             handleClose();
             navigate({
-              to: "/events/$eventId/customizeBooth",
+              to: "/admin/events/$eventId/customizeKiosk",
               params: { eventId },
             });
           }}
@@ -239,7 +239,7 @@ export default function ModifyEventsDialog({
           <ListItemIcon>
             <CropOriginalIcon />
           </ListItemIcon>
-          <ListItemText primary="Customize check-in booth" />
+          <ListItemText primary="Customize kiosk" />
         </ListItemButton>
         <ListItemButton onClick={handleExportTickets}>
           <ListItemIcon>

@@ -8,7 +8,10 @@ import AppShell from "./layouts/AppShell";
 import Login from "./pages/login/Login";
 import EventsList from "./pages/eventsList/EventsList";
 import EventDetail from "./pages/eventDetail/EventDetail";
-import CheckInBooth from "./pages/checkInBooth/CheckInBooth";
+import CompanionDevices from "./pages/companion/CompanionDevices";
+import CompanionJoin from "./pages/companion/CompanionJoin";
+import CompanionKiosk from "./pages/companion/CompanionKiosk";
+import CompanionScanner from "./pages/companion/CompanionScanner";
 import Settings from "./pages/settings/Settings";
 import AddParticipantsManually from "./pages/addParticipantsManually/AddParticipantsManually";
 import AddParticipantsBySpreadsheet from "./pages/addParticipantsSpreadsheet/AddParticipantsBySpreadsheet";
@@ -31,31 +34,58 @@ const appShellLayout = createRoute({
 
 const loginRoute = createRoute({
   getParentRoute: () => fullPageLayout,
+  path: "/",
+  component: Login,
+});
+
+const loginAliasRoute = createRoute({
+  getParentRoute: () => fullPageLayout,
   path: "/login",
   component: Login,
 });
 
-const checkInBoothRoute = createRoute({
+// Companion routes (full page, no admin shell)
+const companionListRoute = createRoute({
   getParentRoute: () => fullPageLayout,
-  path: "/events/$eventId/checkInBooth",
-  component: CheckInBooth,
+  path: "/companion",
+  component: CompanionDevices,
 });
 
+const companionJoinRoute = createRoute({
+  getParentRoute: () => fullPageLayout,
+  path: "/companion/join",
+  component: CompanionJoin,
+});
+
+const companionKioskRoute = createRoute({
+  getParentRoute: () => fullPageLayout,
+  path: "/companion/events/$eventId/kiosk",
+  component: CompanionKiosk,
+});
+
+const companionScannerRoute = createRoute({
+  getParentRoute: () => fullPageLayout,
+  path: "/companion/events/$eventId/scanner",
+  component: CompanionScanner,
+});
+
+// Admin shell now lives under /admin
+// We keep the layout component but change the path prefix in child routes
 const indexRoute = createRoute({
   getParentRoute: () => appShellLayout,
-  path: "/",
+  path: "/admin",
   component: EventsList,
 });
 
 const eventsRoute = createRoute({
   getParentRoute: () => appShellLayout,
-  path: "/events",
+  path: "/admin/events",
   component: EventsList,
 });
 
 const eventDetailRoute = createRoute({
   getParentRoute: () => appShellLayout,
-  path: "/events/$eventId",
+  path: "/admin/events/$eventId",
   component: EventDetail,
 });
 
@@ -73,31 +103,38 @@ const addParticipantsSpreadsheetRoute = createRoute({
 
 const bulkTicketDeliveryRoute = createRoute({
   getParentRoute: () => appShellLayout,
-  path: "/events/$eventId/bulkTicketDelivery",
+  path: "/admin/events/$eventId/bulkTicketDelivery",
   component: BulkTicketDelivery,
   staticData: { fullWidth: true },
 });
 
-const customizeBoothRoute = createRoute({
+const customizeKioskRoute = createRoute({
   getParentRoute: () => appShellLayout,
-  path: "/events/$eventId/customizeBooth",
-  component: CustomizeBooth,
+  path: "/admin/events/$eventId/customizeKiosk",
+  component: CustomizeBooth, // reuse file for now, will rename later
   staticData: { fullWidth: true },
 });
 
 const settingsRoute = createRoute({
   getParentRoute: () => appShellLayout,
-  path: "/settings",
+  path: "/admin/settings",
   component: Settings,
 });
 
 const routeTree = rootRoute.addChildren([
-  fullPageLayout.addChildren([loginRoute, checkInBoothRoute]),
+  fullPageLayout.addChildren([
+    loginRoute,
+    loginAliasRoute,
+    companionListRoute,
+    companionJoinRoute,
+    companionKioskRoute,
+    companionScannerRoute,
+  ]),
   appShellLayout.addChildren([
     indexRoute,
     eventsRoute,
     bulkTicketDeliveryRoute,
-    customizeBoothRoute,
+    customizeKioskRoute,
     eventDetailRoute.addChildren([
       addParticipantsSpreadsheetRoute,
       addParticipantsManuallyRoute,

@@ -10,6 +10,7 @@ class EventMode(enum.StrEnum):
 class CheckinMethod(enum.StrEnum):
     SCAN = "scan"
     PHONE = "phone"
+    EMAIL = "email"
     MANUAL = "manual"
 
 

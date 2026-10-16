@@ -1,27 +1,88 @@
-import asyncio
-import collections.abc
 import logging
+import uuid
 
 import fastapi
-import fastapi.sse
 
-import service.admin_stream
+import schema.rest
+import schema.sse
+import service.companion_stream
+import service.events
 
 logger = logging.getLogger(__name__)
 
-admin_manager = service.admin_stream.admin_stream_manager
+comp_mgr = service.companion_stream.companion_stream_manager
 router = fastapi.APIRouter(prefix="/admin", tags=["Admin"])
 
 
-@router.get("/streams", response_class=fastapi.sse.EventSourceResponse)
-async def admin_streams() -> collections.abc.AsyncIterable[fastapi.sse.ServerSentEvent]:
+@router.get("/events/{event_id}/companion/token")
+def get_companion_token(event_id: uuid.UUID) -> schema.rest.CompanionTokenResponse:
+    token = service.events.get_companion_token(event_id)
+    if token is None:
+        raise fastapi.HTTPException(404, "Event not found")
+    return schema.rest.CompanionTokenResponse(token=token)
 
-    q: asyncio.Queue = admin_manager.subscribe()
-    try:
-        while True:
-            event = await q.get()
-            yield fastapi.sse.ServerSentEvent(data=event.model_dump(by_alias=True))
-    except asyncio.CancelledError:
-        pass
-    finally:
-        admin_manager.unsubscribe(q)
+
+@router.post("/events/{event_id}/companion/rotate")
+def rotate_companion_token(event_id: uuid.UUID) -> schema.rest.CompanionTokenResponse:
+    new_token = service.events.rotate_companion_token(event_id)
+    if new_token is None:
+        raise fastapi.HTTPException(404, "Event not found")
+    # Note: connected companions will detect mismatch on next heartbeat (~15s)
+    return schema.rest.CompanionTokenResponse(token=new_token)
+
+
+@router.get("/events/{event_id}/kiosk/message")
+def get_kiosk_message(event_id: uuid.UUID) -> schema.rest.KioskMessageResponse:
+    msg = service.events.get_kiosk_message(event_id) or ""
+    return schema.rest.KioskMessageResponse(message=msg)
+
+
+@router.put("/events/{event_id}/kiosk/message")
+def set_kiosk_message(
+    event_id: uuid.UUID, payload: schema.rest.KioskMessageRequest
+) -> schema.rest.KioskMessageResponse:
+    if len(payload.message) > 280:
+        raise fastapi.HTTPException(400, "Message too long (max 280 chars)")
+    ok = service.events.set_kiosk_message(event_id, payload.message)
+    if not ok:
+        raise fastapi.HTTPException(404, "Event not found")
+    # The kiosk shows this message on its welcome screen.
+    comp_mgr.send(
+        event_id,
+        schema.sse.SseEvent[schema.sse.ControlCommandData](
+            event_type=schema.sse.SseEventType.CONTROL,
+            type=schema.sse.SseType.COMMAND,
+            data=schema.sse.ControlCommandData(command="REFRESH", params={}),
+        ),
+        modes={"kiosk"},
+    )
+    return schema.rest.KioskMessageResponse(message=payload.message)
+
+
+@router.post("/events/{event_id}/companion/refresh")
+def refresh_companions(event_id: uuid.UUID) -> dict:
+    # Send refresh command to all
+    comp_mgr.send(
+        event_id,
+        schema.sse.SseEvent[schema.sse.ControlCommandData](
+            event_type=schema.sse.SseEventType.CONTROL,
+            type=schema.sse.SseType.COMMAND,
+            data=schema.sse.ControlCommandData(command="REFRESH", params={}),
+        ),
+        modes={"kiosk"},
+    )
+    return {"ok": True}
+
+
+@router.post("/events/{event_id}/companion/close-kiosks")
+def close_kiosks(event_id: uuid.UUID) -> dict:
+    sent = comp_mgr.send(
+        event_id,
+        schema.sse.SseEvent[schema.sse.ControlCommandData](
+            event_type=schema.sse.SseEventType.CONTROL,
+            type=schema.sse.SseType.COMMAND,
+            data=schema.sse.ControlCommandData(command="CLOSE", params={}),
+        ),
+        modes={"kiosk"},
+    )
+    return {"ok": True, "sent": sent}

@@ -10,7 +10,7 @@ router_public = fastapi.APIRouter(tags=["Check-in"])
 router_authed = fastapi.APIRouter(tags=["Check-in"])
 
 
-@router_public.post("/events/{event_id}/scan")
+@router_authed.post("/events/{event_id}/scan")
 def scan_ticket(
     event_id: uuid.UUID, payload: schema.rest.ScanRequest
 ) -> schema.rest.CheckinResponse:
@@ -24,6 +24,13 @@ def checkin_by_phone(
     return service.checkin.checkin_by_phone(
         event_id, payload.country_code, payload.phone_no
     )
+
+
+@router_authed.post("/events/{event_id}/checkin/email")
+def checkin_by_email(
+    event_id: uuid.UUID, payload: schema.rest.EmailCheckinRequest
+) -> schema.rest.CheckinResponse:
+    return service.checkin.checkin_by_email(event_id, payload.email)
 
 
 @router_authed.post("/events/{event_id}/checkin/manual")

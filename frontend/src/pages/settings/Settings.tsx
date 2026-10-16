@@ -14,14 +14,11 @@ import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import EmailIcon from "@mui/icons-material/Email";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import VideocamIcon from "@mui/icons-material/Videocam";
 import { useAppInfo } from "@/providers/useAppInfo";
-import WebcamSettingsDialog from "./components/WebcamSettingsDialog";
 import LicenseDialog from "./components/LicenseDialog";
 
 export default function Settings() {
   const { orgName, sendViaEmail, appVersion } = useAppInfo();
-  const [webcamDialogOpen, setWebcamDialogOpen] = useState(false);
   const [licenseDialogOpen, setLicenseDialogOpen] = useState(false);
 
   return (
@@ -50,19 +47,6 @@ export default function Settings() {
             secondary={sendViaEmail}
           />
         </ListItem>
-      </List>
-
-      <Typography variant="h6">Check-in Booth</Typography>
-      <List>
-        <ListItemButton onClick={() => setWebcamDialogOpen(true)}>
-          <ListItemIcon>
-            <VideocamIcon />
-          </ListItemIcon>
-          <ListItemText
-            primary="Webcam settings"
-            secondary="Settings only apply to this device"
-          />
-        </ListItemButton>
       </List>
 
       <Typography variant="h6">About This App</Typography>
@@ -98,10 +82,6 @@ export default function Settings() {
         </ListItemButton>
       </List>
 
-      <WebcamSettingsDialog
-        open={webcamDialogOpen}
-        onClose={() => setWebcamDialogOpen(false)}
-      />
       <LicenseDialog
         open={licenseDialogOpen}
         onClose={() => setLicenseDialogOpen(false)}

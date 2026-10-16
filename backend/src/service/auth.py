@@ -1,6 +1,7 @@
 import hashlib
 import pathlib
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import fastapi
@@ -248,3 +249,62 @@ def _clear_session_cookie(response: fastapi.Response) -> None:
         # A previous process may have set this name with Secure.
         _expire_cookie(response, "inqress_session", secure=True)
     _expire_cookie(response, "__Host-inqress_session", secure=True)
+
+
+def get_companion_cookie_name() -> str:
+    cfg = config.get_config()
+    return "__Host-inqress_companion" if cfg.auth.cookie_secure else "inqress_companion"
+
+
+def _set_companion_cookie(response: fastapi.Response, token: str) -> None:
+    """Set companion cookie (no max-age sliding; long lived until rotate)."""
+    name = get_companion_cookie_name()
+    cfg = config.get_config()
+    # Long max-age (e.g. 365 days); rotate is the revocation mechanism.
+    max_age = 365 * 24 * 3600
+    response.set_cookie(
+        key=name,
+        value=token,
+        max_age=max_age,
+        path="/",
+        secure=cfg.auth.cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
+
+
+def _clear_companion_cookie(response: fastapi.Response) -> None:
+    cfg = config.get_config()
+    _expire_cookie(response, get_companion_cookie_name(), secure=cfg.auth.cookie_secure)
+
+
+def verify_companion_for_event(event_id: uuid.UUID, request: fastapi.Request) -> None:
+    """Raises 401 if no/invalid companion cookie for this event's current token.
+    Uses constant-time compare. No redirect (caller is responsible).
+    Re-verifies on every call (including SSE heartbeats).
+    """
+    cookie_token = request.cookies.get(get_companion_cookie_name())
+    if not cookie_token:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid pairing token",
+        )
+
+    with service.db.get_session() as db:
+        row = (
+            db.query(schema.orm.Event.companion_token)
+            .filter(schema.orm.Event.id == event_id)
+            .first()
+        )
+        if row is None or row[0] is None:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid pairing token",
+            )
+        current = row[0]
+
+    if not secrets.compare_digest(cookie_token, current):
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid pairing token",
+        )

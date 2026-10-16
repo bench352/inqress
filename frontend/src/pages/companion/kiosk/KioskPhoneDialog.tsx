@@ -1,0 +1,248 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+  Box,
+  Button,
+  Dialog,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
+import CloseIcon from "@mui/icons-material/Close";
+import { ApiError, useCompanionApi } from "@/api";
+import PhoneDialPad, {
+  DIAL_ACTION_FONT_SIZE,
+  DIAL_BUTTON_HEIGHT,
+  DIAL_PAD_MAX_WIDTH,
+} from "./PhoneDialPad";
+import CheckinResultDisplay from "./CheckinResultDisplay";
+import ConflictPickerDialog from "./ConflictPickerDialog";
+import {
+  isConflictDetail,
+  isSuccessDetail,
+  type CheckinPhase,
+  type CheckinResponse,
+  type ConflictParticipant,
+} from "./types";
+
+interface Props {
+  open: boolean;
+  eventId: string;
+  accentColor: string;
+  onClose: () => void;
+  onOwnCheckin?: (name: string) => void;
+  onUnpaired?: () => void;
+}
+
+interface CountryCodesResponse {
+  default: string;
+  options: string[];
+}
+
+const PHONE_ICON_SIZE = 120;
+const PHONE_NO_FONT_SIZE = 22;
+const FIELD_MAX_WIDTH = DIAL_PAD_MAX_WIDTH;
+
+export default function KioskPhoneDialog({
+  open,
+  eventId,
+  accentColor,
+  onClose,
+  onOwnCheckin,
+  onUnpaired,
+}: Props) {
+  const api = useCompanionApi();
+  const [userSelectedCode, setUserSelectedCode] = useState<string | null>(null);
+  const [countryCodes, setCountryCodes] = useState<string[]>([]);
+  const [defaultCountryCode, setDefaultCountryCode] = useState("");
+  const [phoneNo, setPhoneNo] = useState("");
+  const [phase, setPhase] = useState<CheckinPhase>("input");
+  const [result, setResult] = useState<CheckinResponse | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [conflicting, setConflicting] = useState<ConflictParticipant[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get<CountryCodesResponse>(
+          `/api/events/${eventId}/companion/phones/countryCodes`,
+        );
+        setCountryCodes(res.options);
+        setDefaultCountryCode(res.default);
+      } catch {
+        // leave empty; submit will report the failure
+      }
+    })();
+  }, [eventId, api]);
+
+  const selectedCountryCode = userSelectedCode ?? defaultCountryCode;
+
+  const handleDigit = useCallback((digit: string) => {
+    setPhoneNo((prev) => prev + digit);
+  }, []);
+
+  const handleBackspace = useCallback(() => {
+    setPhoneNo((prev) => prev.slice(0, -1));
+  }, []);
+
+  const handleSubmit = async () => {
+    if (!phoneNo) return;
+    setPhase("loading");
+    try {
+      const data = await api.post<CheckinResponse>(
+        `/api/events/${eventId}/companion/checkin/phone`,
+        { countryCode: selectedCountryCode, phoneNo },
+      );
+      if (!data.success && isConflictDetail(data.detail)) {
+        setConflicting(data.detail.conflictingParticipants);
+        setPhase("multiple");
+        return;
+      }
+      setResult(data);
+      setPhase(data.success ? "success" : "error");
+      if (data.success && isSuccessDetail(data.detail)) {
+        onOwnCheckin?.(data.detail.name);
+      }
+    } catch (e: unknown) {
+      if (e instanceof ApiError && e.status === 401) {
+        onUnpaired?.();
+        return;
+      }
+      setErrorMessage(e instanceof Error ? e.message : "Check-in failed");
+      setPhase("error");
+    }
+  };
+
+  const handleConflictClose = () => {
+    setPhase("input");
+    setConflicting([]);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} fullScreen>
+      {phase === "multiple" ? (
+        <ConflictPickerDialog
+          open
+          eventId={eventId}
+          accentColor={accentColor}
+          participants={conflicting}
+          onClose={handleConflictClose}
+        />
+      ) : phase !== "input" ? (
+        <CheckinResultDisplay
+          phase={phase}
+          result={result}
+          errorMessage={errorMessage}
+          onDismiss={onClose}
+        />
+      ) : (
+        <Box sx={{ display: "flex", height: "100%" }}>
+          <Box
+            sx={{
+              width: "50%",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+              p: 6,
+              bgcolor: "grey.100",
+            }}
+          >
+            <PhoneAndroidIcon
+              sx={{ fontSize: PHONE_ICON_SIZE, color: accentColor }}
+            />
+            <Typography
+              variant="h3"
+              sx={{ textAlign: "center", pt: 4, fontSize: 42 }}
+            >
+              Enter the phone number you registered for this event
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              width: "50%",
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2,
+              p: 4,
+            }}
+          >
+            <Stack
+              direction="row"
+              spacing={2}
+              sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
+            >
+              <FormControl sx={{ flex: "0 0 auto", minWidth: 120 }}>
+                <InputLabel>Code</InputLabel>
+                <Select
+                  value={selectedCountryCode}
+                  label="Code"
+                  onChange={(e) => setUserSelectedCode(e.target.value)}
+                  sx={{
+                    fontSize: PHONE_NO_FONT_SIZE,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {countryCodes.map((code) => (
+                    <MenuItem
+                      key={code}
+                      value={code}
+                      sx={{
+                        fontSize: PHONE_NO_FONT_SIZE,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {code}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                value={phoneNo}
+                slotProps={{
+                  input: {
+                    readOnly: true,
+                    sx: { fontSize: PHONE_NO_FONT_SIZE },
+                  },
+                }}
+              />
+            </Stack>
+            <PhoneDialPad
+              onDigit={handleDigit}
+              onBackspace={handleBackspace}
+              onSubmit={handleSubmit}
+              disabled={false}
+              submitDisabled={!phoneNo}
+              accentColor={accentColor}
+            />
+            <Button
+              variant="outlined"
+              startIcon={<CloseIcon />}
+              onClick={onClose}
+              sx={{
+                width: DIAL_PAD_MAX_WIDTH,
+                height: DIAL_BUTTON_HEIGHT,
+                fontSize: DIAL_ACTION_FONT_SIZE,
+                borderColor: accentColor,
+                color: accentColor,
+              }}
+            >
+              Cancel
+            </Button>
+          </Box>
+        </Box>
+      )}
+    </Dialog>
+  );
+}

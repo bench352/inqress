@@ -35,7 +35,7 @@ const DIAL_DIGITS = [
 
 export default function CustomizeBooth() {
   const { eventId } = useParams({
-    from: "/app-shell/events/$eventId/customizeBooth",
+    from: "/app-shell/admin/events/$eventId/customizeKiosk",
   });
   const navigate = useNavigate();
   const api = useApi();
@@ -46,6 +46,7 @@ export default function CustomizeBooth() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [accentColor, setAccentColor] = useState<string | null>(null);
+  const [kioskMessage, setKioskMessage] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const eventQuery = useQuery<EventItem>({
@@ -57,6 +58,11 @@ export default function CustomizeBooth() {
   const accentColorQuery = useQuery<{ colorCode: string }>({
     queryKey: ["accentColor", eventId],
     queryFn: () => api.get(`/api/events/${eventId}/accentColor`),
+    enabled: !!eventId,
+  });
+  const kioskMessageQuery = useQuery<{ message: string }>({
+    queryKey: ["kioskMessage", eventId],
+    queryFn: () => api.get(`/api/admin/events/${eventId}/kiosk/message`),
     enabled: !!eventId,
   });
 
@@ -90,6 +96,15 @@ export default function CustomizeBooth() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    const m = kioskMessageQuery.data?.message;
+    if (m === undefined) return;
+    const t = setTimeout(() => {
+      setKioskMessage(m);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [kioskMessageQuery.data?.message]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -125,12 +140,21 @@ export default function CustomizeBooth() {
           .then(() => {}),
       );
 
+      promises.push(
+        api
+          .put(`/api/admin/events/${eventId}/kiosk/message`, {
+            message: kioskMessage,
+          })
+          .then(() => {}),
+      );
+
       await Promise.all(promises);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event", eventId] });
       queryClient.invalidateQueries({ queryKey: ["accentColor", eventId] });
-      navigate({ to: "/events/$eventId", params: { eventId } });
+      queryClient.invalidateQueries({ queryKey: ["kioskMessage", eventId] });
+      navigate({ to: "/admin/events/$eventId", params: { eventId } });
     },
     onError: (err: unknown) => {
       const message =
@@ -225,6 +249,20 @@ export default function CustomizeBooth() {
             />
           </Box>
 
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>
+              Kiosk message (shown to guests when QR fails)
+            </Typography>
+            <TextField
+              fullWidth
+              multiline
+              minRows={2}
+              value={kioskMessage}
+              onChange={(e) => setKioskMessage(e.target.value)}
+              placeholder="Welcome. Check in with your phone number or email if your QR code cannot be scanned."
+            />
+          </Box>
+
           <Stack direction="row" spacing={2}>
             <Button
               variant="contained"
@@ -236,7 +274,7 @@ export default function CustomizeBooth() {
             <Button
               variant="outlined"
               onClick={() =>
-                navigate({ to: "/events/$eventId", params: { eventId } })
+                navigate({ to: "/admin/events/$eventId", params: { eventId } })
               }
               disabled={isSaving}
             >
