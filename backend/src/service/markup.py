@@ -14,6 +14,14 @@ TICKET_QR_HTML = (
     "</p>"
 )
 
+_LINK = re.compile(r'<a href="([^"]*)"[^>]*>(.*?)</a>', re.DOTALL)
+_BR = re.compile(r"<br\s*/?>\n?")
+_LIST_ITEM = re.compile(r"<li[^>]*>(.*?)</li>\s*", re.DOTALL)
+_ITEM_PARAGRAPH = re.compile(r"\n{2,}")
+_BLOCK_END = re.compile(r"</(?:p|h[1-6]|blockquote|div|ul|ol|pre|table)>")
+_TAG = re.compile(r"<[^>]+>")
+_BLANK_RUN = re.compile(r"\n{3,}")
+
 _EMAIL_SHELL = """<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -76,3 +84,42 @@ def render_email_html(
         raw=frozenset({"ticketQR"}),
     )
     return _EMAIL_SHELL.format(body=body)
+
+
+def _html_to_text(fragment: str) -> str:
+    def repl_link(match: re.Match[str]) -> str:
+        url, label = match.group(1), match.group(2)
+        return label if label == url else f"{label} ({url})"
+
+    def repl_item(match: re.Match[str]) -> str:
+        # Every item becomes a bullet: plain text has no numbering of its own.
+        item = _ITEM_PARAGRAPH.sub("\n", _TAG.sub("", match.group(1)).strip())
+        return f"- {item}\n" if item else ""
+
+    text = _LINK.sub(repl_link, fragment)
+    text = _BR.sub("\n", text)
+    text = _LIST_ITEM.sub(repl_item, text)
+    text = _BLOCK_END.sub("\n\n", text)
+    text = _TAG.sub("", text)
+    text = html.unescape(text)
+    return _BLANK_RUN.sub("\n\n", text).strip()
+
+
+def render_message_text(
+    template: str,
+    title: str | None,
+    full_name: str,
+    event_name: str,
+    sender_name: str,
+) -> str:
+    rendered = _markdown().render(template)
+    rendered = _QR_PARAGRAPH.sub("", rendered)
+    values = {
+        "title": title or "",
+        "fullName": full_name,
+        "eventName": event_name,
+        "senderName": sender_name,
+        "ticketQR": "",
+    }
+    # The QR travels as the ticket image, so the placeholder disappears.
+    return fill_placeholders(_html_to_text(rendered), values, raw=frozenset(values))

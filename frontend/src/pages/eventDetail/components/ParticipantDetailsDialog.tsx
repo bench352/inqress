@@ -24,6 +24,7 @@ import HowToRegIcon from "@mui/icons-material/HowToReg";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import PhoneIcon from "@mui/icons-material/Phone";
 import QrCodeIcon from "@mui/icons-material/QrCode";
+import ShareIcon from "@mui/icons-material/Share";
 import dayjs from "dayjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
@@ -38,11 +39,13 @@ function getTicketStatus(participant: ParticipantItem): string {
 }
 import EmailTicketDialog from "./EmailTicketDialog";
 import EditParticipantDialog from "./EditParticipantDialog";
+import ShareTicketDialog from "./ShareTicketDialog";
 
 type SubView =
   | "main"
   | "preview"
   | "email"
+  | "share"
   | "deliver"
   | "attend"
   | "delete"
@@ -187,6 +190,18 @@ export default function ParticipantDetailsDialog({
         eventId={eventId}
         participantId={participant.id}
         participantEmail={participant.email ?? ""}
+        eventName={eventName}
+        onClose={() => setSubView("main")}
+      />
+    );
+  }
+
+  if (subView === "share") {
+    return (
+      <ShareTicketDialog
+        open
+        eventId={eventId}
+        participant={participant}
         eventName={eventName}
         onClose={() => setSubView("main")}
       />
@@ -445,6 +460,22 @@ export default function ParticipantDetailsDialog({
                     : !participant.email
                       ? "No email address."
                       : "Send / resend email with the QR code."
+                }
+              />
+            </ListItemButton>
+            <ListItemButton
+              onClick={() => setSubView("share")}
+              disabled={!participant.isTicketReady}
+            >
+              <ListItemIcon>
+                <ShareIcon />
+              </ListItemIcon>
+              <ListItemText
+                primary="Share ticket"
+                secondary={
+                  !participant.isTicketReady
+                    ? "Ticket image is still generating."
+                    : "Share or copy the ticket image and its message."
                 }
               />
             </ListItemButton>
