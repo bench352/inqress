@@ -9,6 +9,7 @@ import config
 import service.checkin
 import service.email
 import service.events
+import service.markup
 import service.ticket
 import service.participants
 import schema.rest
@@ -164,6 +165,35 @@ def preview_email(
         qr_bytes,
     )
     return fastapi.responses.HTMLResponse(content=html)
+
+
+@router.get("/{participant_id}/message")
+def get_ticket_message(
+    event_id: uuid.UUID,
+    participant_id: uuid.UUID,
+) -> fastapi.responses.PlainTextResponse:
+    event = api.utils.check_event_exists(event_id)
+    participant = service.participants.get_participant(event_id, participant_id)
+    if participant is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail="Participant not found",
+        )
+    template = service.events.get_email_template(event_id)
+    if template is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail="Message template not found",
+        )
+    cfg = config.get_config()
+    message = service.markup.render_message_text(
+        template.text,
+        participant.title,
+        participant.name,
+        event.name,
+        cfg.app.organization_name or "Event Organizer",
+    )
+    return fastapi.responses.PlainTextResponse(content=message)
 
 
 @router.post("/{participant_id}/email", status_code=fastapi.status.HTTP_204_NO_CONTENT)

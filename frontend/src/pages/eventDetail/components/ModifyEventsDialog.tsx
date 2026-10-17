@@ -15,17 +15,17 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
 import CropOriginalIcon from "@mui/icons-material/CropOriginal";
 import DeleteIcon from "@mui/icons-material/Delete";
 import DownloadIcon from "@mui/icons-material/Download";
 import EditIcon from "@mui/icons-material/Edit";
-import EmailIcon from "@mui/icons-material/Email";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useNavigate } from "@tanstack/react-router";
 import dayjs from "dayjs";
 import { useApi } from "@/api.ts";
 import { useSnackbar } from "notistack";
-import EmailTemplateDialog from "./EmailTemplateDialog";
+import MessageTemplateDialog from "./MessageTemplateDialog";
 
 interface EventData {
   name: string;
@@ -45,7 +45,7 @@ interface Props {
   onDelete: () => void;
 }
 
-type DialogView = "settings" | "edit" | "email" | "delete" | "export";
+type DialogView = "settings" | "edit" | "message" | "delete" | "export";
 
 export default function ModifyEventsDialog({
   open,
@@ -152,9 +152,9 @@ export default function ModifyEventsDialog({
     );
   }
 
-  if (view === "email") {
+  if (view === "message") {
     return (
-      <EmailTemplateDialog
+      <MessageTemplateDialog
         open
         eventId={eventId}
         onClose={() => setView("settings")}
@@ -221,11 +221,11 @@ export default function ModifyEventsDialog({
           </ListItemIcon>
           <ListItemText primary="Edit event details" />
         </ListItemButton>
-        <ListItemButton onClick={() => setView("email")}>
+        <ListItemButton onClick={() => setView("message")}>
           <ListItemIcon>
-            <EmailIcon />
+            <ArticleOutlinedIcon />
           </ListItemIcon>
-          <ListItemText primary="Edit email template" />
+          <ListItemText primary="Edit message template" />
         </ListItemButton>
         <ListItemButton
           onClick={() => {

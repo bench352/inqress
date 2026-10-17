@@ -113,7 +113,7 @@ function LetterForm({
       const message =
         err instanceof ApiError
           ? String(err.detail)
-          : "Failed to save email template";
+          : "Failed to save message template";
       enqueueSnackbar(message, { variant: "error" });
     },
   });
@@ -159,8 +159,8 @@ function LetterForm({
     <>
       <DialogContent sx={{ pb: toolbarBottom !== null ? 10 : undefined }}>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          Write the letter. Insert a field from the toolbar. The sign-off at the
-          bottom of the email is added automatically.
+          Write the message. Insert a field from the toolbar. A short InQRess
+          footer is added only when this is sent by email.
         </Typography>
         <Stack spacing={2}>
           <Box
@@ -318,7 +318,11 @@ function LetterForm({
   );
 }
 
-export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
+export default function MessageTemplateDialog({
+  open,
+  eventId,
+  onClose,
+}: Props) {
   const api = useApi();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("sm"));
@@ -342,7 +346,7 @@ export default function EmailTemplateDialog({ open, eventId, onClose }: Props) {
       fullWidth
       fullScreen={!isDesktop}
     >
-      <DialogTitle>Edit email</DialogTitle>
+      <DialogTitle>Message template</DialogTitle>
       {open && templateQuery.isLoading && (
         <DialogContent>
           <CircularProgress />
