@@ -15,6 +15,7 @@ export interface ParticipantItem {
   isTicketDelivered: boolean;
   isTicketReady: boolean;
   checkedInAt: string | null;
+  activated: boolean;
 }
 
 export interface EventPutPayload {

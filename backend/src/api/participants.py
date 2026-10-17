@@ -11,7 +11,6 @@ import service.email
 import service.events
 import service.ticket
 import service.participants
-import schema.enum
 import schema.rest
 import service.event_stream
 
@@ -39,7 +38,7 @@ def list_participants(event_id: uuid.UUID) -> list[schema.rest.ParticipantRespon
 @router.post("", status_code=fastapi.status.HTTP_202_ACCEPTED)
 def bulk_create_participants(
     event_id: uuid.UUID,
-    payload: dict,
+    payload: schema.rest.ParticipantsCreateRequest,
     background_tasks: fastapi.BackgroundTasks,
 ) -> dict:
     api.utils.check_event_exists(event_id)
@@ -52,19 +51,13 @@ def bulk_create_participants(
             detail="An import is already in progress for this event",
         )
 
-    strategy = schema.enum.DuplicateStrategy(payload.get("strategy", "skip"))
-    name_match_mode = schema.enum.NameMatchMode(payload.get("nameMatchMode", "exact"))
-    data = [
-        schema.rest.ParticipantCreate.model_validate(item)
-        for item in payload.get("data", [])
-    ]
-
     background_tasks.add_task(
         service.participants.bulk_create_and_notify,
         event_id,
-        data,
-        strategy,
-        name_match_mode,
+        payload.data,
+        payload.strategy,
+        payload.name_match_mode,
+        payload.activate_new,
     )
     return {"message": "Import started"}
 
@@ -92,6 +85,25 @@ def update_participant(
     api.utils.check_event_exists(event_id)
     check_participant_exists(event_id, participant_id)
     result = service.participants.update_participant(event_id, participant_id, payload)
+    if result is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail="Participant not found",
+        )
+    return result
+
+
+@router.put("/{participant_id}/activated")
+def set_participant_activated(
+    event_id: uuid.UUID,
+    participant_id: uuid.UUID,
+    payload: schema.rest.ParticipantActivatedUpdate,
+) -> schema.rest.ParticipantResponse:
+    api.utils.check_event_exists(event_id)
+    check_participant_exists(event_id, participant_id)
+    result = service.participants.set_participant_activated(
+        event_id, participant_id, payload.activated
+    )
     if result is None:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND,

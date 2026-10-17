@@ -52,7 +52,11 @@ export default function BulkTicketDelivery() {
   const undeliveredReady = useMemo(
     () =>
       (participantsQuery.data ?? []).filter(
-        (a) => !a.isTicketDelivered && a.isTicketReady && a.email,
+        (a) =>
+          !a.isTicketDelivered &&
+          a.isTicketReady &&
+          a.email &&
+          a.activated !== false,
       ),
     [participantsQuery.data],
   );

@@ -60,6 +60,7 @@ interface SpreadsheetImportRequest {
   strategy: string;
   nameMatchMode: string;
   rowMapping: RowMapping;
+  activateNew: boolean;
 }
 
 export default function AddParticipantsBySpreadsheet() {
@@ -91,6 +92,7 @@ export default function AddParticipantsBySpreadsheet() {
   const [conflictDetail, setConflictDetail] = useState<string | null>(null);
   const [strategy, setStrategy] = useState("smartMerge");
   const [nameMatchMode, setNameMatchMode] = useState("exact");
+  const [activateNew, setActivateNew] = useState(true);
 
   const importMutation = useMutation({
     mutationFn: async (payload: SpreadsheetImportRequest) => {
@@ -191,6 +193,7 @@ export default function AddParticipantsBySpreadsheet() {
       strategy,
       nameMatchMode,
       rowMapping,
+      activateNew,
     });
   };
 
@@ -446,6 +449,8 @@ export default function AddParticipantsBySpreadsheet() {
             onStrategyChange={setStrategy}
             nameMatchMode={nameMatchMode}
             onNameMatchModeChange={setNameMatchMode}
+            activateNew={activateNew}
+            onActivateNewChange={setActivateNew}
           />
 
           <Stack direction="row" spacing={2}>

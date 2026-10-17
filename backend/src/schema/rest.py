@@ -77,6 +77,17 @@ class ParticipantPut(RestModel):
     raw_phone: str | None = None
 
 
+class ParticipantActivatedUpdate(RestModel):
+    activated: bool
+
+
+class ParticipantsCreateRequest(RestModel):
+    strategy: schema.enum.DuplicateStrategy = schema.enum.DuplicateStrategy.SKIP
+    name_match_mode: schema.enum.NameMatchMode = schema.enum.NameMatchMode.EXACT
+    activate_new: bool = True
+    data: list[ParticipantCreate] = []
+
+
 class ParticipantResponse(RestModel):
     id: uuid.UUID
     event_id: uuid.UUID
@@ -89,6 +100,7 @@ class ParticipantResponse(RestModel):
     is_ticket_delivered: bool
     is_ticket_ready: bool
     checked_in_at: str | None = None
+    activated: bool
 
 
 class ScanRequest(RestModel):
@@ -181,6 +193,7 @@ class SpreadsheetImportRequest(RestModel):
     strategy: schema.enum.DuplicateStrategy
     name_match_mode: schema.enum.NameMatchMode
     row_mapping: RowMapping
+    activate_new: bool = True
 
 
 class InfoResponse(RestModel):

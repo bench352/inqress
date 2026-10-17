@@ -17,7 +17,7 @@ interface Props {
 
 const RESULT_ICON_SIZE = 128;
 const LOADING_SIZE = 96;
-const DISMISS_DELAY_MS = 3000;
+const DISMISS_DELAY_MS = 6000;
 const RESULT_CONTAINER_SX = {
   height: "100%",
   display: "flex",
@@ -69,7 +69,10 @@ export default function CheckinResultDisplay({
               sx={{ fontSize: RESULT_ICON_SIZE, color: "success.main" }}
             />
             <Typography variant="h2">Welcome</Typography>
-            <Typography variant="h1">{result.detail.name}</Typography>
+            <Typography variant="h1">
+              {result.detail.title ? `${result.detail.title} ` : ""}
+              {result.detail.name}
+            </Typography>
           </>
         )}
       {phase === "error" && (

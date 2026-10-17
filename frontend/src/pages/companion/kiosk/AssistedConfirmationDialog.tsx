@@ -174,11 +174,12 @@ export default function AssistedConfirmationDialog({
             alignItems: "center",
             justifyContent: "center",
             color: "text.secondary",
+            mt: 1,
           }}
         >
-          <TouchAppOutlinedIcon fontSize="small" />
-          <Typography variant="body2">
-            Tap an option on the screen to confirm.
+          <TouchAppOutlinedIcon fontSize="medium" />
+          <Typography variant="h6">
+            Tap an option on the screen to select
           </Typography>
         </Stack>
       </Box>

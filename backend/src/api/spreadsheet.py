@@ -101,5 +101,6 @@ def spreadsheet_import(
         mapped,
         payload.strategy,
         payload.name_match_mode,
+        payload.activate_new,
     )
     return {"message": "Import started"}

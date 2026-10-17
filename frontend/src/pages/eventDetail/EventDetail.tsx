@@ -265,7 +265,10 @@ export default function EventDetail() {
       filteredParticipants
         .filter(
           (a) =>
-            a.checkedInAt == null && a.isTicketReady && a.isTicketDelivered,
+            a.checkedInAt == null &&
+            a.isTicketReady &&
+            a.isTicketDelivered &&
+            a.activated !== false,
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
     [filteredParticipants],
@@ -274,7 +277,10 @@ export default function EventDetail() {
   const filteredTicketUndelivered = useMemo(
     () =>
       filteredParticipants
-        .filter((a) => a.checkedInAt == null && !a.isTicketReady)
+        .filter(
+          (a) =>
+            a.checkedInAt == null && !a.isTicketReady && a.activated !== false,
+        )
         .sort((a, b) => a.name.localeCompare(b.name)),
     [filteredParticipants],
   );
@@ -284,14 +290,29 @@ export default function EventDetail() {
       filteredParticipants
         .filter(
           (a) =>
-            a.checkedInAt == null && a.isTicketReady && !a.isTicketDelivered,
+            a.checkedInAt == null &&
+            a.isTicketReady &&
+            !a.isTicketDelivered &&
+            a.activated !== false,
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
     [filteredParticipants],
   );
 
+  const filteredDeactivated = useMemo(
+    () =>
+      filteredParticipants
+        .filter((a) => a.checkedInAt == null && a.activated === false)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [filteredParticipants],
+  );
+
   const undeliveredReadyCount = participants.filter(
-    (a) => a.isTicketReady && !a.isTicketDelivered && a.email,
+    (a) =>
+      a.isTicketReady &&
+      !a.isTicketDelivered &&
+      a.email &&
+      a.activated !== false,
   ).length;
   const notReadyCount = participants.filter((a) => !a.isTicketReady).length;
   const notReadyIds = participants
@@ -503,6 +524,14 @@ export default function EventDetail() {
         />
       )}
 
+      {filteredDeactivated.length > 0 && (
+        <ParticipantGrid
+          participants={filteredDeactivated}
+          title="Deactivated"
+          onClick={(id) => setSelectedParticipantId(id)}
+        />
+      )}
+
       {participants.length === 0 && (
         <Typography color="textSecondary">
           No participants yet. Add some using the + button.
@@ -513,7 +542,8 @@ export default function EventDetail() {
         filteredAttended.length === 0 &&
         filteredNotAttended.length === 0 &&
         filteredNotDelivered.length === 0 &&
-        filteredTicketUndelivered.length === 0 && (
+        filteredTicketUndelivered.length === 0 &&
+        filteredDeactivated.length === 0 && (
           <Typography color="textSecondary">No matches found.</Typography>
         )}
 

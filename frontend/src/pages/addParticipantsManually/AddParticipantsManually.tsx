@@ -76,6 +76,7 @@ export default function AddParticipantsManually() {
   const [conflictDetail, setConflictDetail] = useState<string | null>(null);
   const [strategy, setStrategy] = useState("smartMerge");
   const [nameMatchMode, setNameMatchMode] = useState("exact");
+  const [activateNew, setActivateNew] = useState(true);
 
   const mutation = useMutation({
     mutationFn: async (
@@ -89,6 +90,7 @@ export default function AddParticipantsManually() {
       await api.post(`/api/events/${eventId}/participants`, {
         strategy,
         nameMatchMode,
+        activateNew,
         data: payload,
       });
     },
@@ -314,6 +316,8 @@ export default function AddParticipantsManually() {
             onStrategyChange={setStrategy}
             nameMatchMode={nameMatchMode}
             onNameMatchModeChange={setNameMatchMode}
+            activateNew={activateNew}
+            onActivateNewChange={setActivateNew}
           />
 
           <Stack direction="row" spacing={2}>

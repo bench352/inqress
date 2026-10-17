@@ -73,6 +73,12 @@ class Participant(Base):
     is_ticket_delivered: Mapped[bool] = mapped_column(
         sqlalchemy.Boolean, nullable=False, default=False
     )
+    activated: Mapped[bool] = mapped_column(
+        sqlalchemy.Boolean,
+        nullable=False,
+        default=True,
+        server_default=sqlalchemy.true(),
+    )
 
     event: Mapped["Event"] = relationship(back_populates="participants")
     attendance_logs: Mapped[list["AttendanceLog"]] = relationship(

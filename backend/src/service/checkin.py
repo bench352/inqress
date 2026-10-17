@@ -151,6 +151,12 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinRe
                 detail=schema.rest.CheckinErrorDetail(reason="Already checked in."),
             )
 
+        if not participant.activated:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(reason="Ticket is deactivated."),
+            )
+
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
         participant_title = participant.title
         participant_name = participant.name
@@ -264,6 +270,12 @@ def checkin_by_phone(
                 detail=schema.rest.CheckinErrorDetail(reason="Already checked in"),
             )
 
+        if not participant.activated:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(reason="Ticket is deactivated."),
+            )
+
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
         participant_title = participant.title
         participant_name = participant.name
@@ -373,6 +385,12 @@ def checkin_by_email(event_id: uuid.UUID, email: str) -> schema.rest.CheckinResp
             return schema.rest.CheckinResponse(
                 success=False,
                 detail=schema.rest.CheckinErrorDetail(reason="Already checked in"),
+            )
+
+        if not participant.activated:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(reason="Ticket is deactivated."),
             )
 
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
@@ -500,6 +518,11 @@ def _lookup_participant_for_checkin(
         if already_checked_in:
             raise fastapi.HTTPException(
                 status_code=422, detail="Participant is already checked in"
+            )
+
+        if not participant.activated:
+            raise fastapi.HTTPException(
+                status_code=422, detail="Ticket is deactivated."
             )
 
         return schema.service.CheckinInfo(

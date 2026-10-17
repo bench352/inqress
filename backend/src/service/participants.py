@@ -298,6 +298,23 @@ def mark_ticket_delivered(event_id: uuid.UUID, participant_id: uuid.UUID) -> boo
         return result.rowcount > 0  # type: ignore[attr-defined]
 
 
+def set_participant_activated(
+    event_id: uuid.UUID, participant_id: uuid.UUID, activated: bool
+) -> schema.rest.ParticipantResponse | None:
+    with service.db.get_session() as session:
+        result = session.execute(
+            update(schema.orm.Participant)
+            .where(
+                schema.orm.Participant.id == participant_id,
+                schema.orm.Participant.event_id == event_id,
+            )
+            .values(activated=activated)
+            .returning(schema.orm.Participant)
+        )
+        row = result.scalars().first()
+        return schema.rest.ParticipantResponse.model_validate(row) if row else None
+
+
 def bulk_delete(
     event_id: uuid.UUID, ids: list[uuid.UUID]
 ) -> schema.rest.BulkDeleteResponse:
@@ -318,6 +335,7 @@ def bulk_create_and_notify(
     payload: list[schema.rest.ParticipantCreate],
     strategy: schema.enum.DuplicateStrategy = schema.enum.DuplicateStrategy.SKIP,
     name_match_mode: schema.enum.NameMatchMode = schema.enum.NameMatchMode.EXACT,
+    activate_new: bool = True,
 ) -> None:
     manager = service.event_stream.event_stream_manager
     cfg = config.get_config()
@@ -455,6 +473,7 @@ def bulk_create_and_notify(
                             country_code=country_code,
                             phone=phone,
                             ticket_token=token_str,
+                            activated=activate_new,
                         )
                         .returning(schema.orm.Participant)
                     )

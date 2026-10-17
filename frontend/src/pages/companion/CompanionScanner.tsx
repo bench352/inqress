@@ -17,7 +17,6 @@ import SensorsOffOutlinedIcon from "@mui/icons-material/SensorsOffOutlined";
 import ErrorIcon from "@mui/icons-material/Error";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { ApiError, useCompanionApi } from "@/api";
-
 const CAMERA_KEY = "settings.webcamDeviceId";
 const RESULT_MS = 2500;
 const RESULT_ICON_SIZE = 96;
@@ -33,7 +32,12 @@ interface Display {
 
 type ConnectionStatus = "connecting" | "connected" | "lost";
 
-type ScanOutcome = { ok: boolean; name?: string; reason?: string } | null;
+type ScanOutcome = {
+  ok: boolean;
+  title?: string | null;
+  name?: string;
+  reason?: string;
+} | null;
 
 export default function CompanionScanner() {
   const { eventId } = useParams({
@@ -53,7 +57,6 @@ export default function CompanionScanner() {
   const esRef = useRef<EventSource | null>(null);
   const resultTimer = useRef<number | null>(null);
   const mountedAt = useRef(0);
-
   const loadDisplay = useCallback(async () => {
     try {
       const d = await api.get<Display>(
@@ -143,10 +146,14 @@ export default function CompanionScanner() {
     try {
       const res = await api.post<{
         success: boolean;
-        detail?: { name?: string; reason?: string };
+        detail?: { title?: string | null; name?: string; reason?: string };
       }>(`/api/events/${eventId}/companion/scan`, { ticket: text });
       if (res.success) {
-        showResult({ ok: true, name: res.detail?.name ?? "" });
+        showResult({
+          ok: true,
+          title: res.detail?.title ?? null,
+          name: res.detail?.name ?? "",
+        });
       } else {
         showResult({
           ok: false,
@@ -299,12 +306,15 @@ export default function CompanionScanner() {
               position: "absolute",
               inset: 0,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              bgcolor: "rgba(0, 0, 0, 0.45)",
+              gap: 2,
+              bgcolor: "background.paper",
             }}
           >
             <CircularProgress />
+            <Typography variant="h6">Verifying...</Typography>
           </Box>
         )}
       </Box>
@@ -376,8 +386,11 @@ export default function CompanionScanner() {
                 <CheckCircleIcon
                   sx={{ fontSize: RESULT_ICON_SIZE, color: "success.main" }}
                 />
-                <Typography variant="h3">Welcome</Typography>
-                <Typography variant="h2">{result.name}</Typography>
+                <Typography variant="h4">Checked in</Typography>
+                <Typography variant="h6">
+                  {result.title ? `${result.title} ` : ""}
+                  {result.name}
+                </Typography>
               </>
             ) : (
               <>
@@ -388,7 +401,7 @@ export default function CompanionScanner() {
                 <Typography variant="h6">{result.reason}</Typography>
               </>
             )}
-            <Typography variant="caption" sx={{ mt: 2 }}>
+            <Typography variant="body1" color="textSecondary" sx={{ mt: 2 }}>
               Tap to dismiss
             </Typography>
           </Box>

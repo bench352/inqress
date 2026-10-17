@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,7 +15,9 @@ import {
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
+import BlockIcon from "@mui/icons-material/Block";
 import DeleteIcon from "@mui/icons-material/Delete";
+import VerifiedIcon from "@mui/icons-material/Verified";
 import EditIcon from "@mui/icons-material/Edit";
 import EmailIcon from "@mui/icons-material/Email";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
@@ -43,6 +46,7 @@ type SubView =
   | "deliver"
   | "attend"
   | "delete"
+  | "deactivate"
   | "edit";
 
 interface Props {
@@ -128,6 +132,18 @@ export default function ParticipantDetailsDialog({
     },
   });
 
+  const setActivatedMutation = useMutation({
+    mutationFn: async (activated: boolean) => {
+      await api.put(
+        `/api/events/${eventId}/participants/${participant.id}/activated`,
+        { activated },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
+    },
+  });
+
   const handleDeliver = () => setSubView("deliver");
 
   const handleDeliverConfirm = () => {
@@ -141,6 +157,12 @@ export default function ParticipantDetailsDialog({
   };
 
   const handleDeleteConfirm = () => deleteMutation.mutate();
+
+  const handleDeactivateConfirm = () => {
+    setActivatedMutation.mutate(false, {
+      onSuccess: () => setSubView("main"),
+    });
+  };
 
   const handleClose = () => {
     setSubView("main");
@@ -275,16 +297,55 @@ export default function ParticipantDetailsDialog({
     );
   }
 
+  if (subView === "deactivate") {
+    return (
+      <Dialog open onClose={() => setSubView("main")}>
+        <DialogTitle>Deactivate Participant</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to deactivate{" "}
+            {participant.title ? `${participant.title} ` : ""}
+            {participant.name}? They will no longer be able to check in. You can
+            reactivate this participant anytime.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setSubView("main")}
+            disabled={setActivatedMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeactivateConfirm}
+            color="error"
+            loading={setActivatedMutation.isPending}
+          >
+            Deactivate
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Participant Details</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack spacing={0.5}>
-            <Typography variant="h6">
-              {participant.title ? `${participant.title} ` : ""}
-              {participant.name}
-            </Typography>
+            <Stack
+              direction="row"
+              sx={{ justifyContent: "space-between", alignItems: "center" }}
+            >
+              <Typography variant="h6">
+                {participant.title ? `${participant.title} ` : ""}
+                {participant.name}
+              </Typography>
+              {participant.activated === false && (
+                <Chip label="Deactivated" color="error" size="small" />
+              )}
+            </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <EmailIcon fontSize="small" color="action" />
               <Typography variant="body1">
@@ -315,9 +376,24 @@ export default function ParticipantDetailsDialog({
             )}
           </Stack>
 
-          {eventMode !== "disabled" && (
+          {!(participant.activated ?? true) && (
             <Button
               variant="contained"
+              color="success"
+              size="large"
+              startIcon={<VerifiedIcon />}
+              onClick={() => setActivatedMutation.mutate(true)}
+              loading={setActivatedMutation.isPending}
+              fullWidth
+            >
+              Admit / Reactivate Participant
+            </Button>
+          )}
+
+          {eventMode !== "disabled" && (participant.activated ?? true) && (
+            <Button
+              variant="contained"
+              size="large"
               startIcon={<HowToRegIcon />}
               onClick={() => assistedMutation.mutate()}
               loading={assistedMutation.isPending}
@@ -397,7 +473,9 @@ export default function ParticipantDetailsDialog({
             <ListItemButton
               onClick={() => setSubView("attend")}
               disabled={
-                participant.checkedInAt != null || checkinMutation.isPending
+                participant.checkedInAt != null ||
+                !(participant.activated ?? true) ||
+                checkinMutation.isPending
               }
             >
               <ListItemIcon>
@@ -408,7 +486,28 @@ export default function ParticipantDetailsDialog({
                 secondary={
                   participant.checkedInAt != null
                     ? "Already checked in."
-                    : "Mark as checked in without any action from the participant."
+                    : !(participant.activated ?? true)
+                      ? "Ticket is deactivated."
+                      : "Mark as checked in without any action from the participant."
+                }
+              />
+            </ListItemButton>
+            <ListItemButton
+              onClick={() => setSubView("deactivate")}
+              disabled={
+                !(participant.activated ?? true) ||
+                setActivatedMutation.isPending
+              }
+            >
+              <ListItemIcon>
+                <BlockIcon />
+              </ListItemIcon>
+              <ListItemText
+                primary="Deactivate participant"
+                secondary={
+                  !(participant.activated ?? true)
+                    ? "Already deactivated."
+                    : "Prevent this participant from checking in."
                 }
               />
             </ListItemButton>

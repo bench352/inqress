@@ -7,6 +7,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Checkbox,
+  FormControlLabel,
   Stack,
   Typography,
 } from "@mui/material";
@@ -63,6 +65,8 @@ interface Props {
   onStrategyChange: (value: string) => void;
   nameMatchMode: string;
   onNameMatchModeChange: (value: string) => void;
+  activateNew: boolean;
+  onActivateNewChange: (value: boolean) => void;
 }
 
 function OptionCard({
@@ -129,6 +133,8 @@ export default function DataHandlingStep({
   onStrategyChange,
   nameMatchMode,
   onNameMatchModeChange,
+  activateNew,
+  onActivateNewChange,
 }: Props) {
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -184,6 +190,25 @@ export default function DataHandlingStep({
             />
           ))}
         </Stack>
+      </Stack>
+
+      <Stack spacing={1.5}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          New Participant Admission
+        </Typography>
+        <Typography variant="body1" color="textSecondary">
+          Whether participants added in this import (who are not already on the
+          event) are immediately allowed to check in.
+        </Typography>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={activateNew}
+              onChange={(e) => onActivateNewChange(e.target.checked)}
+            />
+          }
+          label="New participants can check in (activated by default)"
+        />
       </Stack>
 
       <Dialog

@@ -267,6 +267,7 @@ export default function CompanionJoin() {
                 <QrScanner
                   onScan={onQrDecode}
                   onError={() => {}}
+                  sound={false}
                   components={{
                     finder: false,
                     torch: false,
