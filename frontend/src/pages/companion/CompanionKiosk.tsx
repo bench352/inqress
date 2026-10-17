@@ -284,7 +284,7 @@ export default function CompanionKiosk() {
               result: {
                 success: true,
                 detail: {
-                  title: displayRef.current?.eventName ?? null,
+                  title: data.title ?? null,
                   name: data.name,
                 },
               },
@@ -443,21 +443,31 @@ export default function CompanionKiosk() {
           alignItems: "center",
           justifyContent: "center",
           textAlign: "center",
-          gap: 3,
+          gap: 6,
         }}
       >
         {banner && (
           <Typography sx={{ color: "success.main" }}>{banner}</Typography>
         )}
-
-        <Typography variant="h2" sx={{ fontWeight: 900, color: accentColor }}>
-          {display?.eventName}
-        </Typography>
-        <Typography variant="h5" sx={{ whiteSpace: "pre-wrap", maxWidth: 720 }}>
-          {display?.kioskMessage}
-        </Typography>
+        <Stack spacing={1.5}>
+          <Typography
+            variant="h2"
+            sx={{
+              fontWeight: 900,
+              color: accentColor,
+              display: "-webkit-box",
+              overflow: "hidden",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 3,
+            }}
+          >
+            {display?.eventName}
+          </Typography>
+          <Typography variant="h4">{display?.kioskMessage}</Typography>
+        </Stack>
 
         <Stack spacing={2} sx={{ width: "100%", maxWidth: 420, mt: 2 }}>
+          <Typography variant="h5">Cannot scan QR code?</Typography>
           <Button
             variant="contained"
             size="large"
@@ -484,12 +494,11 @@ export default function CompanionKiosk() {
               justifyContent: "center",
               color: "text.secondary",
               mt: 1,
-              px: 4,
             }}
           >
             <TouchAppOutlinedIcon fontSize="medium" />
-            <Typography variant="body1">
-              Tap an option on the screen to continue.
+            <Typography variant="h6">
+              Tap an option on the screen to continue
             </Typography>
           </Stack>
         </Stack>
