@@ -46,6 +46,8 @@ class Event(Base):
     kiosk_message: Mapped[str] = mapped_column(
         sqlalchemy.Text, nullable=False, default=""
     )
+    paseto_private_key: Mapped[str] = mapped_column(sqlalchemy.Text, nullable=False)
+    paseto_public_key: Mapped[str] = mapped_column(sqlalchemy.Text, nullable=False)
 
     participants: Mapped[list["Participant"]] = relationship(back_populates="event")
     attendance_logs: Mapped[list["AttendanceLog"]] = relationship(

@@ -10,6 +10,7 @@ import schema.enum
 import schema.orm
 import schema.rest
 import service.db
+import service.ticket
 
 _DEFAULT_TEMPLATE_PATH = (
     pathlib.Path(__file__).resolve().parent.parent
@@ -45,6 +46,7 @@ def get_event(event_id: uuid.UUID) -> schema.rest.EventResponse | None:
 def create_event(payload: schema.rest.EventCreate) -> schema.rest.EventResponse:
     default_template = _load_default_template()
     token = secrets.token_urlsafe(32)
+    key_pair = service.ticket.generate_key_pair()
     with service.db.get_session() as session:
         result = session.execute(
             insert(schema.orm.Event)
@@ -56,6 +58,8 @@ def create_event(payload: schema.rest.EventCreate) -> schema.rest.EventResponse:
                 email_template=default_template,
                 companion_token=token,
                 kiosk_message="",
+                paseto_private_key=key_pair.private_pem,
+                paseto_public_key=key_pair.public_pem,
             )
             .returning(schema.orm.Event)
         )

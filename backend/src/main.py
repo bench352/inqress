@@ -21,7 +21,6 @@ import api.streams
 import config
 import service.auth
 import service.db
-import service.ticket
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,7 +34,6 @@ async def lifespan(app: fastapi.FastAPI):
     _alembic_cfg = Config(str(pathlib.Path(__file__).resolve().parent / "alembic.ini"))
     command.upgrade(_alembic_cfg, "head")
     logger.info("DB migrations completed!")
-    service.ticket.init_keys()
     yield
 
 

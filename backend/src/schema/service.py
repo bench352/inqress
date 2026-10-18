@@ -10,6 +10,11 @@ class TicketPayload(pydantic.BaseModel):
     participant_id: uuid.UUID
 
 
+class TicketKeyPair(pydantic.BaseModel):
+    private_pem: str
+    public_pem: str
+
+
 class CheckinInfo(pydantic.BaseModel):
     event_mode: schema.enum.EventMode
     participant_id: uuid.UUID
