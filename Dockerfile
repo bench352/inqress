@@ -28,6 +28,7 @@ FROM python:3.14-slim
 ARG APP_VERSION=0.0.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     fonts-liberation \
     libegl1 \
     libgles2 \
@@ -48,7 +49,7 @@ ENV APP_VERSION=${APP_VERSION} \
 WORKDIR /app/src
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -fsS http://localhost:8000/api/health || exit 1
 
 CMD ["python", "main.py"]

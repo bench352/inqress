@@ -78,22 +78,6 @@ def _emit_attendance(
 
 
 def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinResponse:
-    try:
-        payload = service.ticket.verify_ticket(ticket_token)
-    except ValueError as e:
-        return schema.rest.CheckinResponse(
-            success=False,
-            detail=schema.rest.CheckinErrorDetail(reason=str(e)),
-        )
-
-    if payload.event_id != event_id:
-        return schema.rest.CheckinResponse(
-            success=False,
-            detail=schema.rest.CheckinErrorDetail(
-                reason="Ticket is not for this event."
-            ),
-        )
-
     with service.db.get_session() as session:
         event = (
             session.execute(
@@ -106,6 +90,24 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinRe
             return schema.rest.CheckinResponse(
                 success=False,
                 detail=schema.rest.CheckinErrorDetail(reason="Event not found"),
+            )
+
+        try:
+            payload = service.ticket.verify_ticket(
+                event.paseto_public_key, ticket_token
+            )
+        except ValueError as e:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(reason=str(e)),
+            )
+
+        if payload.event_id != event_id:
+            return schema.rest.CheckinResponse(
+                success=False,
+                detail=schema.rest.CheckinErrorDetail(
+                    reason="Ticket is not for this event."
+                ),
             )
 
         if event.mode == schema.enum.EventMode.DISABLED:

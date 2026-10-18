@@ -20,7 +20,7 @@ See the **System Requirements** section below for more details.
 
 ![](assets/illustrations/secure_qr_generation.PNG)
 
-Only tickets created by you can be verified at your event. InQRess uses [PASETO (Platform-Agnostic SEcurity TOkens)](https://paseto.io/) to sign and verify each ticket with a unique key pair for your system, combined with real-time record checks to prevent reuse.
+Only tickets created by you can be verified at your event. InQRess uses [PASETO (Platform-Agnostic SEcurity TOkens)](https://paseto.io/) to sign and verify each ticket with a dedicated key pair for each event, combined with real-time record checks to prevent reuse.
 
 ### No matter how your participant data looks, it'll work
 

@@ -376,6 +376,13 @@ def bulk_create_and_notify(
 
     try:
         with service.db.get_session() as session:
+            private_key = service.ticket.paseto_key(
+                session.execute(
+                    select(schema.orm.Event.paseto_private_key).where(
+                        schema.orm.Event.id == event_id
+                    )
+                ).scalar_one()
+            )
             for i, p in enumerate(payload):
                 _send_progress()
 
@@ -460,7 +467,9 @@ def bulk_create_and_notify(
 
                 try:
                     participant_id = uuid.uuid4()
-                    token_str = service.ticket.generate_ticket(event_id, participant_id)
+                    token_str = service.ticket.generate_ticket(
+                        private_key, event_id, participant_id
+                    )
                     db_result = session.execute(
                         insert(schema.orm.Participant)
                         .values(
