@@ -12,6 +12,7 @@ class SseEventType(enum.StrEnum):
     ATTENDANCE = "ATTENDANCE"
     GENERATE_TICKET_QR = "GENERATE_TICKET_QR"
     CHANGE_MODE = "CHANGE_MODE"
+    DATA_SOURCE_SYNC = "DATA_SOURCE_SYNC"
     CONTROL = "CONTROL"
 
 
@@ -90,6 +91,18 @@ class GenerateTicketQrErrorData(schema.rest.RestModel):
 
 class ChangeModeData(schema.rest.RestModel):
     value: str
+
+
+class DataSourceSyncData(schema.rest.RestModel):
+    source_id: str
+    source_name: str
+    in_progress: bool = False
+    added: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: int = 0
+    error_samples: list[str] = []
+    detail: str | None = None
 
 
 class ControlCommandData(schema.rest.RestModel):

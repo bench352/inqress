@@ -17,6 +17,8 @@ import SensorsOffOutlinedIcon from "@mui/icons-material/SensorsOffOutlined";
 import ErrorIcon from "@mui/icons-material/Error";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { ApiError, useCompanionApi } from "@/api";
+import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
+import useClearAdminSession from "./useClearAdminSession";
 const CAMERA_KEY = "settings.webcamDeviceId";
 const RESULT_MS = 2500;
 const RESULT_ICON_SIZE = 96;
@@ -110,14 +112,12 @@ export default function CompanionScanner() {
     };
   }, [eventId, loadDisplay]);
 
+  // A handheld shares the browser with the admin pages; leaving the admin
+  // signed in would expose the admin section to whoever picks it up.
+  const adminCleared = useClearAdminSession();
+
   useEffect(() => {
     mountedAt.current = Date.now();
-    // Clear any admin session lingering on this handheld browser;
-    // 401s when no session exists, which is a harmless no-op.
-    fetch(`${import.meta.env.VITE_BACKEND_API_URL ?? ""}/api/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => {});
     (async () => {
       await loadDisplay();
     })();
@@ -422,6 +422,8 @@ export default function CompanionScanner() {
           </Button>
         }
       />
+
+      <CompanionAdminSessionAlert show={adminCleared} />
     </Box>
   );
 }

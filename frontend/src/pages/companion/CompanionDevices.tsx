@@ -22,6 +22,7 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CameraswitchIcon from "@mui/icons-material/Cameraswitch";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -106,8 +107,17 @@ export default function CompanionDevices() {
     <Box sx={{ minHeight: "100dvh", bgcolor: "background.default" }}>
       <AppBar position="static" color="primary" elevation={1}>
         <Toolbar>
+          <IconButton
+            edge="start"
+            color="inherit"
+            aria-label="back to home"
+            onClick={() => navigate({ to: "/" })}
+            sx={{ mr: 2 }}
+          >
+            <ArrowBackIcon />
+          </IconButton>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            InQRess - Companion devices
+            Companion Devices
           </Typography>
           <Tooltip title="Switch camera">
             <IconButton

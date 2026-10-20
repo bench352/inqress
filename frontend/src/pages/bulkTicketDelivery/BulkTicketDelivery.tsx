@@ -56,7 +56,7 @@ export default function BulkTicketDelivery() {
           !a.isTicketDelivered &&
           a.isTicketReady &&
           a.email &&
-          a.activated !== false,
+          a.activated === true,
       ),
     [participantsQuery.data],
   );

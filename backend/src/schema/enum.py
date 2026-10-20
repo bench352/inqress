@@ -23,3 +23,8 @@ class DuplicateStrategy(enum.StrEnum):
 class NameMatchMode(enum.StrEnum):
     EXACT = "exact"
     FUZZY = "fuzzy"
+
+
+class DataSourceTracking(enum.StrEnum):
+    ROW = "row"
+    MATCH = "match"

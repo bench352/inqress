@@ -88,7 +88,8 @@ These relationships must be kept in sync. Breaking any of them causes runtime or
 
 ### Frontend
 
-- Use conventional MUI components, following the code examples in official MUI documentation (accessible via `mui-mcp`)
+- Use native MUI components to achieve UI functionalities if it is already supported, following the conventional usage and layout illustrated in official MUI documentation (use `mui-mcp` to read it)
+- Rely on native components props for styling. Only use inline `sx` if certain functionalities is not already natively supported.
 
 ## Never
 

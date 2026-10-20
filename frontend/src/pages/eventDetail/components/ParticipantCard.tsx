@@ -4,10 +4,12 @@ import {
   CardActionArea,
   Divider,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import EmailIcon from "@mui/icons-material/Email";
 import PhoneIcon from "@mui/icons-material/Phone";
+import SyncLockIcon from "@mui/icons-material/SyncLock";
 import type { ParticipantItem } from "../useEventDetail";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import dayjs from "dayjs";
@@ -23,10 +25,28 @@ export function ParticipantCard({ participant, onClick }: Props) {
     <Card variant="outlined" sx={{ height: "100%" }}>
       <CardActionArea onClick={onClick} sx={{ height: "100%" }}>
         <Box sx={{ px: 2, py: 1 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            {participant.title ? `${participant.title} ` : ""}
-            {participant.name}
-          </Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 600, flexGrow: 1, minWidth: 0 }}
+            >
+              {participant.title ? `${participant.title} ` : ""}
+              {participant.name}
+            </Typography>
+            {participant.managedBy && (
+              <Tooltip
+                describeChild
+                title={`Managed by ${participant.managedBy.name}`}
+              >
+                <SyncLockIcon
+                  fontSize="small"
+                  color="action"
+                  aria-label={`Managed by ${participant.managedBy.name}`}
+                  sx={{ flexShrink: 0 }}
+                />
+              </Tooltip>
+            )}
+          </Stack>
           <Stack spacing={0.25}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <EmailIcon fontSize="small" color="action" />

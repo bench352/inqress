@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Alert,
   Button,
   Card,
   CardActionArea,
@@ -18,6 +19,7 @@ import SkipNextIcon from "@mui/icons-material/SkipNext";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 import WavesIcon from "@mui/icons-material/Waves";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutlined";
+import TableRowsIcon from "@mui/icons-material/TableRows";
 
 const DUPLICATE_STRATEGIES = [
   {
@@ -67,7 +69,21 @@ interface Props {
   onNameMatchModeChange: (value: string) => void;
   activateNew: boolean;
   onActivateNewChange: (value: boolean) => void;
+  /** Present only on the data source page, where row tracking is available. */
+  tracking?: string;
+  onTrackingChange?: (value: string) => void;
 }
+
+const ROW_TRACKING = {
+  value: "row",
+  label: "Row tracking",
+  icon: TableRowsIcon,
+  description:
+    "Each person keeps the row they came from. A later sync updates that same person, so a corrected name reaches the ticket they already hold.",
+} as const;
+
+const ROW_TRACKING_WARNING =
+  "This matches people by row number. Sorting the sheet, or inserting or deleting a row above existing people, will write the wrong details onto tickets already issued. Use Skip, Smart Merge, or Overwrite if rows might move.";
 
 function OptionCard({
   selected,
@@ -135,14 +151,19 @@ export default function DataHandlingStep({
   onNameMatchModeChange,
   activateNew,
   onActivateNewChange,
+  tracking,
+  onTrackingChange,
 }: Props) {
   const [helpOpen, setHelpOpen] = useState(false);
+  const allowsRowTracking = !!onTrackingChange;
+  const rowTracking = tracking === "row";
 
   return (
     <Stack spacing={3}>
       <Typography variant="body1">
-        Choose how new participant data is combined with existing records. Pick
-        the option that matches how the source data was created.
+        {rowTracking
+          ? "Each row of the file is linked to the participant it created. Later syncs update those people in place."
+          : "Choose how new participant data is combined with existing records. Pick the option that matches how the source data was created."}
       </Typography>
 
       <Stack spacing={1.5}>
@@ -160,37 +181,53 @@ export default function DataHandlingStep({
             How are duplicates found?
           </Button>
         </Stack>
-        <Stack direction="row" spacing={2}>
+        <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
           {DUPLICATE_STRATEGIES.map((s) => (
             <OptionCard
               key={s.value}
-              selected={strategy === s.value}
-              onClick={() => onStrategyChange(s.value)}
+              selected={!rowTracking && strategy === s.value}
+              onClick={() => {
+                onTrackingChange?.("match");
+                onStrategyChange(s.value);
+              }}
               icon={s.icon}
               label={s.label}
               description={s.description}
             />
           ))}
+          {allowsRowTracking && (
+            <OptionCard
+              selected={rowTracking}
+              onClick={() => onTrackingChange(ROW_TRACKING.value)}
+              icon={ROW_TRACKING.icon}
+              label={ROW_TRACKING.label}
+              description={ROW_TRACKING.description}
+            />
+          )}
         </Stack>
       </Stack>
 
-      <Stack spacing={1.5}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Name Matching Strategy
-        </Typography>
-        <Stack direction="row" spacing={2}>
-          {NAME_MATCH_MODES.map((m) => (
-            <OptionCard
-              key={m.value}
-              selected={nameMatchMode === m.value}
-              onClick={() => onNameMatchModeChange(m.value)}
-              icon={m.icon}
-              label={m.label}
-              description={m.description}
-            />
-          ))}
+      {rowTracking && <Alert severity="warning">{ROW_TRACKING_WARNING}</Alert>}
+
+      {!rowTracking && (
+        <Stack spacing={1.5}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Name Matching Strategy
+          </Typography>
+          <Stack direction="row" spacing={2}>
+            {NAME_MATCH_MODES.map((m) => (
+              <OptionCard
+                key={m.value}
+                selected={nameMatchMode === m.value}
+                onClick={() => onNameMatchModeChange(m.value)}
+                icon={m.icon}
+                label={m.label}
+                description={m.description}
+              />
+            ))}
+          </Stack>
         </Stack>
-      </Stack>
+      )}
 
       <Stack spacing={1.5}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
@@ -207,7 +244,7 @@ export default function DataHandlingStep({
               onChange={(e) => onActivateNewChange(e.target.checked)}
             />
           }
-          label="New participants can check in (activated by default)"
+          label="New participants can check in (otherwise they wait to be admitted)"
         />
       </Stack>
 

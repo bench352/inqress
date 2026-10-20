@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import {
   Box,
   Button,
@@ -26,6 +26,7 @@ import dayjs from "dayjs";
 import { useApi } from "@/api.ts";
 import { useSnackbar } from "notistack";
 import MessageTemplateDialog from "./MessageTemplateDialog";
+import SyncOutlinedIcon from "@mui/icons-material/SyncOutlined";
 
 interface EventData {
   name: string;
@@ -61,6 +62,9 @@ export default function ModifyEventsDialog({
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editDate, setEditDate] = useState<dayjs.Dayjs | null>(null);
+  const [editSubmitted, setEditSubmitted] = useState(false);
+  const editNameError = editSubmitted && !editName.trim();
+  const editDateError = editSubmitted && !editDate;
 
   const navigate = useNavigate();
   const api = useApi();
@@ -88,13 +92,16 @@ export default function ModifyEventsDialog({
     setEditName(event.name);
     setEditDescription(event.description);
     setEditDate(dayjs(event.date));
+    setEditSubmitted(false);
     setView("edit");
   };
 
-  const handleEditSave = () => {
-    if (!editDate) return;
+  const handleEditSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setEditSubmitted(true);
+    if (!editName.trim() || !editDate) return;
     onUpdate({
-      name: editName,
+      name: editName.trim(),
       description: editDescription,
       date: editDate.format("YYYY-MM-DD"),
       hasBoothImage: event.hasBoothImage,
@@ -112,36 +119,58 @@ export default function ModifyEventsDialog({
       <Dialog open onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>Edit Event Details</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Event name"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Description"
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              fullWidth
-              multiline
-              rows={3}
-            />
-            <DatePicker
-              label="Date"
-              value={editDate}
-              onChange={setEditDate}
-              format="YYYY-MM-DD"
-              sx={{ width: "100%" }}
-            />
-          </Stack>
+          <Box
+            component="form"
+            id="edit-event-form"
+            onSubmit={handleEditSubmit}
+            noValidate
+          >
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                label="Event name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                fullWidth
+                required
+                error={editNameError}
+                helperText={editNameError ? "Event name is required" : " "}
+              />
+              <TextField
+                label="Description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                fullWidth
+                multiline
+                rows={3}
+              />
+              <DatePicker
+                label="Date"
+                value={editDate}
+                onChange={setEditDate}
+                format="YYYY-MM-DD"
+                slotProps={{
+                  textField: {
+                    required: true,
+                    error: editDateError,
+                    helperText: editDateError ? "Date is required" : " ",
+                  },
+                }}
+                sx={{ width: "100%" }}
+              />
+            </Stack>
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setView("settings")} disabled={isUpdating}>
+          <Button
+            type="button"
+            onClick={() => setView("settings")}
+            disabled={isUpdating}
+          >
             Cancel
           </Button>
           <Button
-            onClick={handleEditSave}
+            type="submit"
+            form="edit-event-form"
             variant="contained"
             loading={isUpdating}
           >
@@ -240,6 +269,20 @@ export default function ModifyEventsDialog({
             <CropOriginalIcon />
           </ListItemIcon>
           <ListItemText primary="Customize kiosk" />
+        </ListItemButton>
+        <ListItemButton
+          onClick={() => {
+            handleClose();
+            navigate({
+              to: "/admin/events/$eventId/dataSources",
+              params: { eventId },
+            });
+          }}
+        >
+          <ListItemIcon>
+            <SyncOutlinedIcon />
+          </ListItemIcon>
+          <ListItemText primary="Data sources" />
         </ListItemButton>
         <ListItemButton onClick={handleExportTickets}>
           <ListItemIcon>

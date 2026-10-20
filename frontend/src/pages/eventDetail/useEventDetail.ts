@@ -15,7 +15,12 @@ export interface ParticipantItem {
   isTicketDelivered: boolean;
   isTicketReady: boolean;
   checkedInAt: string | null;
-  activated: boolean;
+  activated: boolean | null;
+  managedBy: {
+    id: string;
+    name: string;
+    writesDetails: boolean;
+  } | null;
 }
 
 export interface EventPutPayload {

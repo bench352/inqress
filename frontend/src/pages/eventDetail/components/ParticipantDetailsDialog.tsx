@@ -353,13 +353,25 @@ export default function ParticipantDetailsDialog({
               direction="row"
               sx={{ justifyContent: "space-between", alignItems: "center" }}
             >
-              <Typography variant="h6">
+              <Typography variant="h6" sx={{ minWidth: 0 }}>
                 {participant.title ? `${participant.title} ` : ""}
                 {participant.name}
               </Typography>
-              {participant.activated === false && (
-                <Chip label="Deactivated" color="error" size="small" />
-              )}
+              <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                {participant.managedBy && (
+                  <Chip
+                    label="Externally managed"
+                    color="primary"
+                    size="small"
+                  />
+                )}
+                {participant.activated === false && (
+                  <Chip label="Deactivated" color="error" size="small" />
+                )}
+                {participant.activated === null && (
+                  <Chip label="To be admitted" color="warning" size="small" />
+                )}
+              </Stack>
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <EmailIcon fontSize="small" color="action" />
@@ -391,7 +403,7 @@ export default function ParticipantDetailsDialog({
             )}
           </Stack>
 
-          {!(participant.activated ?? true) && (
+          {participant.activated !== true && (
             <Button
               variant="contained"
               color="success"
@@ -401,11 +413,13 @@ export default function ParticipantDetailsDialog({
               loading={setActivatedMutation.isPending}
               fullWidth
             >
-              Admit / Reactivate Participant
+              {participant.activated === null
+                ? "Admit participant"
+                : "Reactivate participant"}
             </Button>
           )}
 
-          {eventMode !== "disabled" && (participant.activated ?? true) && (
+          {eventMode !== "disabled" && participant.activated === true && (
             <Button
               variant="contained"
               size="large"
@@ -420,13 +434,20 @@ export default function ParticipantDetailsDialog({
           )}
 
           <List disablePadding>
-            <ListItemButton onClick={() => setSubView("edit")}>
+            <ListItemButton
+              onClick={() => setSubView("edit")}
+              disabled={participant.managedBy?.writesDetails === true}
+            >
               <ListItemIcon>
                 <EditIcon />
               </ListItemIcon>
               <ListItemText
                 primary="Update personal information"
-                secondary="Change title, name, email, or phone."
+                secondary={
+                  participant.managedBy?.writesDetails
+                    ? `Details follow ${participant.managedBy.name}. Change them in that source.`
+                    : "Change title, name, email, or phone."
+                }
               />
             </ListItemButton>
             <ListItemButton
@@ -505,7 +526,7 @@ export default function ParticipantDetailsDialog({
               onClick={() => setSubView("attend")}
               disabled={
                 participant.checkedInAt != null ||
-                !(participant.activated ?? true) ||
+                participant.activated !== true ||
                 checkinMutation.isPending
               }
             >
@@ -517,16 +538,18 @@ export default function ParticipantDetailsDialog({
                 secondary={
                   participant.checkedInAt != null
                     ? "Already checked in."
-                    : !(participant.activated ?? true)
+                    : participant.activated === false
                       ? "Ticket is deactivated."
-                      : "Mark as checked in without any action from the participant."
+                      : participant.activated === null
+                        ? "Participant is not yet admitted."
+                        : "Mark as checked in without any action from the participant."
                 }
               />
             </ListItemButton>
             <ListItemButton
               onClick={() => setSubView("deactivate")}
               disabled={
-                !(participant.activated ?? true) ||
+                participant.activated === false ||
                 setActivatedMutation.isPending
               }
             >
@@ -536,23 +559,36 @@ export default function ParticipantDetailsDialog({
               <ListItemText
                 primary="Deactivate participant"
                 secondary={
-                  !(participant.activated ?? true)
+                  participant.activated === false
                     ? "Already deactivated."
-                    : "Prevent this participant from checking in."
+                    : "Deny this participant from checking in."
                 }
               />
             </ListItemButton>
-            <ListItemButton onClick={() => setSubView("delete")}>
+            <ListItemButton
+              onClick={() => setSubView("delete")}
+              disabled={participant.managedBy != null}
+            >
               <ListItemIcon>
-                <DeleteIcon color="error" />
+                <DeleteIcon
+                  color={participant.managedBy != null ? "disabled" : "error"}
+                />
               </ListItemIcon>
               <ListItemText
                 primary="Delete participant"
-                secondary="Remove participant from this event. This will deactivate their ticket."
-                slotProps={{
-                  primary: { sx: { color: "error.main" } },
-                  secondary: { sx: { color: "error.main" } },
-                }}
+                secondary={
+                  participant.managedBy != null
+                    ? `${participant.managedBy.name} will add this person back on the next sync.`
+                    : "Remove participant's registration from this event."
+                }
+                slotProps={
+                  participant.managedBy != null
+                    ? undefined
+                    : {
+                        primary: { sx: { color: "error.main" } },
+                        secondary: { sx: { color: "error.main" } },
+                      }
+                }
               />
             </ListItemButton>
           </List>

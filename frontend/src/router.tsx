@@ -17,6 +17,8 @@ import AddParticipantsManually from "./pages/addParticipantsManually/AddParticip
 import AddParticipantsBySpreadsheet from "./pages/addParticipantsSpreadsheet/AddParticipantsBySpreadsheet";
 import BulkTicketDelivery from "./pages/bulkTicketDelivery/BulkTicketDelivery";
 import CustomizeBooth from "./pages/customizeBooth/CustomizeBooth";
+import DataSources from "./pages/dataSources/DataSources";
+import DataSourceEditor from "./pages/dataSources/DataSourceEditor";
 
 const rootRoute = createRootRoute();
 
@@ -93,12 +95,42 @@ const addParticipantsManuallyRoute = createRoute({
   getParentRoute: () => eventDetailRoute,
   path: "/addParticipantsManually",
   component: AddParticipantsManually,
+  staticData: { childPage: true },
 });
 
 const addParticipantsSpreadsheetRoute = createRoute({
   getParentRoute: () => eventDetailRoute,
   path: "/addParticipantsBySpreadsheet",
   component: AddParticipantsBySpreadsheet,
+  staticData: { childPage: true },
+});
+
+const dataSourcesRoute = createRoute({
+  getParentRoute: () => eventDetailRoute,
+  path: "/dataSources",
+  component: DataSources,
+  staticData: { childPage: true },
+  // Set by the sync error toast to open that source's error dialog directly.
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { syncErrors?: string } => ({
+    syncErrors:
+      typeof search.syncErrors === "string" ? search.syncErrors : undefined,
+  }),
+});
+
+const dataSourceNewRoute = createRoute({
+  getParentRoute: () => eventDetailRoute,
+  path: "/dataSources/new",
+  component: DataSourceEditor,
+  staticData: { childPage: true },
+});
+
+const dataSourceEditRoute = createRoute({
+  getParentRoute: () => eventDetailRoute,
+  path: "/dataSources/$sourceId",
+  component: DataSourceEditor,
+  staticData: { childPage: true },
 });
 
 const bulkTicketDeliveryRoute = createRoute({
@@ -138,6 +170,9 @@ const routeTree = rootRoute.addChildren([
     eventDetailRoute.addChildren([
       addParticipantsSpreadsheetRoute,
       addParticipantsManuallyRoute,
+      dataSourcesRoute,
+      dataSourceNewRoute,
+      dataSourceEditRoute,
     ]),
     settingsRoute,
   ]),
@@ -152,5 +187,7 @@ declare module "@tanstack/react-router" {
 
   interface StaticDataRouteOption {
     fullWidth?: boolean;
+    /** Renders instead of the event detail view, as a child of the event route. */
+    childPage?: boolean;
   }
 }

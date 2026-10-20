@@ -75,11 +75,15 @@ class Participant(Base):
     is_ticket_delivered: Mapped[bool] = mapped_column(
         sqlalchemy.Boolean, nullable=False, default=False
     )
-    activated: Mapped[bool] = mapped_column(
+    activated: Mapped[bool | None] = mapped_column(
         sqlalchemy.Boolean,
-        nullable=False,
-        default=True,
-        server_default=sqlalchemy.true(),
+        nullable=True,
+        default=None,
+    )
+    managed_by_data_source_id: Mapped[uuid.UUID | None] = mapped_column(
+        sqlalchemy.Uuid,
+        sqlalchemy.ForeignKey("data_source.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     event: Mapped["Event"] = relationship(back_populates="participants")
@@ -128,6 +132,88 @@ Participant.checkedInAt = column_property(
 Participant.isTicketReady = column_property(Participant.ticket_img.isnot(None))
 
 Event.hasBoothImage = column_property(Event.booth_image.isnot(None))
+
+
+class DataSource(Base):
+    __tablename__ = "data_source"
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint(
+            "event_id", "name", name="uq_data_source_event_name"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sqlalchemy.Uuid, primary_key=True)
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        sqlalchemy.Uuid,
+        sqlalchemy.ForeignKey("event.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(sqlalchemy.String, nullable=False)
+    url: Mapped[str] = mapped_column(sqlalchemy.String, nullable=False)
+    headers: Mapped[list[dict[str, str]]] = mapped_column(
+        sqlalchemy.JSON, nullable=False, default=list
+    )
+    sheet_name: Mapped[str] = mapped_column(sqlalchemy.String, nullable=False)
+    tracking: Mapped[str] = mapped_column(sqlalchemy.String, nullable=False)
+    strategy: Mapped[str | None] = mapped_column(sqlalchemy.String, nullable=True)
+    name_match_mode: Mapped[str | None] = mapped_column(
+        sqlalchemy.String, nullable=True
+    )
+    activate_new: Mapped[bool] = mapped_column(
+        sqlalchemy.Boolean,
+        nullable=False,
+        default=True,
+        server_default=sqlalchemy.true(),
+    )
+    activated: Mapped[bool] = mapped_column(
+        sqlalchemy.Boolean,
+        nullable=False,
+        default=True,
+        server_default=sqlalchemy.true(),
+    )
+    title_column: Mapped[str | None] = mapped_column(sqlalchemy.String, nullable=True)
+    name_column: Mapped[str] = mapped_column(sqlalchemy.String, nullable=False)
+    raw_phone_column: Mapped[str | None] = mapped_column(
+        sqlalchemy.String, nullable=True
+    )
+    email_column: Mapped[str | None] = mapped_column(sqlalchemy.String, nullable=True)
+    last_attempt_at: Mapped[str | None] = mapped_column(
+        sqlalchemy.String, nullable=True
+    )
+    last_success_at: Mapped[str | None] = mapped_column(
+        sqlalchemy.String, nullable=True
+    )
+    last_error: Mapped[str | None] = mapped_column(sqlalchemy.Text, nullable=True)
+    last_summary: Mapped[dict[str, object] | None] = mapped_column(
+        sqlalchemy.JSON, nullable=True
+    )
+
+    rows: Mapped[list["DataSourceRow"]] = relationship(
+        back_populates="data_source", cascade="all, delete-orphan"
+    )
+
+
+class DataSourceRow(Base):
+    __tablename__ = "data_source_row"
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint(
+            "data_source_id", "participant_id", name="uq_data_source_row_participant"
+        ),
+    )
+
+    data_source_id: Mapped[uuid.UUID] = mapped_column(
+        sqlalchemy.Uuid,
+        sqlalchemy.ForeignKey("data_source.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    row_number: Mapped[int] = mapped_column(sqlalchemy.Integer, primary_key=True)
+    participant_id: Mapped[uuid.UUID] = mapped_column(
+        sqlalchemy.Uuid,
+        sqlalchemy.ForeignKey("participant.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    data_source: Mapped["DataSource"] = relationship(back_populates="rows")
 
 
 class AdminSession(Base):

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@mui/material";
+import { Box, IconButton, Tooltip, Typography } from "@mui/material";
+import LaunchIcon from "@mui/icons-material/Launch";
 import type { QueryClient } from "@tanstack/react-query";
-import { useSnackbar } from "notistack";
+import { useNavigate } from "@tanstack/react-router";
+import { useSnackbar, type SnackbarKey } from "notistack";
 import { apiUrl, sessionStatus } from "../api";
 import { redirectToLogin } from "../providers/redirectToLogin";
 import { useAuth } from "../providers/useAuth";
+import type { DataSourceSyncState } from "../providers/useDataSourceSync";
+import { summaryParts } from "../pages/dataSources/types";
 
 interface ProgressState {
   inProgress: boolean;
@@ -41,10 +45,27 @@ interface SseAttendanceData {
   checkInAt: string;
 }
 
+interface SseDataSourceSyncData {
+  sourceId: string;
+  sourceName: string;
+  inProgress: boolean;
+  added: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  errorSamples: string[];
+  detail: string | null;
+}
+
 interface SseRawEvent {
   eventType: string;
   type: string;
-  data: SseProgressData | SseSuccessData | SseErrorData | SseAttendanceData;
+  data:
+    | SseProgressData
+    | SseSuccessData
+    | SseErrorData
+    | SseAttendanceData
+    | SseDataSourceSyncData;
 }
 
 export interface AttendanceDialogEntry {
@@ -63,6 +84,7 @@ export interface UseEventStreamReturn {
   dismissResultDialog: () => void;
   attendanceDialog: AttendanceDialogEntry | null;
   dismissAttendanceDialog: () => void;
+  dataSourceSync: DataSourceSyncState | null;
 }
 
 export function useEventStream(
@@ -71,6 +93,7 @@ export function useEventStream(
 ): UseEventStreamReturn {
   const { isAuthenticated } = useAuth();
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
+  const navigate = useNavigate();
   const stoppedRef = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,6 +101,7 @@ export function useEventStream(
   const queryClientRef = useRef(queryClient);
   const enqueueSnackbarRef = useRef(enqueueSnackbar);
   const closeSnackbarRef = useRef(closeSnackbar);
+  const navigateRef = useRef(navigate);
 
   useEffect(() => {
     queryClientRef.current = queryClient;
@@ -91,6 +115,10 @@ export function useEventStream(
     closeSnackbarRef.current = closeSnackbar;
   }, [closeSnackbar]);
 
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
+
   const [createParticipantProgress, setCreateParticipantProgress] =
     useState<ProgressState | null>(null);
   const [sendEmailProgress, setSendEmailProgress] =
@@ -102,6 +130,8 @@ export function useEventStream(
   } | null>(null);
   const [attendanceDialog, setAttendanceDialog] =
     useState<AttendanceDialogEntry | null>(null);
+  const [dataSourceSync, setDataSourceSync] =
+    useState<DataSourceSyncState | null>(null);
 
   const dismissResultDialog = useCallback(() => {
     setResultDialog(null);
@@ -166,6 +196,20 @@ export function useEventStream(
         });
       };
 
+      /** Icon-only action: the label stays as the tooltip and the accessible name. */
+      const toastAction = (label: string, onClick: () => void) => (
+        <Tooltip title={label}>
+          <IconButton
+            size="small"
+            color="inherit"
+            aria-label={label}
+            onClick={onClick}
+          >
+            <LaunchIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      );
+
       const handleNotificationSuccess = (
         message: string,
         resultId?: string,
@@ -173,18 +217,11 @@ export function useEventStream(
         if (resultId) {
           enqueueSnackbarRef.current(message, {
             variant: "success",
-            action: (key) => (
-              <Button
-                size="small"
-                sx={{ color: "white" }}
-                onClick={() => {
-                  setResultDialog({ resultId });
-                  closeSnackbarRef.current(key);
-                }}
-              >
-                View Result
-              </Button>
-            ),
+            action: (key) =>
+              toastAction("View result", () => {
+                setResultDialog({ resultId });
+                closeSnackbarRef.current(key);
+              }),
           });
         } else {
           enqueueSnackbarRef.current(message, { variant: "success" });
@@ -200,6 +237,27 @@ export function useEventStream(
           queryKey: ["participants", eventId],
         });
       };
+
+      /** Two lines read better than one long sentence on a sync failure. */
+      const syncToast = (title: string, body: string) => (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {title}
+          </Typography>
+          <Typography variant="body2">{body}</Typography>
+        </Box>
+      );
+
+      const sourceAction =
+        (sourceId: string | null, label: string) => (key: SnackbarKey) =>
+          toastAction(label, () => {
+            void navigateRef.current({
+              to: "/admin/events/$eventId/dataSources",
+              params: { eventId },
+              search: sourceId ? { syncErrors: sourceId } : {},
+            });
+            closeSnackbarRef.current(key);
+          });
 
       if (ev.eventType === "CREATE_PARTICIPANT") {
         if (ev.type === "PROGRESS") {
@@ -250,6 +308,59 @@ export function useEventStream(
             );
           }
         }
+      } else if (ev.eventType === "DATA_SOURCE_SYNC") {
+        const data = ev.data as SseDataSourceSyncData;
+        if (data.inProgress) {
+          // A page opened mid-sync still sees it: the backend keeps this event while it runs.
+          setDataSourceSync({
+            sourceId: data.sourceId,
+            sourceName: data.sourceName,
+          });
+          // Fetch the list now: a tab that has not listed this source yet needs its
+          // card on screen to show the sync in progress.
+          queryClientRef.current.invalidateQueries({
+            queryKey: ["dataSources", eventId],
+          });
+        } else {
+          setDataSourceSync(null);
+          queryClientRef.current.invalidateQueries({
+            queryKey: ["participants", eventId],
+          });
+          queryClientRef.current.invalidateQueries({
+            queryKey: ["dataSources", eventId],
+          });
+          // shortcut: one toast per changed source per cycle, no batching; batch them
+          // if a deployment ever runs many chatty sources.
+          if (data.detail) {
+            enqueueSnackbarRef.current(
+              syncToast(`${data.sourceName} — sync failed`, data.detail),
+              { variant: "error", action: sourceAction(null, "View") },
+            );
+          } else if (data.added > 0 || data.updated > 0 || data.errors > 0) {
+            const parts = summaryParts(data);
+            if (data.errors > 0) {
+              const first = data.errorSamples[0];
+              const more = data.errorSamples.length - 1;
+              enqueueSnackbarRef.current(
+                syncToast(
+                  `${data.sourceName} — some participant records could not be synced`,
+                  first
+                    ? `${parts.join(", ")}. ${first}${more > 0 ? ` and ${more} more` : ""}`
+                    : parts.join(", "),
+                ),
+                {
+                  variant: "warning",
+                  action: sourceAction(data.sourceId, "View errors"),
+                },
+              );
+            } else {
+              enqueueSnackbarRef.current(
+                `${data.sourceName}: ${parts.join(", ")}`,
+                { variant: "success" },
+              );
+            }
+          }
+        }
       } else if (ev.eventType === "ATTENDANCE") {
         if (ev.type === "NOTIFICATION") {
           const data = ev.data as SseAttendanceData;
@@ -298,5 +409,6 @@ export function useEventStream(
     dismissResultDialog,
     attendanceDialog,
     dismissAttendanceDialog,
+    dataSourceSync,
   };
 }

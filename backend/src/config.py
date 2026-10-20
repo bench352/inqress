@@ -18,6 +18,7 @@ class AppConfig(pydantic.BaseModel):
     organization_name: str | None = None
     default_country_code: str = "HK"
     max_upload_mb: int = pydantic.Field(default=30, ge=1)
+    data_source_poll_minutes: int = pydantic.Field(default=5, ge=1)
 
 
 class LoginRateLimitConfig(pydantic.BaseModel):
@@ -55,9 +56,11 @@ class Config(pydantic.BaseModel):
 _config: Config | None = None
 
 
-def get_config() -> Config:
+def get_config(*, fresh: bool = False) -> Config:
+    """The process-wide config. `fresh` reads the file again without replacing it,
+    for a long-running loop that has to see an edited file."""
     global _config
-    if _config is not None:
+    if _config is not None and not fresh:
         return _config
 
     config_path = os.getenv("CONFIG_PATH", str(_DATA_DIR / "config.yaml"))
@@ -73,5 +76,7 @@ def get_config() -> Config:
     with open(config_file) as f:
         data = yaml.safe_load(f) or {}
 
-    _config = Config(**data)
-    return _config
+    loaded = Config(**data)
+    if not fresh:
+        _config = loaded
+    return loaded
