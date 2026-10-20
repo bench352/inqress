@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   AppBar,
   Alert,
@@ -149,6 +155,9 @@ export default function CompanionJoin() {
   const [error, setError] = useState<string | null>(null);
   const [manualToken, setManualToken] = useState("");
   const [manualEventId, setManualEventId] = useState("");
+  const [manualSubmitted, setManualSubmitted] = useState(false);
+  const manualEventIdError = manualSubmitted && !manualEventId.trim();
+  const manualTokenError = manualSubmitted && !manualToken.trim();
   const [pendingPair] = useState(() => readPairHash(window.location.hash));
   const exchangingRef = useRef(false);
 
@@ -190,6 +199,13 @@ export default function CompanionJoin() {
       await handleExchange(pendingPair.eventId, pendingPair.token);
     })();
   }, [pendingPair, handleExchange]);
+
+  function handleManualExchange(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setManualSubmitted(true);
+    if (!manualEventId.trim() || !manualToken.trim()) return;
+    void handleExchange(manualEventId.trim(), manualToken.trim());
+  }
 
   function onQrDecode(result: unknown) {
     const text = asString(result);
@@ -294,7 +310,7 @@ export default function CompanionJoin() {
               color="text.secondary"
               sx={{ textAlign: "center" }}
             >
-              Point the camera at the QR code shown on the admin screen.
+              Scan the QR code shown on the "Pair companion device" screen.
             </Typography>
             {error && (
               <Alert severity="error" onClose={() => setError(null)}>
@@ -309,23 +325,31 @@ export default function CompanionJoin() {
             >
               Enter manually
             </Typography>
-            <TextField
-              label="Event ID"
-              value={manualEventId}
-              onChange={(e) => setManualEventId(e.target.value)}
-            />
-            <TextField
-              label="Pairing token"
-              value={manualToken}
-              onChange={(e) => setManualToken(e.target.value)}
-            />
-            <Button
-              variant="contained"
-              disabled={!manualEventId || !manualToken}
-              onClick={() => void handleExchange(manualEventId, manualToken)}
-            >
-              Exchange pairing token
-            </Button>
+            <Box component="form" onSubmit={handleManualExchange} noValidate>
+              <Stack spacing={2}>
+                <TextField
+                  label="Event ID"
+                  value={manualEventId}
+                  onChange={(e) => setManualEventId(e.target.value)}
+                  required
+                  error={manualEventIdError}
+                  helperText={manualEventIdError ? "Event ID is required" : " "}
+                />
+                <TextField
+                  label="Pairing token"
+                  value={manualToken}
+                  onChange={(e) => setManualToken(e.target.value)}
+                  required
+                  error={manualTokenError}
+                  helperText={
+                    manualTokenError ? "Pairing token is required" : " "
+                  }
+                />
+                <Button type="submit" variant="contained">
+                  Exchange pairing token
+                </Button>
+              </Stack>
+            </Box>
           </Stack>
         )}
 

@@ -8,6 +8,7 @@ app:
   organization_name: "Example Ltd."
   default_country_code: "HK"
   max_upload_mb: 30
+  data_source_poll_minutes: 1
 
 auth:
   admin_username: "NeverGonnaGiveYouUp"

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
@@ -26,15 +27,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { ApiError, useApi } from "@/api.ts";
 import TabIcon from "@mui/icons-material/Tab";
-
-const PARTICIPANT_FIELDS = [
-  "(Ignore)",
-  "Title",
-  "Name",
-  "Phone",
-  "Email",
-] as const;
-type ParticipantField = (typeof PARTICIPANT_FIELDS)[number];
+import {
+  PARTICIPANT_FIELDS,
+  type ParticipantField,
+} from "@/components/participantFields";
 
 interface SheetPreview {
   columns: string[];
@@ -428,6 +424,10 @@ export default function AddParticipantsBySpreadsheet() {
             <Typography variant="body1" color="textSecondary">
               This sheet is empty.
             </Typography>
+          )}
+
+          {isImportDisabled && (
+            <Alert severity="warning">Map a column to Name to continue.</Alert>
           )}
 
           <Box>

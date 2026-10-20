@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import {
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -27,14 +28,20 @@ export default function AddEventDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<dayjs.Dayjs | null>(dayjs());
+  const [submitted, setSubmitted] = useState(false);
+  const nameError = submitted && !name.trim();
+  const dateError = submitted && !date;
 
-  const handleSubmit = () => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmitted(true);
     if (!name.trim() || !date) return;
     onSubmit({
       name: name.trim(),
       description: description.trim(),
       date: date.format("YYYY-MM-DD"),
     });
+    setSubmitted(false);
     setName("");
     setDescription("");
     setDate(dayjs());
@@ -43,6 +50,7 @@ export default function AddEventDialog({
 
   const handleClose = () => {
     if (!loading) {
+      setSubmitted(false);
       setName("");
       setDescription("");
       setDate(dayjs());
@@ -54,40 +62,57 @@ export default function AddEventDialog({
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Event</DialogTitle>
       <DialogContent>
-        <TextField
-          autoFocus
-          margin="dense"
-          label="Event Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          fullWidth
-          required
-        />
-        <TextField
-          margin="dense"
-          label="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          fullWidth
-          multiline
-          rows={3}
-        />
-        <DatePicker
-          label="Date"
-          value={date}
-          onChange={setDate}
-          format="YYYY-MM-DD"
-          sx={{ mt: 1, width: "100%" }}
-        />
+        <Box
+          component="form"
+          id="add-event-form"
+          onSubmit={handleSubmit}
+          noValidate
+        >
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Event Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            fullWidth
+            required
+            error={nameError}
+            helperText={nameError ? "Event name is required" : " "}
+          />
+          <TextField
+            margin="dense"
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            fullWidth
+            multiline
+            rows={3}
+          />
+          <DatePicker
+            label="Date"
+            value={date}
+            onChange={setDate}
+            format="YYYY-MM-DD"
+            slotProps={{
+              textField: {
+                required: true,
+                error: dateError,
+                helperText: dateError ? "Date is required" : " ",
+              },
+            }}
+            sx={{ mt: 1, width: "100%" }}
+          />
+        </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={loading}>
+        <Button type="button" onClick={handleClose} disabled={loading}>
           Cancel
         </Button>
         <Button
-          onClick={handleSubmit}
+          type="submit"
+          form="add-event-form"
           variant="contained"
-          disabled={loading || !name.trim()}
+          disabled={loading}
         >
           Create Event
         </Button>

@@ -53,6 +53,7 @@ export default function DateDialog({
           value={selectedDate}
           onChange={handleDateChange}
           format="YYYY-MM-DD"
+          slotProps={{ textField: { required: true } }}
           sx={{ mt: 1, width: "100%" }}
         />
       </DialogContent>

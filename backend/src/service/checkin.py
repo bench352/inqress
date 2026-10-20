@@ -25,6 +25,15 @@ def _is_duplicate_checkin(exc: IntegrityError) -> bool:
     return "unique constraint failed" in message and "attendance_log" in message
 
 
+def _inactive_reason(activated: bool | None) -> str | None:
+    """Why check-in is refused, or None when the participant may check in."""
+    if activated is True:
+        return None
+    if activated is False:
+        return "Ticket is deactivated."
+    return "Ticket is not yet admitted."
+
+
 def _insert_attendance(
     event_id: uuid.UUID,
     participant_id: uuid.UUID,
@@ -153,10 +162,11 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinRe
                 detail=schema.rest.CheckinErrorDetail(reason="Already checked in."),
             )
 
-        if not participant.activated:
+        inactive = _inactive_reason(participant.activated)
+        if inactive is not None:
             return schema.rest.CheckinResponse(
                 success=False,
-                detail=schema.rest.CheckinErrorDetail(reason="Ticket is deactivated."),
+                detail=schema.rest.CheckinErrorDetail(reason=inactive),
             )
 
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
@@ -272,10 +282,11 @@ def checkin_by_phone(
                 detail=schema.rest.CheckinErrorDetail(reason="Already checked in"),
             )
 
-        if not participant.activated:
+        inactive = _inactive_reason(participant.activated)
+        if inactive is not None:
             return schema.rest.CheckinResponse(
                 success=False,
-                detail=schema.rest.CheckinErrorDetail(reason="Ticket is deactivated."),
+                detail=schema.rest.CheckinErrorDetail(reason=inactive),
             )
 
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
@@ -389,10 +400,11 @@ def checkin_by_email(event_id: uuid.UUID, email: str) -> schema.rest.CheckinResp
                 detail=schema.rest.CheckinErrorDetail(reason="Already checked in"),
             )
 
-        if not participant.activated:
+        inactive = _inactive_reason(participant.activated)
+        if inactive is not None:
             return schema.rest.CheckinResponse(
                 success=False,
-                detail=schema.rest.CheckinErrorDetail(reason="Ticket is deactivated."),
+                detail=schema.rest.CheckinErrorDetail(reason=inactive),
             )
 
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
@@ -522,10 +534,9 @@ def _lookup_participant_for_checkin(
                 status_code=422, detail="Participant is already checked in"
             )
 
-        if not participant.activated:
-            raise fastapi.HTTPException(
-                status_code=422, detail="Ticket is deactivated."
-            )
+        inactive = _inactive_reason(participant.activated)
+        if inactive is not None:
+            raise fastapi.HTTPException(status_code=422, detail=inactive)
 
         return schema.service.CheckinInfo(
             event_mode=schema.enum.EventMode(event.mode),

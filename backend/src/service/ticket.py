@@ -87,11 +87,21 @@ def generate_ticket(
     return token.decode()
 
 
+class _QuietStreamManager:
+    """Drops progress notifications, for background work that must stay silent."""
+
+    def send(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+
 def generate_qrs_task(
     event_id: uuid.UUID,
     participant_ids: list[uuid.UUID],
+    notify: bool = True,
 ) -> None:
-    manager = service.event_stream.event_stream_manager
+    manager: Any = (
+        service.event_stream.event_stream_manager if notify else _QuietStreamManager()
+    )
     total = len(participant_ids)
     if total == 0:
         manager.send(

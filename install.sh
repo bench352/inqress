@@ -199,6 +199,8 @@ generate_config() {
     fi
     echo '  default_country_code: "'"$(yaml_quote "$country_code")"'"'
     echo "  max_upload_mb: 30"
+    echo "  # Minutes between background syncs of the event data sources."
+    echo "  data_source_poll_minutes: 5"
     echo ""
     echo "auth:"
     echo '  admin_username: "'"$(yaml_quote "$admin_username")"'"'

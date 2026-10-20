@@ -12,6 +12,7 @@ import api.admin
 import api.auth
 import api.checkin
 import api.companion
+import api.data_source
 import api.events
 import api.health
 import api.info
@@ -20,9 +21,12 @@ import api.spreadsheet
 import api.streams
 import config
 import service.auth
+import service.data_source
 import service.db
 
-logging.basicConfig(level=logging.INFO)
+# force= because an imported library (pictex) calls bare basicConfig() first, which
+# would otherwise make this a no-op and drop every INFO log the app writes.
+logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 cfg = config.get_config()
@@ -34,7 +38,11 @@ async def lifespan(app: fastapi.FastAPI):
     _alembic_cfg = Config(str(pathlib.Path(__file__).resolve().parent / "alembic.ini"))
     command.upgrade(_alembic_cfg, "head")
     logger.info("DB migrations completed!")
-    yield
+    poller_stop = service.data_source.start_poller()
+    try:
+        yield
+    finally:
+        poller_stop.set()
 
 
 app_version = os.getenv("APP_VERSION", "0.0.0")
@@ -77,6 +85,11 @@ app.include_router(
 )
 app.include_router(
     api.spreadsheet.router,
+    prefix="/api",
+    dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
+)
+app.include_router(
+    api.data_source.router,
     prefix="/api",
     dependencies=[fastapi.Depends(service.auth.verify_session_cookie)],
 )

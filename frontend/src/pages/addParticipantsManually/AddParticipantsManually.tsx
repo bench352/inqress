@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import {
-  Box,
   Button,
   IconButton,
   MenuItem,
@@ -160,7 +159,10 @@ export default function AddParticipantsManually() {
   };
 
   const handleSubmit = () => {
-    if (!validateRows()) return;
+    if (!validateRows()) {
+      setActiveStep(0);
+      return;
+    }
     const payload = rows.map(({ title, name, email, rawPhone }) => ({
       title: title || null,
       name,
@@ -169,12 +171,6 @@ export default function AddParticipantsManually() {
     }));
     mutation.mutate(payload);
   };
-
-  const hasValidationError = Object.keys(rowErrors).length > 0;
-
-  const hasAnyField = rows.some(
-    (r) => r.title || r.name || r.email || r.rawPhone,
-  );
 
   return (
     <Stack spacing={3}>
@@ -231,6 +227,8 @@ export default function AddParticipantsManually() {
                           clearRowError(row.key, "name");
                         }}
                         error={!!rowErrors[row.key]?.name}
+                        helperText={rowErrors[row.key]?.name}
+                        required
                         size="small"
                         fullWidth
                         placeholder="Name *"
@@ -288,24 +286,17 @@ export default function AddParticipantsManually() {
             Add Row
           </Button>
 
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Button
-              variant="contained"
-              onClick={() => {
-                if (validateRows()) {
-                  setActiveStep(1);
-                }
-              }}
-              disabled={!hasAnyField}
-            >
-              Next
-            </Button>
-            {hasValidationError && (
-              <Typography variant="body1" color="error">
-                Complete the required fields
-              </Typography>
-            )}
-          </Box>
+          <Button
+            variant="contained"
+            sx={{ alignSelf: "flex-start" }}
+            onClick={() => {
+              if (validateRows()) {
+                setActiveStep(1);
+              }
+            }}
+          >
+            Next
+          </Button>
         </Stack>
       )}
 

@@ -19,10 +19,15 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const usernameError = submitted && !username.trim();
+  const passwordError = submitted && !password;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setSubmitted(true);
     setError(null);
+    if (loading || !username.trim() || !password) return;
     setLoading(true);
 
     try {
@@ -104,6 +109,17 @@ export default function Login() {
               >
                 Login as admin
               </Button>
+              <Button
+                variant="text"
+                size="small"
+                fullWidth
+                sx={{ mt: 1 }}
+                onClick={() => {
+                  void logout();
+                }}
+              >
+                Logout
+              </Button>
             </>
           ) : (
             <>
@@ -122,6 +138,8 @@ export default function Login() {
                   fullWidth
                   autoFocus
                   required
+                  error={usernameError}
+                  helperText={usernameError ? "Username is required" : " "}
                   sx={{ mb: 2 }}
                 />
                 <TextField
@@ -131,6 +149,8 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   fullWidth
                   required
+                  error={passwordError}
+                  helperText={passwordError ? "Password is required" : " "}
                   sx={{ mb: 2 }}
                 />
                 {error && (
@@ -143,7 +163,6 @@ export default function Login() {
                   variant="contained"
                   fullWidth
                   loading={loading}
-                  disabled={!username || !password}
                 >
                   Login
                 </Button>
@@ -151,19 +170,6 @@ export default function Login() {
             </>
           )}
           {companionSection}
-          {isAuthenticated && (
-            <Button
-              variant="text"
-              size="small"
-              fullWidth
-              sx={{ mt: 1 }}
-              onClick={() => {
-                void logout();
-              }}
-            >
-              Logout
-            </Button>
-          )}
         </CardContent>
       </Card>
     </Box>

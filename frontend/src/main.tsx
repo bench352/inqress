@@ -14,6 +14,7 @@ import QueryClientProvider from "./providers/QueryClientProvider";
 import SessionAuthProvider from "./providers/SessionAuthProvider";
 import AppInfoProvider from "./providers/AppInfoProvider";
 import SystemClockProvider from "./providers/SystemClockProvider";
+import SnackbarAlert from "./components/SnackbarAlert";
 import { router } from "./router";
 
 const theme = createTheme({
@@ -32,7 +33,17 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <SnackbarProvider maxSnack={6} autoHideDuration={10000}>
+      <SnackbarProvider
+        maxSnack={6}
+        autoHideDuration={10000}
+        Components={{
+          default: SnackbarAlert,
+          success: SnackbarAlert,
+          error: SnackbarAlert,
+          warning: SnackbarAlert,
+          info: SnackbarAlert,
+        }}
+      >
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <QueryClientProvider>
             <SessionAuthProvider>

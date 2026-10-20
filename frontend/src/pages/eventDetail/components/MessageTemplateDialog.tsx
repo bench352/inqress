@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type MutableRefObject,
+} from "react";
 import {
   Box,
   Button,
@@ -62,6 +68,7 @@ function LetterForm({
   } | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkSubmitted, setLinkSubmitted] = useState(false);
   const [toolbarBottom, setToolbarBottom] = useState<number | null>(null);
 
   useEffect(() => {
@@ -135,6 +142,18 @@ function LetterForm({
     setFieldMenu(null);
   };
 
+  const handleLinkSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLinkSubmitted(true);
+    if (!linkUrl.trim() || !allowedUrl(linkUrl)) return;
+    applyLink();
+  };
+
+  const closeLink = () => {
+    setLinkOpen(false);
+    setLinkSubmitted(false);
+  };
+
   const applyLink = () => {
     if (!allowedUrl(linkUrl)) return;
     const { empty } = editor.state.selection;
@@ -152,6 +171,7 @@ function LetterForm({
       editor.chain().focus().setLink({ href: linkUrl }).run();
     }
     setLinkOpen(false);
+    setLinkSubmitted(false);
     setLinkUrl("");
   };
 
@@ -216,7 +236,10 @@ function LetterForm({
               <ToggleButton
                 value="link"
                 selected={editor.isActive("link")}
-                onClick={() => setLinkOpen(true)}
+                onClick={() => {
+                  setLinkSubmitted(false);
+                  setLinkOpen(true);
+                }}
                 aria-label="Link"
               >
                 <LinkIcon fontSize="small" />
@@ -280,23 +303,40 @@ function LetterForm({
           ))}
           <MenuItem onClick={() => insertField("ticketQR")}>QR ticket</MenuItem>
         </Menu>
-        <Dialog open={linkOpen} onClose={() => setLinkOpen(false)}>
+        <Dialog open={linkOpen} onClose={closeLink}>
           <DialogTitle>Add link</DialogTitle>
           <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="URL"
-              fullWidth
-              value={linkUrl}
-              onChange={(event) => setLinkUrl(event.target.value)}
-              helperText="Use an http, https, or mailto link."
-              error={linkUrl.length > 0 && !allowedUrl(linkUrl)}
-            />
+            <Box
+              component="form"
+              id="add-link-form"
+              onSubmit={handleLinkSubmit}
+              noValidate
+            >
+              <TextField
+                autoFocus
+                margin="dense"
+                label="URL"
+                fullWidth
+                value={linkUrl}
+                onChange={(event) => setLinkUrl(event.target.value)}
+                required
+                helperText={
+                  linkSubmitted && !linkUrl.trim()
+                    ? "A link is required."
+                    : "Use an http, https, or mailto link."
+                }
+                error={
+                  (linkSubmitted && !linkUrl.trim()) ||
+                  (linkUrl.length > 0 && !allowedUrl(linkUrl))
+                }
+              />
+            </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setLinkOpen(false)}>Cancel</Button>
-            <Button onClick={applyLink} disabled={!allowedUrl(linkUrl)}>
+            <Button type="button" onClick={closeLink}>
+              Cancel
+            </Button>
+            <Button type="submit" form="add-link-form">
               Add
             </Button>
           </DialogActions>

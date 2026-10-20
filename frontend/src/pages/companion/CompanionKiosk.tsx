@@ -15,6 +15,8 @@ import KioskEmailDialog from "./kiosk/KioskEmailDialog";
 import AssistedConfirmationDialog from "./kiosk/AssistedConfirmationDialog";
 import CheckinResultDisplay from "./kiosk/CheckinResultDisplay";
 import type { CheckinResponse } from "./kiosk/types";
+import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
+import useClearAdminSession from "./useClearAdminSession";
 
 interface Display {
   eventName: string;
@@ -148,14 +150,9 @@ export default function CompanionKiosk() {
     pendingConfirmRef.current = pendingConfirm;
   }, [dialog, display, pendingConfirm]);
 
-  // Clear any admin session lingering on this guest-facing browser.
-  // 401s when no session exists; that case is a harmless no-op.
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_BACKEND_API_URL ?? ""}/api/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => {});
-  }, []);
+  // A kiosk shares the browser with the admin pages; leaving the admin signed
+  // in would expose the admin section to whoever walks up to the device.
+  const adminCleared = useClearAdminSession();
 
   useEffect(() => {
     (async () => {
@@ -526,6 +523,8 @@ export default function CompanionKiosk() {
           onUnpaired={() => setUnpaired(true)}
         />
       )}
+
+      <CompanionAdminSessionAlert show={adminCleared} />
     </Box>
   );
 }

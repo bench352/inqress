@@ -88,6 +88,12 @@ class ParticipantsCreateRequest(RestModel):
     data: list[ParticipantCreate] = []
 
 
+class ManagedBy(RestModel):
+    id: uuid.UUID
+    name: str
+    writes_details: bool
+
+
 class ParticipantResponse(RestModel):
     id: uuid.UUID
     event_id: uuid.UUID
@@ -100,7 +106,8 @@ class ParticipantResponse(RestModel):
     is_ticket_delivered: bool
     is_ticket_ready: bool
     checked_in_at: str | None = None
-    activated: bool
+    activated: bool | None
+    managed_by: ManagedBy | None = None
 
 
 class ScanRequest(RestModel):
@@ -194,6 +201,70 @@ class SpreadsheetImportRequest(RestModel):
     name_match_mode: schema.enum.NameMatchMode
     row_mapping: RowMapping
     activate_new: bool = True
+
+
+class DataSourceHeader(RestModel):
+    name: str
+    value: str
+
+
+class DataSourceBase(RestModel):
+    name: str
+    headers: list[DataSourceHeader] = []
+    sheet_name: str
+    tracking: schema.enum.DataSourceTracking
+    strategy: schema.enum.DuplicateStrategy | None = None
+    name_match_mode: schema.enum.NameMatchMode | None = None
+    activate_new: bool = True
+    title_column: str | None = None
+    name_column: str
+    raw_phone_column: str | None = None
+    email_column: str | None = None
+
+
+class DataSourceCreate(DataSourceBase):
+    url: str
+
+
+class DataSourceUpdate(DataSourceBase):
+    clear_row_links: bool = False
+
+
+class DataSourceActivatedUpdate(RestModel):
+    activated: bool
+
+
+class DataSourceConflictDetail(RestModel):
+    code: str
+    message: str
+
+
+class DataSourceSummary(RestModel):
+    added: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: int = 0
+    error_samples: list[str] = []
+
+
+class DataSourceResponse(DataSourceBase):
+    id: uuid.UUID
+    url: str
+    activated: bool
+    last_attempt_at: str | None = None
+    last_success_at: str | None = None
+    last_error: str | None = None
+    last_summary: DataSourceSummary | None = None
+    sync_skipped: bool = False
+
+
+class DataSourcePreviewRequest(RestModel):
+    url: str
+    headers: list[DataSourceHeader] = []
+
+
+class DataSourcePreviewResponse(RestModel):
+    sheets: dict[str, SheetPreview]
 
 
 class InfoResponse(RestModel):

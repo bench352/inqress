@@ -48,6 +48,7 @@ import ModeDialog from "./components/ModeDialog";
 import ModifyEventsDialog from "./components/ModifyEventsDialog";
 import ParticipantGrid from "@/components/ParticipantGrid";
 import { useApi } from "@/api.ts";
+import DataSourceSyncProvider from "../../providers/DataSourceSyncProvider";
 import { useDebounce } from "@/hooks/useDebounce.ts";
 import { useEventStream } from "../../hooks/useEventStream";
 
@@ -128,14 +129,13 @@ export default function EventDetail() {
     dismissResultDialog,
     attendanceDialog,
     dismissAttendanceDialog,
+    dataSourceSync,
   } = useEventStream(eventId, queryClient);
 
+  // Child pages replace the event detail view. They opt in from the router so that
+  // adding a route is enough to get the layout right.
   const matches = useMatches();
-  const isChildRouteActive = matches.some(
-    (m) =>
-      m.pathname?.includes("/addParticipantsBySpreadsheet") ||
-      m.pathname?.includes("/addParticipantsManually"),
-  );
+  const isChildRouteActive = matches.some((m) => m.staticData?.childPage);
 
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [modeDialogOpen, setModeDialogOpen] = useState(false);
@@ -260,6 +260,14 @@ export default function EventDetail() {
     [filteredParticipants],
   );
 
+  const filteredPending = useMemo(
+    () =>
+      filteredParticipants
+        .filter((a) => a.checkedInAt == null && a.activated == null)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [filteredParticipants],
+  );
+
   const filteredNotAttended = useMemo(
     () =>
       filteredParticipants
@@ -268,7 +276,7 @@ export default function EventDetail() {
             a.checkedInAt == null &&
             a.isTicketReady &&
             a.isTicketDelivered &&
-            a.activated !== false,
+            a.activated === true,
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
     [filteredParticipants],
@@ -279,7 +287,7 @@ export default function EventDetail() {
       filteredParticipants
         .filter(
           (a) =>
-            a.checkedInAt == null && !a.isTicketReady && a.activated !== false,
+            a.checkedInAt == null && !a.isTicketReady && a.activated === true,
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
     [filteredParticipants],
@@ -293,7 +301,7 @@ export default function EventDetail() {
             a.checkedInAt == null &&
             a.isTicketReady &&
             !a.isTicketDelivered &&
-            a.activated !== false,
+            a.activated === true,
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
     [filteredParticipants],
@@ -312,14 +320,16 @@ export default function EventDetail() {
       a.isTicketReady &&
       !a.isTicketDelivered &&
       a.email &&
-      a.activated !== false,
+      a.activated === true,
   ).length;
+  const pendingCount = participants.filter((a) => a.activated == null).length;
   const notReadyCount = participants.filter((a) => !a.isTicketReady).length;
   const notReadyIds = participants
     .filter((a) => a.checkedInAt == null && !a.isTicketReady)
     .map((a) => a.id);
 
   const hasActionsContent =
+    filteredPending.length > 0 ||
     undeliveredReadyCount > 0 ||
     notReadyCount > 0 ||
     !!createParticipantProgress?.inProgress ||
@@ -338,7 +348,7 @@ export default function EventDetail() {
 
   if (isChildRouteActive) {
     return (
-      <>
+      <DataSourceSyncProvider value={dataSourceSync}>
         <Outlet />
         {resultDialog && (
           <ImportResultDialog
@@ -354,7 +364,7 @@ export default function EventDetail() {
             onDismiss={dismissAttendanceDialog}
           />
         )}
-      </>
+      </DataSourceSyncProvider>
     );
   }
 
@@ -441,6 +451,7 @@ export default function EventDetail() {
       {hasActionsContent && (
         <ActionsSection
           eventId={eventId}
+          pendingCount={pendingCount}
           undeliveredReadyCount={undeliveredReadyCount}
           notReadyCount={notReadyCount}
           notReadyIds={notReadyIds}
@@ -492,6 +503,16 @@ export default function EventDetail() {
         />
       </Stack>
 
+      {filteredPending.length > 0 && (
+        <Box id="pending-participants">
+          <ParticipantGrid
+            participants={filteredPending}
+            title="To be admitted"
+            onClick={(id) => setSelectedParticipantId(id)}
+          />
+        </Box>
+      )}
+
       {filteredAttended.length > 0 && (
         <ParticipantGrid
           participants={filteredAttended}
@@ -539,6 +560,7 @@ export default function EventDetail() {
       )}
 
       {participants.length > 0 &&
+        filteredPending.length === 0 &&
         filteredAttended.length === 0 &&
         filteredNotAttended.length === 0 &&
         filteredNotDelivered.length === 0 &&
