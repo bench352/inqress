@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Container,
   List,
   ListItem,
   ListItemButton,
@@ -21,13 +20,13 @@ export default function Settings() {
   const [licenseDialogOpen, setLicenseDialogOpen] = useState(false);
 
   return (
-    <Container maxWidth="md" disableGutters>
+    <>
       <Typography variant="h4" sx={{ mb: 3 }}>
         Settings
       </Typography>
 
       <Typography variant="h6">Owner's Information</Typography>
-      <Typography variant="body1" color="textSecondary" sx={{ mb: 1 }}>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
         Contact your system administrator to update these details.
       </Typography>
       <List>
@@ -79,6 +78,6 @@ export default function Settings() {
         open={licenseDialogOpen}
         onClose={() => setLicenseDialogOpen(false)}
       />
-    </Container>
+    </>
   );
 }

@@ -325,7 +325,7 @@ export default function ShareTicketDialog({
                   </Paper>
                   <Box>
                     <Typography variant="subtitle1">Ticket preview</Typography>
-                    <Typography variant="body1" color="textSecondary">
+                    <Typography variant="body1" color="text.secondary">
                       Tap to view the full ticket
                     </Typography>
                   </Box>

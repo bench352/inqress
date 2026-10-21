@@ -32,6 +32,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import { useNavigate } from "@tanstack/react-router";
+import { alpha } from "@mui/material/styles";
 import { Scanner as QrScanner } from "@yudiel/react-qr-scanner";
 import { useCompanionApi } from "@/api";
 
@@ -116,7 +117,9 @@ function ModeOptionCard({
           p: 2,
           display: "flex",
           justifyContent: "flex-start",
-          "&[data-active]": { bgcolor: "primary.50" },
+          "&[data-active]": {
+            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+          },
         }}
       >
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>

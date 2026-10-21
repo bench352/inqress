@@ -31,58 +31,59 @@ async function parseApiError(res: Response): Promise<ApiError> {
   return new ApiError(res.status, body?.detail ?? `${res.status}`);
 }
 
-export function useApi() {
-  return useMemo(() => {
-    const fetchWithCreds = (path: string, init?: RequestInit) =>
-      fetch(`${apiUrl}${path}`, {
-        ...init,
-        credentials: "include",
-      });
+type Parse = "json" | "blob" | "text";
 
-    return {
-      get: async <T>(path: string): Promise<T> => {
-        const res = await fetchWithCreds(path);
-        if (res.status === 401) {
-          // Session expired or invalid
-          redirectToLogin(window.location.pathname);
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        if (res.status === 204) return undefined as unknown as Promise<T>;
-        return res.json() as Promise<T>;
-      },
-      post: async <T>(path: string, body?: unknown): Promise<T> => {
-        const res = await fetchWithCreds(path, {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  parse: Parse = "json",
+  redirectOn401 = false,
+): Promise<T> {
+  const res = await fetch(`${apiUrl}${path}`, {
+    ...init,
+    credentials: "include",
+  });
+  if (res.status === 401) {
+    // Session expired or invalid
+    if (redirectOn401) redirectToLogin(window.location.pathname);
+    throw await parseApiError(res);
+  }
+  if (!res.ok) throw await parseApiError(res);
+  if (parse === "blob") return (await res.blob()) as T;
+  if (parse === "text") return (await res.text()) as T;
+  if (res.status === 204) return undefined as unknown as T;
+  return (await res.json()) as T;
+}
+
+function createApi(redirectOn401: boolean) {
+  return {
+    get: <T>(path: string) => request<T>(path, {}, "json", redirectOn401),
+    post: <T>(path: string, body?: unknown) =>
+      request<T>(
+        path,
+        {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: body !== undefined ? JSON.stringify(body) : undefined,
-        });
-        if (res.status === 401) {
-          // Session expired or invalid
-          redirectToLogin(window.location.pathname);
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        if (res.status === 204) return undefined as unknown as Promise<T>;
-        return res.json() as Promise<T>;
-      },
-      put: async <T>(path: string, body: unknown): Promise<T> => {
-        const res = await fetchWithCreds(path, {
+        },
+        "json",
+        redirectOn401,
+      ),
+    put: <T>(path: string, body: unknown) =>
+      request<T>(
+        path,
+        {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
-        });
-        if (res.status === 401) {
-          // Session expired or invalid
-          redirectToLogin(window.location.pathname);
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        if (res.status === 204) return undefined as unknown as Promise<T>;
-        return res.json() as Promise<T>;
-      },
-      del: async <T>(path: string, body?: unknown): Promise<T> => {
-        const res = await fetchWithCreds(path, {
+        },
+        "json",
+        redirectOn401,
+      ),
+    del: <T>(path: string, body?: unknown) =>
+      request<T>(
+        path,
+        {
           method: "DELETE",
           ...(body !== undefined
             ? {
@@ -90,111 +91,41 @@ export function useApi() {
                 body: JSON.stringify(body),
               }
             : {}),
-        });
-        if (res.status === 401) {
-          // Session expired or invalid
-          redirectToLogin(window.location.pathname);
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        if (res.status === 204) return undefined as unknown as Promise<T>;
-        return res.json() as Promise<T>;
-      },
-      getBlob: async (path: string): Promise<Blob> => {
-        const res = await fetchWithCreds(path);
-        if (res.status === 401) {
-          // Session expired or invalid
-          redirectToLogin(window.location.pathname);
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        return res.blob();
-      },
-      getText: async (path: string): Promise<string> => {
-        const res = await fetchWithCreds(path);
-        if (res.status === 401) {
-          // Session expired or invalid
-          redirectToLogin(window.location.pathname);
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        return res.text();
-      },
-      postFormData: async <T>(path: string, formData: FormData): Promise<T> => {
-        const res = await fetchWithCreds(path, {
-          method: "POST",
-          body: formData,
-        });
-        if (res.status === 401) {
-          // Session expired or invalid
-          redirectToLogin(window.location.pathname);
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        if (res.status === 204) return undefined as unknown as Promise<T>;
-        return res.json() as Promise<T>;
-      },
-      postNoAuth: async <T>(path: string, body: unknown): Promise<T> => {
-        const res = await fetch(`${apiUrl}${path}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (res.status === 401) {
-          // Session expired or invalid
-          redirectToLogin(window.location.pathname);
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        if (res.status === 204) return undefined as unknown as Promise<T>;
-        return res.json() as Promise<T>;
-      },
-    };
-  }, []);
+        },
+        "json",
+        redirectOn401,
+      ),
+    getBlob: (path: string) => request<Blob>(path, {}, "blob", redirectOn401),
+    getText: (path: string) => request<string>(path, {}, "text", redirectOn401),
+    postFormData: <T>(path: string, formData: FormData) =>
+      request<T>(
+        path,
+        { method: "POST", body: formData },
+        "json",
+        redirectOn401,
+      ),
+    postNoAuth: async <T>(path: string, body: unknown): Promise<T> => {
+      const res = await fetch(`${apiUrl}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 401) {
+        if (redirectOn401) redirectToLogin(window.location.pathname);
+        throw await parseApiError(res);
+      }
+      if (!res.ok) throw await parseApiError(res);
+      if (res.status === 204) return undefined as unknown as T;
+      return (await res.json()) as T;
+    },
+  };
+}
+
+export function useApi() {
+  return useMemo(() => createApi(true), []);
 }
 
 export function useCompanionApi() {
   // Companion calls must never trigger the global admin login redirect.
-  return useMemo(() => {
-    const fetchWithCreds = (path: string, init?: RequestInit) =>
-      fetch(`${apiUrl}${path}`, {
-        ...init,
-        credentials: "include",
-      });
-
-    return {
-      get: async <T>(path: string): Promise<T> => {
-        const res = await fetchWithCreds(path);
-        if (res.status === 401) {
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        if (res.status === 204) return undefined as unknown as Promise<T>;
-        return res.json() as Promise<T>;
-      },
-      post: async <T>(path: string, body?: unknown): Promise<T> => {
-        const res = await fetchWithCreds(path, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: body !== undefined ? JSON.stringify(body) : undefined,
-        });
-        if (res.status === 401) {
-          throw await parseApiError(res);
-        }
-        if (!res.ok) throw await parseApiError(res);
-        if (res.status === 204) return undefined as unknown as Promise<T>;
-        return res.json() as Promise<T>;
-      },
-      postNoAuth: async <T>(path: string, body: unknown): Promise<T> => {
-        const res = await fetch(`${apiUrl}${path}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw await parseApiError(res);
-        if (res.status === 204) return undefined as unknown as Promise<T>;
-        return res.json() as Promise<T>;
-      },
-    };
-  }, []);
+  return useMemo(() => createApi(false), []);
 }

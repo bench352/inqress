@@ -19,7 +19,12 @@ import {
   Menu as MenuIcon,
   Settings as SettingsIcon,
 } from "@mui/icons-material";
-import { Outlet, useMatches, useNavigate } from "@tanstack/react-router";
+import {
+  Outlet,
+  useLocation,
+  useMatches,
+  useNavigate,
+} from "@tanstack/react-router";
 import { useAuth } from "../providers/useAuth";
 import { redirectToLogin } from "../providers/redirectToLogin";
 
@@ -28,12 +33,18 @@ const DRAWER_WIDTH = 240;
 function DrawerContent() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const pathname = useLocation({ select: (l) => l.pathname });
 
   return (
     <Box>
       <Toolbar />
       <List>
-        <ListItemButton onClick={() => navigate({ to: "/admin" })}>
+        <ListItemButton
+          selected={
+            pathname === "/admin" || pathname.startsWith("/admin/events")
+          }
+          onClick={() => navigate({ to: "/admin" })}
+        >
           <ListItemIcon>
             <EventIcon />
           </ListItemIcon>
@@ -43,7 +54,10 @@ function DrawerContent() {
       <Divider />
 
       <List>
-        <ListItemButton onClick={() => navigate({ to: "/admin/settings" })}>
+        <ListItemButton
+          selected={pathname.startsWith("/admin/settings")}
+          onClick={() => navigate({ to: "/admin/settings" })}
+        >
           <ListItemIcon>
             <SettingsIcon />
           </ListItemIcon>

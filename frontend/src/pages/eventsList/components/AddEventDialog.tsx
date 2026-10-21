@@ -112,7 +112,7 @@ export default function AddEventDialog({
           type="submit"
           form="add-event-form"
           variant="contained"
-          disabled={loading}
+          loading={loading}
         >
           Create Event
         </Button>

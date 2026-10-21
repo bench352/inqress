@@ -92,13 +92,7 @@ export default function PreviewTicketDialog({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      key={`preview-ticket-${open}`}
-    >
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Preview Ticket</DialogTitle>
       <DialogContent>
         <Box

@@ -29,7 +29,7 @@ export default function ProgressCard({ title, progress }: Props) {
           }
         />
         <Stack direction="row" sx={{ justifyContent: "space-between" }}>
-          <Typography variant="body1" color="textSecondary">
+          <Typography variant="body1" color="text.secondary">
             {title.toLowerCase()} {progress.numCompleted} / {progress.numTotal}{" "}
             completed
             {progress.numErrors > 0 && (
@@ -41,7 +41,7 @@ export default function ProgressCard({ title, progress }: Props) {
             )}
           </Typography>
           {progress.estRemainMin != null && (
-            <Typography variant="body1" color="textSecondary">
+            <Typography variant="body1" color="text.secondary">
               Estimated {progress.estRemainMin} minute
               {progress.estRemainMin !== 1 ? "s" : ""} remaining.
             </Typography>

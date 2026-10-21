@@ -13,6 +13,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import MergeIcon from "@mui/icons-material/Merge";
 import StrikethroughSIcon from "@mui/icons-material/StrikethroughS";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
@@ -118,7 +119,7 @@ function OptionCard({
           alignItems: "flex-start",
           justifyContent: "flex-start",
           "&[data-active]": {
-            bgcolor: "primary.50",
+            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
           },
         }}
       >
@@ -134,7 +135,7 @@ function OptionCard({
             >
               {label}
             </Typography>
-            <Typography variant="body1" color="textSecondary">
+            <Typography variant="body1" color="text.secondary">
               {description}
             </Typography>
           </Stack>
@@ -233,7 +234,7 @@ export default function DataHandlingStep({
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
           New Participant Admission
         </Typography>
-        <Typography variant="body1" color="textSecondary">
+        <Typography variant="body1" color="text.secondary">
           Whether participants added in this import (who are not already on the
           event) are immediately allowed to check in.
         </Typography>

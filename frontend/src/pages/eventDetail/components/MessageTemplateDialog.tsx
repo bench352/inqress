@@ -12,6 +12,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   Menu,
   MenuItem,
@@ -178,10 +179,10 @@ function LetterForm({
   return (
     <>
       <DialogContent sx={{ pb: toolbarBottom !== null ? 10 : undefined }}>
-        <Typography variant="body1" sx={{ mb: 2 }}>
+        <DialogContentText sx={{ mb: 2 }}>
           Write the message. Insert a field from the toolbar. A short InQRess
           footer is added only when this is sent by email.
-        </Typography>
+        </DialogContentText>
         <Stack spacing={2}>
           <Box
             sx={

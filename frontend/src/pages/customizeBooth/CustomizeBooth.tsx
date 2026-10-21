@@ -281,7 +281,7 @@ export default function CustomizeBooth() {
               Cancel
             </Button>
           </Stack>
-          <Typography variant="body1" color="textSecondary">
+          <Typography variant="body1" color="text.secondary">
             (Note: Icons and buttons in the previews are not to scale)
           </Typography>
         </Stack>
