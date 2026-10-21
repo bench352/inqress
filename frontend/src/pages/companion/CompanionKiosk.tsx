@@ -17,6 +17,8 @@ import CheckinResultDisplay from "./kiosk/CheckinResultDisplay";
 import type { CheckinResponse } from "./kiosk/types";
 import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
+import BatteryIndicator from "./BatteryIndicator";
+import useBattery, { type BatteryState } from "./useBattery";
 
 interface Display {
   eventName: string;
@@ -31,6 +33,7 @@ type StreamStatus = "connecting" | "connected" | "lost";
 
 const KIOSK_DISABLED_SX = {
   height: "100dvh",
+  position: "relative",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
@@ -40,7 +43,15 @@ const KIOSK_DISABLED_SX = {
   p: 4,
 } as const;
 
-function KioskDisabledScreen({ eventName }: { eventName?: string }) {
+function KioskDisabledScreen({
+  eventName,
+  status,
+  battery,
+}: {
+  eventName?: string;
+  status: StreamStatus;
+  battery: BatteryState | null;
+}) {
   return (
     <Box sx={KIOSK_DISABLED_SX}>
       <NoMeetingRoomIcon sx={{ fontSize: 200 }} />
@@ -51,18 +62,23 @@ function KioskDisabledScreen({ eventName }: { eventName?: string }) {
         Please wait until the host opens check-in{" "}
         {eventName ? `for ${eventName}` : ""}.
       </Typography>
+      <KioskStatusLine status={status} battery={battery} />
     </Box>
   );
 }
 
-// Bottom-right stream status: test-mode indicator, live indicator, then the
-// wall clock.
+// Bottom-right stream status: battery, test-mode indicator, live indicator,
+// then the wall clock.
 function KioskStatusLine({
   status,
   mode,
+  battery,
+  warn = true,
 }: {
   status: StreamStatus;
   mode?: string;
+  battery: BatteryState | null;
+  warn?: boolean;
 }) {
   const { time } = useSystemClock();
   const connected = status === "connected";
@@ -80,6 +96,7 @@ function KioskStatusLine({
         color: "text.primary",
       }}
     >
+      <BatteryIndicator battery={battery} warn={warn} />
       {mode === "test" && (
         <ScienceOutlinedIcon fontSize="medium" color="warning" />
       )}
@@ -151,6 +168,8 @@ export default function CompanionKiosk() {
   // A kiosk shares the browser with the admin pages; leaving the admin signed
   // in would expose the admin section to whoever walks up to the device.
   const adminCleared = useClearAdminSession();
+
+  const battery = useBattery();
 
   useEffect(() => {
     (async () => {
@@ -365,7 +384,13 @@ export default function CompanionKiosk() {
   }
 
   if (display?.mode === "disabled") {
-    return <KioskDisabledScreen eventName={display.eventName} />;
+    return (
+      <KioskDisabledScreen
+        eventName={display.eventName}
+        status={streamStatus}
+        battery={battery}
+      />
+    );
   }
 
   if (scanResult) {
@@ -498,7 +523,12 @@ export default function CompanionKiosk() {
           </Stack>
         </Stack>
 
-        <KioskStatusLine status={streamStatus} mode={display?.mode} />
+        <KioskStatusLine
+          status={streamStatus}
+          mode={display?.mode}
+          battery={battery}
+          warn={dialog === null}
+        />
       </Box>
 
       {dialog === "phone" && (
