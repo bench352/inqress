@@ -2,19 +2,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createTheme, CssBaseline, ThemeProvider } from "@mui/material";
 import { RouterProvider } from "@tanstack/react-router";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { SnackbarProvider } from "notistack";
 import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import "./assets/fonts/Reglo/reglo.css";
-import QueryClientProvider from "./providers/QueryClientProvider";
 import SessionAuthProvider from "./providers/SessionAuthProvider";
-import AppInfoProvider from "./providers/AppInfoProvider";
 import SystemClockProvider from "./providers/SystemClockProvider";
-import SnackbarAlert from "./components/SnackbarAlert";
 import { router } from "./router";
 
 const theme = createTheme({
@@ -33,29 +27,11 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <SnackbarProvider
-        maxSnack={6}
-        autoHideDuration={10000}
-        Components={{
-          default: SnackbarAlert,
-          success: SnackbarAlert,
-          error: SnackbarAlert,
-          warning: SnackbarAlert,
-          info: SnackbarAlert,
-        }}
-      >
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <QueryClientProvider>
-            <SessionAuthProvider>
-              <AppInfoProvider>
-                <SystemClockProvider>
-                  <RouterProvider router={router} />
-                </SystemClockProvider>
-              </AppInfoProvider>
-            </SessionAuthProvider>
-          </QueryClientProvider>
-        </LocalizationProvider>
-      </SnackbarProvider>
+      <SessionAuthProvider>
+        <SystemClockProvider>
+          <RouterProvider router={router} />
+        </SystemClockProvider>
+      </SessionAuthProvider>
     </ThemeProvider>
   </StrictMode>,
 );

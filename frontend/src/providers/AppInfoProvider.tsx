@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from "react";
 import { useMemo } from "react";
-import { Box, CircularProgress, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
+import BootScreen from "../components/BootScreen";
 import { useAuth } from "./useAuth";
 import { AppInfoContext } from "./useAppInfo";
 import { useApi } from "../api";
@@ -34,21 +34,7 @@ export default function AppInfoProvider({ children }: PropsWithChildren) {
   );
 
   if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100vh",
-          bgcolor: "white",
-        }}
-      >
-        <CircularProgress />
-        <Typography sx={{ mt: 2 }}>Just a moment...</Typography>
-      </Box>
-    );
+    return <BootScreen />;
   }
 
   return (
