@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   List,
   ListItemButton,
@@ -30,16 +31,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useApi } from "@/api.ts";
 import type { ParticipantItem } from "../useEventDetail";
+import EmailTicketDialog from "./EmailTicketDialog";
+import EditParticipantDialog from "./EditParticipantDialog";
 import PreviewTicketDialog from "./PreviewTicketDialog";
+import ShareTicketDialog from "./ShareTicketDialog";
 
 function getTicketStatus(participant: ParticipantItem): string {
   if (!participant.isTicketReady) return "Generating...";
   if (!participant.isTicketDelivered) return "Undelivered";
   return "Delivered";
 }
-import EmailTicketDialog from "./EmailTicketDialog";
-import EditParticipantDialog from "./EditParticipantDialog";
-import ShareTicketDialog from "./ShareTicketDialog";
 
 type SubView =
   | "main"
@@ -74,6 +75,11 @@ export default function ParticipantDetailsDialog({
   const { enqueueSnackbar } = useSnackbar();
   const [subView, setSubView] = useState<SubView>("main");
 
+  const closeAll = () => {
+    setSubView("main");
+    onClose();
+  };
+
   const deliverMutation = useMutation({
     mutationFn: async () => {
       await api.post(
@@ -104,7 +110,7 @@ export default function ParticipantDetailsDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
-      onClose();
+      closeAll();
     },
   });
 
@@ -115,7 +121,7 @@ export default function ParticipantDetailsDialog({
       });
     },
     onSuccess: () => {
-      onClose();
+      closeAll();
     },
     onError: (err: Error & { status?: number; detail?: unknown }) => {
       const message =
@@ -131,7 +137,7 @@ export default function ParticipantDetailsDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
-      onClose();
+      closeAll();
     },
   });
 
@@ -146,8 +152,6 @@ export default function ParticipantDetailsDialog({
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
     },
   });
-
-  const handleDeliver = () => setSubView("deliver");
 
   const handleDeliverConfirm = () => {
     deliverMutation.mutate(undefined, {
@@ -167,68 +171,274 @@ export default function ParticipantDetailsDialog({
     });
   };
 
-  const handleClose = () => {
-    setSubView("main");
-    onClose();
-  };
+  return (
+    <>
+      <Dialog open={open} onClose={closeAll} maxWidth="sm" fullWidth>
+        <DialogTitle>Participant Details</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Stack spacing={0.5}>
+              <Stack
+                direction="row"
+                sx={{ justifyContent: "space-between", alignItems: "center" }}
+              >
+                <Typography variant="h6" sx={{ minWidth: 0 }}>
+                  {participant.title ? `${participant.title} ` : ""}
+                  {participant.name}
+                </Typography>
+                <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                  {participant.managedBy && (
+                    <Chip
+                      label="Externally managed"
+                      color="primary"
+                      size="small"
+                    />
+                  )}
+                  {participant.activated === false && (
+                    <Chip label="Deactivated" color="error" size="small" />
+                  )}
+                  {participant.activated == null && (
+                    <Chip label="To be admitted" color="warning" size="small" />
+                  )}
+                </Stack>
+              </Stack>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <EmailIcon fontSize="small" color="action" />
+                <Typography variant="body1">
+                  {participant.email ?? "(No email address)"}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <PhoneIcon fontSize="small" color="action" />
+                <Typography variant="body1">
+                  {participant.countryCode && participant.phone
+                    ? `${participant.countryCode} ${participant.phone}`
+                    : "(No phone number)"}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <ConfirmationNumberIcon fontSize="small" color="action" />
+                <Typography variant="body1">
+                  {getTicketStatus(participant)}
+                </Typography>
+              </Stack>
+              {participant.checkedInAt && (
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ alignItems: "center" }}
+                >
+                  <CheckCircleIcon fontSize="small" color="success" />
+                  <Typography variant="body1" color="success">
+                    {dayjs(participant.checkedInAt).format(
+                      "MMM D, YYYY h:mm A",
+                    )}
+                  </Typography>
+                </Stack>
+              )}
+            </Stack>
 
-  if (subView === "preview") {
-    return (
-      <PreviewTicketDialog
-        open
-        eventId={eventId}
-        participantId={participant.id}
-        onClose={() => setSubView("main")}
-      />
-    );
-  }
+            {participant.activated !== true && (
+              <Button
+                variant="contained"
+                color="success"
+                size="large"
+                startIcon={<VerifiedIcon />}
+                onClick={() => setActivatedMutation.mutate(true)}
+                loading={setActivatedMutation.isPending}
+                fullWidth
+              >
+                {participant.activated == null
+                  ? "Admit participant"
+                  : "Reactivate participant"}
+              </Button>
+            )}
 
-  if (subView === "email") {
-    return (
-      <EmailTicketDialog
-        open
-        eventId={eventId}
-        participantId={participant.id}
-        participantEmail={participant.email ?? ""}
-        eventName={eventName}
-        onClose={() => setSubView("main")}
-      />
-    );
-  }
+            {eventMode !== "disabled" && participant.activated === true && (
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<HowToRegIcon />}
+                onClick={() => assistedMutation.mutate()}
+                loading={assistedMutation.isPending}
+                disabled={!!participant.checkedInAt}
+                fullWidth
+              >
+                Confirm at Booth
+              </Button>
+            )}
 
-  if (subView === "share") {
-    return (
-      <ShareTicketDialog
-        open
-        eventId={eventId}
-        participant={participant}
-        eventName={eventName}
-        onClose={() => setSubView("main")}
-      />
-    );
-  }
+            <List disablePadding>
+              <ListItemButton
+                onClick={() => setSubView("edit")}
+                disabled={participant.managedBy?.writesDetails === true}
+              >
+                <ListItemIcon>
+                  <EditIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Update personal information"
+                  secondary={
+                    participant.managedBy?.writesDetails
+                      ? `Details follow ${participant.managedBy.name}. Change them in that source.`
+                      : "Change title, name, email, or phone."
+                  }
+                />
+              </ListItemButton>
+              <ListItemButton
+                onClick={() => setSubView("preview")}
+                disabled={!participant.isTicketReady}
+              >
+                <ListItemIcon>
+                  <QrCodeIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Preview ticket"
+                  secondary={
+                    !participant.isTicketReady
+                      ? "Ticket image is still generating."
+                      : "View QR code image or download it."
+                  }
+                />
+              </ListItemButton>
+              <ListItemButton
+                onClick={() => setSubView("email")}
+                disabled={!participant.isTicketReady || !participant.email}
+              >
+                <ListItemIcon>
+                  <EmailIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Email ticket"
+                  secondary={
+                    !participant.isTicketReady
+                      ? "Ticket image is still generating."
+                      : !participant.email
+                        ? "No email address."
+                        : "Send / resend email with the QR code."
+                  }
+                />
+              </ListItemButton>
+              <ListItemButton
+                onClick={() => setSubView("share")}
+                disabled={!participant.isTicketReady}
+              >
+                <ListItemIcon>
+                  <ShareIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Share ticket"
+                  secondary={
+                    !participant.isTicketReady
+                      ? "Ticket image is still generating."
+                      : "Share or copy the ticket image and its message."
+                  }
+                />
+              </ListItemButton>
+              <ListItemButton
+                onClick={() => setSubView("deliver")}
+                disabled={
+                  !participant.isTicketReady ||
+                  participant.isTicketDelivered ||
+                  deliverMutation.isPending
+                }
+              >
+                <ListItemIcon>
+                  <LocalOfferIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Mark ticket delivered"
+                  secondary={
+                    !participant.isTicketReady
+                      ? "Ticket image is still generating."
+                      : participant.isTicketDelivered
+                        ? "Already marked as delivered."
+                        : "Manually mark ticket as received."
+                  }
+                />
+              </ListItemButton>
+              <ListItemButton
+                onClick={() => setSubView("attend")}
+                disabled={
+                  participant.checkedInAt != null ||
+                  participant.activated !== true ||
+                  checkinMutation.isPending
+                }
+              >
+                <ListItemIcon>
+                  <CheckCircleIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Mark attended"
+                  secondary={
+                    participant.checkedInAt != null
+                      ? "Already checked in."
+                      : participant.activated === false
+                        ? "Ticket is deactivated."
+                        : participant.activated == null
+                          ? "Participant is not yet admitted."
+                          : "Mark as checked in without any action from the participant."
+                  }
+                />
+              </ListItemButton>
+              <ListItemButton
+                onClick={() => setSubView("deactivate")}
+                disabled={
+                  participant.activated === false ||
+                  setActivatedMutation.isPending
+                }
+              >
+                <ListItemIcon>
+                  <BlockIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Deactivate participant"
+                  secondary={
+                    participant.activated === false
+                      ? "Already deactivated."
+                      : "Deny this participant from checking in."
+                  }
+                />
+              </ListItemButton>
+              <ListItemButton
+                onClick={() => setSubView("delete")}
+                disabled={participant.managedBy != null}
+              >
+                <ListItemIcon>
+                  <DeleteIcon
+                    color={participant.managedBy != null ? "disabled" : "error"}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Delete participant"
+                  secondary={
+                    participant.managedBy != null
+                      ? `${participant.managedBy.name} will add this person back on the next sync.`
+                      : "Remove participant's registration from this event."
+                  }
+                  slotProps={
+                    participant.managedBy != null
+                      ? undefined
+                      : {
+                          primary: { sx: { color: "error.main" } },
+                          secondary: { sx: { color: "error.main" } },
+                        }
+                  }
+                />
+              </ListItemButton>
+            </List>
+          </Stack>
+        </DialogContent>
+      </Dialog>
 
-  if (subView === "edit") {
-    return (
-      <EditParticipantDialog
-        open
-        participant={participant}
-        eventId={eventId}
-        onClose={() => setSubView("main")}
-      />
-    );
-  }
-
-  if (subView === "deliver") {
-    return (
-      <Dialog open onClose={() => setSubView("main")}>
+      <Dialog open={subView === "deliver"} onClose={() => setSubView("main")}>
         <DialogTitle>Mark Ticket Delivered</DialogTitle>
         <DialogContent>
-          <Typography>
+          <DialogContentText>
             Mark the ticket as delivered for{" "}
             {participant.title ? `${participant.title} ` : ""}
             {participant.name}? This will not send an email.
-          </Typography>
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button
@@ -246,19 +456,15 @@ export default function ParticipantDetailsDialog({
           </Button>
         </DialogActions>
       </Dialog>
-    );
-  }
 
-  if (subView === "attend") {
-    return (
-      <Dialog open onClose={() => setSubView("main")}>
+      <Dialog open={subView === "attend"} onClose={() => setSubView("main")}>
         <DialogTitle>Mark Attended</DialogTitle>
         <DialogContent>
-          <Typography>
+          <DialogContentText>
             Mark {participant.title ? `${participant.title} ` : ""}
             {participant.name} as attended? This will check in this participant
             immediately.
-          </Typography>
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button
@@ -276,21 +482,17 @@ export default function ParticipantDetailsDialog({
           </Button>
         </DialogActions>
       </Dialog>
-    );
-  }
 
-  if (subView === "delete") {
-    return (
-      <Dialog open onClose={() => setSubView("main")}>
+      <Dialog open={subView === "delete"} onClose={() => setSubView("main")}>
         <DialogTitle>Delete Participant</DialogTitle>
         <DialogContent>
-          <Typography>
+          <DialogContentText>
             Are you sure you want to delete{" "}
             {participant.title ? `${participant.title} ` : ""}
             {participant.name}? This is irreversible and the participant's
             ticket will be deactivated. If you want to add the participant
             again, a different QR ticket will be generated instead.
-          </Typography>
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button
@@ -309,20 +511,19 @@ export default function ParticipantDetailsDialog({
           </Button>
         </DialogActions>
       </Dialog>
-    );
-  }
 
-  if (subView === "deactivate") {
-    return (
-      <Dialog open onClose={() => setSubView("main")}>
+      <Dialog
+        open={subView === "deactivate"}
+        onClose={() => setSubView("main")}
+      >
         <DialogTitle>Deactivate Participant</DialogTitle>
         <DialogContent>
-          <Typography>
+          <DialogContentText>
             Are you sure you want to deactivate{" "}
             {participant.title ? `${participant.title} ` : ""}
             {participant.name}? They will no longer be able to check in. You can
             reactivate this participant anytime.
-          </Typography>
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button
@@ -340,260 +541,39 @@ export default function ParticipantDetailsDialog({
           </Button>
         </DialogActions>
       </Dialog>
-    );
-  }
 
-  return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Participant Details</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <Stack spacing={0.5}>
-            <Stack
-              direction="row"
-              sx={{ justifyContent: "space-between", alignItems: "center" }}
-            >
-              <Typography variant="h6" sx={{ minWidth: 0 }}>
-                {participant.title ? `${participant.title} ` : ""}
-                {participant.name}
-              </Typography>
-              <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                {participant.managedBy && (
-                  <Chip
-                    label="Externally managed"
-                    color="primary"
-                    size="small"
-                  />
-                )}
-                {participant.activated === false && (
-                  <Chip label="Deactivated" color="error" size="small" />
-                )}
-                {participant.activated === null && (
-                  <Chip label="To be admitted" color="warning" size="small" />
-                )}
-              </Stack>
-            </Stack>
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-              <EmailIcon fontSize="small" color="action" />
-              <Typography variant="body1">
-                {participant.email ?? "(No email address)"}
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-              <PhoneIcon fontSize="small" color="action" />
-              <Typography variant="body1">
-                {participant.countryCode && participant.phone
-                  ? `${participant.countryCode} ${participant.phone}`
-                  : "(No phone number)"}
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-              <ConfirmationNumberIcon fontSize="small" color="action" />
-              <Typography variant="body1">
-                {getTicketStatus(participant)}
-              </Typography>
-            </Stack>
-            {participant.checkedInAt && (
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <CheckCircleIcon fontSize="small" color="success" />
-                <Typography variant="body1" color="success">
-                  {dayjs(participant.checkedInAt).format("MMM D, YYYY h:mm A")}
-                </Typography>
-              </Stack>
-            )}
-          </Stack>
+      <PreviewTicketDialog
+        open={subView === "preview"}
+        eventId={eventId}
+        participantId={participant.id}
+        onClose={() => setSubView("main")}
+      />
 
-          {participant.activated !== true && (
-            <Button
-              variant="contained"
-              color="success"
-              size="large"
-              startIcon={<VerifiedIcon />}
-              onClick={() => setActivatedMutation.mutate(true)}
-              loading={setActivatedMutation.isPending}
-              fullWidth
-            >
-              {participant.activated === null
-                ? "Admit participant"
-                : "Reactivate participant"}
-            </Button>
-          )}
+      <EmailTicketDialog
+        open={subView === "email"}
+        eventId={eventId}
+        participantId={participant.id}
+        participantEmail={participant.email ?? ""}
+        eventName={eventName}
+        onClose={() => setSubView("main")}
+      />
 
-          {eventMode !== "disabled" && participant.activated === true && (
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<HowToRegIcon />}
-              onClick={() => assistedMutation.mutate()}
-              loading={assistedMutation.isPending}
-              disabled={!!participant.checkedInAt}
-              fullWidth
-            >
-              Confirm at Booth
-            </Button>
-          )}
+      <ShareTicketDialog
+        open={subView === "share"}
+        eventId={eventId}
+        participant={participant}
+        eventName={eventName}
+        onClose={() => setSubView("main")}
+      />
 
-          <List disablePadding>
-            <ListItemButton
-              onClick={() => setSubView("edit")}
-              disabled={participant.managedBy?.writesDetails === true}
-            >
-              <ListItemIcon>
-                <EditIcon />
-              </ListItemIcon>
-              <ListItemText
-                primary="Update personal information"
-                secondary={
-                  participant.managedBy?.writesDetails
-                    ? `Details follow ${participant.managedBy.name}. Change them in that source.`
-                    : "Change title, name, email, or phone."
-                }
-              />
-            </ListItemButton>
-            <ListItemButton
-              onClick={() => setSubView("preview")}
-              disabled={!participant.isTicketReady}
-            >
-              <ListItemIcon>
-                <QrCodeIcon />
-              </ListItemIcon>
-              <ListItemText
-                primary="Preview ticket"
-                secondary={
-                  !participant.isTicketReady
-                    ? "Ticket image is still generating."
-                    : "View QR code image or download it."
-                }
-              />
-            </ListItemButton>
-            <ListItemButton
-              onClick={() => setSubView("email")}
-              disabled={!participant.isTicketReady || !participant.email}
-            >
-              <ListItemIcon>
-                <EmailIcon />
-              </ListItemIcon>
-              <ListItemText
-                primary="Email ticket"
-                secondary={
-                  !participant.isTicketReady
-                    ? "Ticket image is still generating."
-                    : !participant.email
-                      ? "No email address."
-                      : "Send / resend email with the QR code."
-                }
-              />
-            </ListItemButton>
-            <ListItemButton
-              onClick={() => setSubView("share")}
-              disabled={!participant.isTicketReady}
-            >
-              <ListItemIcon>
-                <ShareIcon />
-              </ListItemIcon>
-              <ListItemText
-                primary="Share ticket"
-                secondary={
-                  !participant.isTicketReady
-                    ? "Ticket image is still generating."
-                    : "Share or copy the ticket image and its message."
-                }
-              />
-            </ListItemButton>
-            <ListItemButton
-              onClick={handleDeliver}
-              disabled={
-                !participant.isTicketReady ||
-                participant.isTicketDelivered ||
-                deliverMutation.isPending
-              }
-            >
-              <ListItemIcon>
-                <LocalOfferIcon />
-              </ListItemIcon>
-              <ListItemText
-                primary="Mark ticket delivered"
-                secondary={
-                  !participant.isTicketReady
-                    ? "Ticket image is still generating."
-                    : participant.isTicketDelivered
-                      ? "Already marked as delivered."
-                      : "Manually mark ticket as received."
-                }
-              />
-            </ListItemButton>
-            <ListItemButton
-              onClick={() => setSubView("attend")}
-              disabled={
-                participant.checkedInAt != null ||
-                participant.activated !== true ||
-                checkinMutation.isPending
-              }
-            >
-              <ListItemIcon>
-                <CheckCircleIcon />
-              </ListItemIcon>
-              <ListItemText
-                primary="Mark attended"
-                secondary={
-                  participant.checkedInAt != null
-                    ? "Already checked in."
-                    : participant.activated === false
-                      ? "Ticket is deactivated."
-                      : participant.activated === null
-                        ? "Participant is not yet admitted."
-                        : "Mark as checked in without any action from the participant."
-                }
-              />
-            </ListItemButton>
-            <ListItemButton
-              onClick={() => setSubView("deactivate")}
-              disabled={
-                participant.activated === false ||
-                setActivatedMutation.isPending
-              }
-            >
-              <ListItemIcon>
-                <BlockIcon />
-              </ListItemIcon>
-              <ListItemText
-                primary="Deactivate participant"
-                secondary={
-                  participant.activated === false
-                    ? "Already deactivated."
-                    : "Deny this participant from checking in."
-                }
-              />
-            </ListItemButton>
-            <ListItemButton
-              onClick={() => setSubView("delete")}
-              disabled={participant.managedBy != null}
-            >
-              <ListItemIcon>
-                <DeleteIcon
-                  color={participant.managedBy != null ? "disabled" : "error"}
-                />
-              </ListItemIcon>
-              <ListItemText
-                primary="Delete participant"
-                secondary={
-                  participant.managedBy != null
-                    ? `${participant.managedBy.name} will add this person back on the next sync.`
-                    : "Remove participant's registration from this event."
-                }
-                slotProps={
-                  participant.managedBy != null
-                    ? undefined
-                    : {
-                        primary: { sx: { color: "error.main" } },
-                        secondary: { sx: { color: "error.main" } },
-                      }
-                }
-              />
-            </ListItemButton>
-          </List>
-        </Stack>
-      </DialogContent>
-    </Dialog>
+      {subView === "edit" && (
+        <EditParticipantDialog
+          open
+          participant={participant}
+          eventId={eventId}
+          onClose={() => setSubView("main")}
+        />
+      )}
+    </>
   );
 }

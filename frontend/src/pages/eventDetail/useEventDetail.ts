@@ -78,36 +78,6 @@ export function useEventDetail(eventId: string) {
     [participantsQuery.data],
   );
 
-  const notAttended = useMemo(
-    () =>
-      (participantsQuery.data ?? [])
-        .filter(
-          (a) =>
-            a.checkedInAt == null && a.isTicketReady && a.isTicketDelivered,
-        )
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [participantsQuery.data],
-  );
-
-  const ticketUndelivered = useMemo(
-    () =>
-      (participantsQuery.data ?? [])
-        .filter((a) => a.checkedInAt == null && !a.isTicketReady)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [participantsQuery.data],
-  );
-
-  const notDelivered = useMemo(
-    () =>
-      (participantsQuery.data ?? [])
-        .filter(
-          (a) =>
-            a.checkedInAt == null && a.isTicketReady && !a.isTicketDelivered,
-        )
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [participantsQuery.data],
-  );
-
   const participants = participantsQuery.data ?? [];
 
   return {
@@ -115,9 +85,6 @@ export function useEventDetail(eventId: string) {
     isEventLoading: eventQuery.isLoading,
     participants,
     attended,
-    notAttended,
-    notDelivered,
-    ticketUndelivered,
     isParticipantsLoading: participantsQuery.isLoading,
     updateEvent: updateEventMutation.mutate,
     isUpdating: updateEventMutation.isPending,

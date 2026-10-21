@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   LinearProgress,
   Paper,
@@ -294,9 +295,9 @@ export default function ImportResultDialog({
               data.merged.length === 0 &&
               data.skipped.length === 0 &&
               data.errors.length === 0 && (
-                <Typography color="textSecondary">
+                <DialogContentText>
                   No participants were processed.
-                </Typography>
+                </DialogContentText>
               )}
           </Stack>
         )}

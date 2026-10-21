@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   List,
   ListItemButton,
@@ -114,9 +115,75 @@ export default function ModifyEventsDialog({
     onClose();
   };
 
-  if (view === "edit") {
-    return (
-      <Dialog open onClose={handleClose} maxWidth="sm" fullWidth>
+  return (
+    <>
+      <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
+        <DialogTitle>Modify Events</DialogTitle>
+        <List>
+          <ListItemButton onClick={openEdit}>
+            <ListItemIcon>
+              <EditIcon />
+            </ListItemIcon>
+            <ListItemText primary="Edit event details" />
+          </ListItemButton>
+          <ListItemButton onClick={() => setView("message")}>
+            <ListItemIcon>
+              <ArticleOutlinedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Edit message template" />
+          </ListItemButton>
+          <ListItemButton
+            onClick={() => {
+              handleClose();
+              navigate({
+                to: "/admin/events/$eventId/customizeKiosk",
+                params: { eventId },
+              });
+            }}
+          >
+            <ListItemIcon>
+              <CropOriginalIcon />
+            </ListItemIcon>
+            <ListItemText primary="Customize kiosk" />
+          </ListItemButton>
+          <ListItemButton
+            onClick={() => {
+              handleClose();
+              navigate({
+                to: "/admin/events/$eventId/dataSources",
+                params: { eventId },
+              });
+            }}
+          >
+            <ListItemIcon>
+              <SyncOutlinedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Data sources" />
+          </ListItemButton>
+          <ListItemButton onClick={handleExportTickets}>
+            <ListItemIcon>
+              <DownloadIcon />
+            </ListItemIcon>
+            <ListItemText primary="Export all tickets to image" />
+          </ListItemButton>
+          <ListItemButton onClick={() => setView("delete")}>
+            <ListItemIcon>
+              <DeleteIcon color="error" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Delete event"
+              slotProps={{ primary: { sx: { color: "error.main" } } }}
+            />
+          </ListItemButton>
+        </List>
+      </Dialog>
+
+      <Dialog
+        open={view === "edit"}
+        onClose={() => setView("settings")}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Edit Event Details</DialogTitle>
         <DialogContent>
           <Box
@@ -178,29 +245,21 @@ export default function ModifyEventsDialog({
           </Button>
         </DialogActions>
       </Dialog>
-    );
-  }
 
-  if (view === "message") {
-    return (
       <MessageTemplateDialog
-        open
+        open={view === "message"}
         eventId={eventId}
         onClose={() => setView("settings")}
       />
-    );
-  }
 
-  if (view === "delete") {
-    return (
-      <Dialog open onClose={handleClose}>
+      <Dialog open={view === "delete"} onClose={() => setView("settings")}>
         <DialogTitle>Delete Event</DialogTitle>
         <DialogContent>
-          <Typography>
+          <DialogContentText>
             Are you sure you want to delete &ldquo;{event.name}&rdquo;? This
             action cannot be undone. All participants and attendance records
             will be permanently removed.
-          </Typography>
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setView("settings")} disabled={isDeleting}>
@@ -216,12 +275,8 @@ export default function ModifyEventsDialog({
           </Button>
         </DialogActions>
       </Dialog>
-    );
-  }
 
-  if (view === "export") {
-    return (
-      <Dialog open>
+      <Dialog open={view === "export"}>
         <Box
           sx={{
             display: "flex",
@@ -232,74 +287,11 @@ export default function ModifyEventsDialog({
           }}
         >
           <CircularProgress />
-          <Typography variant="body1" sx={{ fontSize: 20 }}>
+          <Typography variant="h6">
             Exporting all guest information to ticket images...
           </Typography>
         </Box>
       </Dialog>
-    );
-  }
-
-  return (
-    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Modify Events</DialogTitle>
-      <List>
-        <ListItemButton onClick={openEdit}>
-          <ListItemIcon>
-            <EditIcon />
-          </ListItemIcon>
-          <ListItemText primary="Edit event details" />
-        </ListItemButton>
-        <ListItemButton onClick={() => setView("message")}>
-          <ListItemIcon>
-            <ArticleOutlinedIcon />
-          </ListItemIcon>
-          <ListItemText primary="Edit message template" />
-        </ListItemButton>
-        <ListItemButton
-          onClick={() => {
-            handleClose();
-            navigate({
-              to: "/admin/events/$eventId/customizeKiosk",
-              params: { eventId },
-            });
-          }}
-        >
-          <ListItemIcon>
-            <CropOriginalIcon />
-          </ListItemIcon>
-          <ListItemText primary="Customize kiosk" />
-        </ListItemButton>
-        <ListItemButton
-          onClick={() => {
-            handleClose();
-            navigate({
-              to: "/admin/events/$eventId/dataSources",
-              params: { eventId },
-            });
-          }}
-        >
-          <ListItemIcon>
-            <SyncOutlinedIcon />
-          </ListItemIcon>
-          <ListItemText primary="Data sources" />
-        </ListItemButton>
-        <ListItemButton onClick={handleExportTickets}>
-          <ListItemIcon>
-            <DownloadIcon />
-          </ListItemIcon>
-          <ListItemText primary="Export all tickets to image" />
-        </ListItemButton>
-        <ListItemButton onClick={() => setView("delete")}>
-          <ListItemIcon>
-            <DeleteIcon color="error" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Delete event"
-            slotProps={{ primary: { sx: { color: "error.main" } } }}
-          />
-        </ListItemButton>
-      </List>
-    </Dialog>
+    </>
   );
 }

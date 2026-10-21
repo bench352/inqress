@@ -42,9 +42,7 @@ type ScanOutcome = {
 } | null;
 
 export default function CompanionScanner() {
-  const { eventId } = useParams({
-    from: "/full-page/companion/events/$eventId/scanner" as unknown as any, // eslint-disable-line
-  });
+  const { eventId } = useParams({ strict: false }) as { eventId: string };
   const navigate = useNavigate();
   const api = useCompanionApi();
   const [display, setDisplay] = useState<Display | null>(null);
@@ -401,7 +399,7 @@ export default function CompanionScanner() {
                 <Typography variant="h6">{result.reason}</Typography>
               </>
             )}
-            <Typography variant="body1" color="textSecondary" sx={{ mt: 2 }}>
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
               Tap to dismiss
             </Typography>
           </Box>

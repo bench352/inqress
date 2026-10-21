@@ -100,9 +100,7 @@ function KioskStatusLine({
 }
 
 export default function CompanionKiosk() {
-  const { eventId } = useParams({
-    from: "/full-page/companion/events/$eventId/kiosk" as unknown as any, // eslint-disable-line
-  });
+  const { eventId } = useParams({ strict: false }) as { eventId: string };
   const api = useCompanionApi();
   const navigate = useNavigate();
   const [display, setDisplay] = useState<Display | null>(null);

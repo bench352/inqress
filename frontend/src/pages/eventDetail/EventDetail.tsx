@@ -5,10 +5,6 @@ import {
   Card,
   Chip,
   Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   IconButton,
   InputAdornment,
@@ -19,11 +15,8 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { QRCodeSVG } from "qrcode.react";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import CheckIcon from "@mui/icons-material/Check";
 import ClearIcon from "@mui/icons-material/Clear";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import EditIcon from "@mui/icons-material/Edit";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import GroupIcon from "@mui/icons-material/Group";
@@ -36,7 +29,7 @@ import {
   useParams,
 } from "@tanstack/react-router";
 import { useSnackbar } from "notistack";
-import { useEventDetail } from "./useEventDetail";
+import { useEventDetail, type ParticipantItem } from "./useEventDetail";
 import AddParticipantsSpeedDial from "./components/AddParticipantsSpeedDial";
 import ActionsSection from "./components/ActionsSection";
 import ParticipantDetailsDialog from "./components/ParticipantDetailsDialog";
@@ -46,60 +39,12 @@ import DateDialog from "./components/DateDialog";
 import ImportResultDialog from "./components/ImportResultDialog";
 import ModeDialog from "./components/ModeDialog";
 import ModifyEventsDialog from "./components/ModifyEventsDialog";
+import PairCompanionDialog from "./components/PairCompanionDialog";
 import ParticipantGrid from "@/components/ParticipantGrid";
 import { useApi } from "@/api.ts";
 import DataSourceSyncProvider from "../../providers/DataSourceSyncProvider";
 import { useDebounce } from "@/hooks/useDebounce.ts";
 import { useEventStream } from "../../hooks/useEventStream";
-
-function CopyableField({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-  const [failed, setFailed] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setFailed(true);
-      setTimeout(() => setFailed(false), 1500);
-    }
-  };
-
-  return (
-    <TextField
-      fullWidth
-      label={label}
-      value={value}
-      slotProps={{
-        input: {
-          readOnly: true,
-          sx: { fontFamily: "monospace", fontSize: 13 },
-          endAdornment: (
-            <InputAdornment position="end">
-              <IconButton
-                edge="end"
-                size="small"
-                aria-label={`Copy ${label}`}
-                onClick={handleCopy}
-              >
-                {copied ? (
-                  <CheckIcon fontSize="small" color="success" />
-                ) : (
-                  <ContentCopyIcon
-                    fontSize="small"
-                    color={failed ? "error" : "inherit"}
-                  />
-                )}
-              </IconButton>
-            </InputAdornment>
-          ),
-        },
-      }}
-    />
-  );
-}
 
 export default function EventDetail() {
   const { eventId } = useParams({ from: "/app-shell/admin/events/$eventId" });
@@ -240,80 +185,49 @@ export default function EventDetail() {
   const totalCount = participants.length;
   const attendedCount = attended.length;
 
-  const filteredParticipants = useMemo(
-    () =>
-      participants.filter((p) =>
-        p.name
-          .toLowerCase()
-          .includes(debouncedParticipantSearchQuery.toLowerCase()),
-      ),
-    [participants, debouncedParticipantSearchQuery],
-  );
-
-  const filteredAttended = useMemo(
-    () =>
-      filteredParticipants
-        .filter((a) => a.checkedInAt != null)
-        .sort((a, b) =>
-          (b.checkedInAt ?? "").localeCompare(a.checkedInAt ?? ""),
-        ),
-    [filteredParticipants],
-  );
-
-  const filteredPending = useMemo(
-    () =>
-      filteredParticipants
-        .filter((a) => a.checkedInAt == null && a.activated == null)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [filteredParticipants],
-  );
-
-  const filteredNotAttended = useMemo(
-    () =>
-      filteredParticipants
-        .filter(
-          (a) =>
-            a.checkedInAt == null &&
-            a.isTicketReady &&
-            a.isTicketDelivered &&
-            a.activated === true,
-        )
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [filteredParticipants],
-  );
-
-  const filteredTicketUndelivered = useMemo(
-    () =>
-      filteredParticipants
-        .filter(
-          (a) =>
-            a.checkedInAt == null && !a.isTicketReady && a.activated === true,
-        )
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [filteredParticipants],
-  );
-
-  const filteredNotDelivered = useMemo(
-    () =>
-      filteredParticipants
-        .filter(
-          (a) =>
-            a.checkedInAt == null &&
-            a.isTicketReady &&
-            !a.isTicketDelivered &&
-            a.activated === true,
-        )
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [filteredParticipants],
-  );
-
-  const filteredDeactivated = useMemo(
-    () =>
-      filteredParticipants
-        .filter((a) => a.checkedInAt == null && a.activated === false)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [filteredParticipants],
-  );
+  const {
+    attended: filteredAttended,
+    pending: filteredPending,
+    notAttended: filteredNotAttended,
+    notDelivered: filteredNotDelivered,
+    ticketUndelivered: filteredTicketUndelivered,
+    deactivated: filteredDeactivated,
+  } = useMemo(() => {
+    const query = debouncedParticipantSearchQuery.toLowerCase();
+    const byName = (a: ParticipantItem, b: ParticipantItem) =>
+      a.name.localeCompare(b.name);
+    const attended: ParticipantItem[] = [];
+    const pending: ParticipantItem[] = [];
+    const notAttended: ParticipantItem[] = [];
+    const notDelivered: ParticipantItem[] = [];
+    const ticketUndelivered: ParticipantItem[] = [];
+    const deactivated: ParticipantItem[] = [];
+    for (const p of participants) {
+      if (!p.name.toLowerCase().includes(query)) continue;
+      if (p.checkedInAt != null) attended.push(p);
+      else if (p.activated == null) pending.push(p);
+      else if (p.activated === false) deactivated.push(p);
+      else if (!p.isTicketReady) ticketUndelivered.push(p);
+      else if (!p.isTicketDelivered) notDelivered.push(p);
+      else notAttended.push(p);
+    }
+    attended.sort((a, b) =>
+      (b.checkedInAt ?? "").localeCompare(a.checkedInAt ?? ""),
+    );
+    pending.sort(byName);
+    notAttended.sort(byName);
+    notDelivered.sort(byName);
+    ticketUndelivered.sort(byName);
+    deactivated.sort(byName);
+    return {
+      attended,
+      pending,
+      notAttended,
+      notDelivered,
+      ticketUndelivered,
+      deactivated,
+    };
+  }, [participants, debouncedParticipantSearchQuery]);
 
   const undeliveredReadyCount = participants.filter(
     (a) =>
@@ -398,13 +312,13 @@ export default function EventDetail() {
             sx={{ mb: 2, alignItems: "center" }}
           >
             <Chip
-              icon={<CalendarTodayIcon sx={{ pl: "6px" }} />}
+              icon={<CalendarTodayIcon />}
               label={event.date}
               onClick={() => setDateDialogOpen(true)}
               variant="outlined"
             />
             <Chip
-              icon={<GroupIcon sx={{ pl: "6px" }} />}
+              icon={<GroupIcon />}
               label={`${totalCount} participants`}
               variant="outlined"
             />
@@ -426,7 +340,7 @@ export default function EventDetail() {
                 <ToggleButton value="test">Test</ToggleButton>
                 <ToggleButton value="live">Live</ToggleButton>
               </ToggleButtonGroup>
-              <Typography variant="body1" color="textSecondary">
+              <Typography variant="body1" color="text.secondary">
                 attendance mode
               </Typography>
             </Stack>
@@ -554,7 +468,7 @@ export default function EventDetail() {
       )}
 
       {participants.length === 0 && (
-        <Typography color="textSecondary">
+        <Typography color="text.secondary">
           No participants yet. Add some using the + button.
         </Typography>
       )}
@@ -566,7 +480,7 @@ export default function EventDetail() {
         filteredNotDelivered.length === 0 &&
         filteredTicketUndelivered.length === 0 &&
         filteredDeactivated.length === 0 && (
-          <Typography color="textSecondary">No matches found.</Typography>
+          <Typography color="text.secondary">No matches found.</Typography>
         )}
 
       <AddParticipantsSpeedDial eventId={eventId} />
@@ -615,58 +529,13 @@ export default function EventDetail() {
         onDelete={handleDeleteEvent}
       />
 
-      <Dialog
+      <PairCompanionDialog
         open={pairDialogOpen}
+        eventId={eventId}
+        companionToken={companionToken}
+        onRotate={handleRotateToken}
         onClose={handleClosePair}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Pair companion device</DialogTitle>
-        <DialogContent>
-          <Stack spacing={1} sx={{ mb: 2 }}>
-            <Typography>
-              On the kiosk or phone, open a browser and go to
-            </Typography>
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, wordBreak: "break-all" }}
-            >
-              {window.location.origin}
-            </Typography>
-            <Typography>
-              Open <strong>Companion devices</strong>, tap
-              <strong> Pair a new device</strong>, then scan the QR code below
-              with the camera. You&apos;ll choose whether the device is a kiosk
-              or a scanner.
-            </Typography>
-          </Stack>
-          {companionToken && (
-            <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
-              <QRCodeSVG
-                value={`${window.location.origin}/companion/join#v1.${eventId}.${companionToken}`}
-                size={220}
-              />
-            </Box>
-          )}
-          <Divider sx={{ my: 2 }}>Can&apos;t scan the QR code?</Divider>
-          <Stack spacing={1.5}>
-            <CopyableField label="Event ID" value={eventId} />
-            {companionToken && (
-              <CopyableField label="Pairing token" value={companionToken} />
-            )}
-          </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            Or enter these values on the device's pairing screen. Rotate the
-            pairing token to revoke all paired devices.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleRotateToken} color="error">
-            Rotate pairing token
-          </Button>
-          <Button onClick={handleClosePair}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      />
 
       {selectedParticipant && (
         <ParticipantDetailsDialog

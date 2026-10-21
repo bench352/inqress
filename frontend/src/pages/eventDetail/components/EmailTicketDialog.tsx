@@ -60,13 +60,7 @@ export default function EmailTicketDialog({
   const previewHtml = previewQuery.data ?? null;
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      key={`email-ticket-${open}`}
-    >
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Email Ticket</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 1 }}>

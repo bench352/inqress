@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  Alert,
   Card,
   CardActionArea,
   CardContent,
@@ -7,6 +8,7 @@ import {
   Grid,
   IconButton,
   InputAdornment,
+  LinearProgress,
   Stack,
   TextField,
   Typography,
@@ -18,8 +20,6 @@ import AddIcon from "@mui/icons-material/Add";
 import { useNavigate } from "@tanstack/react-router";
 import { useEvents } from "./useEvents";
 import AddEventDialog from "./components/AddEventDialog";
-import Alert from "@mui/material/Alert";
-import LinearProgress from "@mui/material/LinearProgress";
 
 import { useAppInfo } from "@/providers/useAppInfo.ts";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -128,7 +128,7 @@ export default function EventsList() {
                     >
                       {event.description || "No description"}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       {event.date}
                     </Typography>
                   </CardContent>
