@@ -28,22 +28,10 @@ export default function BatteryIndicator({
   warn = true,
   size = "medium",
 }: Props) {
-  const dialogOpen =
-    battery != null &&
-    warn &&
-    !battery.charging &&
-    battery.percent < LOW_PERCENT &&
-    !battery.dismissed;
-
-  const [playLowBattery] = useSound(lowBatterySound);
-  useEffect(() => {
-    if (dialogOpen) playLowBattery();
-  }, [dialogOpen, playLowBattery]);
-
   // Unsupported browsers get no mark at all, rather than an empty gap.
   if (!battery) return null;
 
-  const { percent, charging, dismiss } = battery;
+  const { percent, charging, dismiss, dismissed } = battery;
   const low = !charging && percent < LOW_PERCENT;
 
   return (
@@ -73,31 +61,50 @@ export default function BatteryIndicator({
           <Battery0BarOutlinedIcon fontSize={size} aria-hidden />
         )}
       </Stack>
-      <Dialog open={dialogOpen} onClose={dismiss} maxWidth="xs" fullWidth>
-        <DialogTitle>
-          <Stack
-            direction="row"
-            spacing={0.75}
-            sx={{
-              justifyContent: "flex-start",
-              alignItems: "center",
-            }}
-          >
-            <BatteryAlertOutlinedIcon />
-            <Typography variant="inherit" component="span">
-              Battery is low
-            </Typography>
-          </Stack>
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Please plug in this device before it runs out of charge.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={dismiss}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <LowBatteryAlert open={warn && low && !dismissed} onClose={dismiss} />
     </>
+  );
+}
+
+// Mounted only once battery info exists, so unsupported browsers never load
+// the warning sound.
+function LowBatteryAlert({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [playLowBattery] = useSound(lowBatterySound);
+  useEffect(() => {
+    if (open) playLowBattery();
+  }, [open, playLowBattery]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>
+        <Stack
+          direction="row"
+          spacing={0.75}
+          sx={{
+            justifyContent: "flex-start",
+            alignItems: "center",
+          }}
+        >
+          <BatteryAlertOutlinedIcon />
+          <Typography variant="inherit" component="span">
+            Battery is low
+          </Typography>
+        </Stack>
+      </DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Please plug in this device before it runs out of charge.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
