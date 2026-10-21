@@ -19,6 +19,8 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { ApiError, useCompanionApi } from "@/api";
 import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
+import BatteryIndicator from "./BatteryIndicator";
+import useBattery, { type BatteryState } from "./useBattery";
 const CAMERA_KEY = "settings.webcamDeviceId";
 const RESULT_MS = 2500;
 const RESULT_ICON_SIZE = 96;
@@ -40,6 +42,66 @@ type ScanOutcome = {
   name?: string;
   reason?: string;
 } | null;
+
+// Shared bottom bar, so a closed scanner keeps the event name and the status
+// mark instead of swapping to a full-screen layout without them.
+function ScannerFooter({
+  display,
+  status,
+  battery,
+  warn,
+}: {
+  display: Display | null;
+  status: ConnectionStatus;
+  battery: BatteryState | null;
+  warn: boolean;
+}) {
+  return (
+    <Box sx={{ width: "100%", px: 2, py: 1.5, bgcolor: "#111", color: "#fff" }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          minWidth: 0,
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: "center", minWidth: 0 }}
+        >
+          <Typography variant="body1" noWrap sx={{ minWidth: 0 }}>
+            {display?.eventName ?? ""}
+          </Typography>
+          {display?.mode === "test" && (
+            <Chip label="TEST" size="small" color="warning" />
+          )}
+        </Stack>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: "center", flexShrink: 0 }}
+        >
+          <BatteryIndicator battery={battery} warn={warn} size="small" />
+          {status === "connected" ? (
+            <SensorsOutlinedIcon
+              fontSize="small"
+              sx={{ color: "#fff", flexShrink: 0 }}
+            />
+          ) : (
+            <SensorsOffOutlinedIcon
+              fontSize="small"
+              color="error"
+              sx={{ flexShrink: 0 }}
+            />
+          )}
+        </Stack>
+      </Stack>
+    </Box>
+  );
+}
 
 export default function CompanionScanner() {
   const { eventId } = useParams({ strict: false }) as { eventId: string };
@@ -113,6 +175,8 @@ export default function CompanionScanner() {
   // A handheld shares the browser with the admin pages; leaving the admin
   // signed in would expose the admin section to whoever picks it up.
   const adminCleared = useClearAdminSession();
+
+  const battery = useBattery();
 
   useEffect(() => {
     mountedAt.current = Date.now();
@@ -211,21 +275,35 @@ export default function CompanionScanner() {
           height: "100dvh",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          gap: 2,
-          p: 4,
           bgcolor: "#000",
           color: "#fff",
         }}
       >
-        <PhonelinkLockIcon sx={{ fontSize: 72 }} />
-        <Typography variant="h6">QR scanner is disabled</Typography>
-        <Typography variant="h4">{display.eventName}</Typography>
-        <Typography variant="subtitle1">
-          The scanner will activate once the host opens check-in.
-        </Typography>
+        <Box
+          sx={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            gap: 2,
+            p: 4,
+          }}
+        >
+          <PhonelinkLockIcon sx={{ fontSize: 72 }} />
+          <Typography variant="h6">QR scanner is disabled</Typography>
+          <Typography variant="h4">{display.eventName}</Typography>
+          <Typography variant="subtitle1">
+            The scanner will activate once the host opens check-in.
+          </Typography>
+        </Box>
+        <ScannerFooter
+          display={display}
+          status={status}
+          battery={battery}
+          warn
+        />
       </Box>
     );
   }
@@ -317,50 +395,12 @@ export default function CompanionScanner() {
         )}
       </Box>
 
-      <Box
-        sx={{
-          width: "100%",
-          px: 2,
-          py: 1.5,
-          bgcolor: "#111",
-          color: "#fff",
-        }}
-      >
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            alignItems: "center",
-            justifyContent: "space-between",
-            minWidth: 0,
-          }}
-        >
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{ alignItems: "center", minWidth: 0 }}
-          >
-            <Typography variant="body1" noWrap sx={{ minWidth: 0 }}>
-              {display?.eventName ?? ""}
-            </Typography>
-            {display?.mode === "test" && (
-              <Chip label="TEST" size="small" color="warning" />
-            )}
-          </Stack>
-          {status === "connected" ? (
-            <SensorsOutlinedIcon
-              fontSize="small"
-              sx={{ color: "#fff", flexShrink: 0 }}
-            />
-          ) : (
-            <SensorsOffOutlinedIcon
-              fontSize="small"
-              color="error"
-              sx={{ flexShrink: 0 }}
-            />
-          )}
-        </Stack>
-      </Box>
+      <ScannerFooter
+        display={display}
+        status={status}
+        battery={battery}
+        warn={!result}
+      />
 
       {/* Result card: full-screen, non-transparent, same treatment as the
           kiosk so a scan result is unambiguous on a small handheld screen. */}
