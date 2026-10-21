@@ -2,23 +2,53 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
 } from "@tanstack/react-router";
+import BootScreen from "./components/BootScreen";
 import FullPage from "./layouts/FullPage";
-import AppShell from "./layouts/AppShell";
-import Login from "./pages/login/Login";
-import EventsList from "./pages/eventsList/EventsList";
-import EventDetail from "./pages/eventDetail/EventDetail";
-import CompanionDevices from "./pages/companion/CompanionDevices";
-import CompanionJoin from "./pages/companion/CompanionJoin";
-import CompanionKiosk from "./pages/companion/CompanionKiosk";
-import CompanionScanner from "./pages/companion/CompanionScanner";
-import Settings from "./pages/settings/Settings";
-import AddParticipantsManually from "./pages/addParticipantsManually/AddParticipantsManually";
-import AddParticipantsBySpreadsheet from "./pages/addParticipantsSpreadsheet/AddParticipantsBySpreadsheet";
-import BulkTicketDelivery from "./pages/bulkTicketDelivery/BulkTicketDelivery";
-import CustomizeBooth from "./pages/customizeBooth/CustomizeBooth";
-import DataSources from "./pages/dataSources/DataSources";
-import DataSourceEditor from "./pages/dataSources/DataSourceEditor";
+
+// Every page is its own chunk: a kiosk or scanner URL must not download the
+// admin app, and admin pages must not download each other.
+const AppShell = lazyRouteComponent(() => import("./layouts/AppShell"));
+const Login = lazyRouteComponent(() => import("./pages/login/Login"));
+const EventsList = lazyRouteComponent(
+  () => import("./pages/eventsList/EventsList"),
+);
+const EventDetail = lazyRouteComponent(
+  () => import("./pages/eventDetail/EventDetail"),
+);
+const CompanionDevices = lazyRouteComponent(
+  () => import("./pages/companion/CompanionDevices"),
+);
+const CompanionJoin = lazyRouteComponent(
+  () => import("./pages/companion/CompanionJoin"),
+);
+const CompanionKiosk = lazyRouteComponent(
+  () => import("./pages/companion/CompanionKiosk"),
+);
+const CompanionScanner = lazyRouteComponent(
+  () => import("./pages/companion/CompanionScanner"),
+);
+const Settings = lazyRouteComponent(() => import("./pages/settings/Settings"));
+const AddParticipantsManually = lazyRouteComponent(
+  () => import("./pages/addParticipantsManually/AddParticipantsManually"),
+);
+const AddParticipantsBySpreadsheet = lazyRouteComponent(
+  () =>
+    import("./pages/addParticipantsSpreadsheet/AddParticipantsBySpreadsheet"),
+);
+const BulkTicketDelivery = lazyRouteComponent(
+  () => import("./pages/bulkTicketDelivery/BulkTicketDelivery"),
+);
+const CustomizeBooth = lazyRouteComponent(
+  () => import("./pages/customizeBooth/CustomizeBooth"),
+);
+const DataSources = lazyRouteComponent(
+  () => import("./pages/dataSources/DataSources"),
+);
+const DataSourceEditor = lazyRouteComponent(
+  () => import("./pages/dataSources/DataSourceEditor"),
+);
 
 const rootRoute = createRootRoute();
 
@@ -178,7 +208,10 @@ const routeTree = rootRoute.addChildren([
   ]),
 ]);
 
-export const router = createRouter({ routeTree });
+export const router = createRouter({
+  routeTree,
+  defaultPendingComponent: BootScreen,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

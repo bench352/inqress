@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   AppBar,
@@ -25,10 +26,39 @@ import {
   useMatches,
   useNavigate,
 } from "@tanstack/react-router";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { SnackbarProvider } from "notistack";
 import { useAuth } from "../providers/useAuth";
 import { redirectToLogin } from "../providers/redirectToLogin";
+import QueryClientProvider from "../providers/QueryClientProvider";
+import AppInfoProvider from "../providers/AppInfoProvider";
+import SnackbarAlert from "../components/SnackbarAlert";
 
 const DRAWER_WIDTH = 240;
+
+/** Admin-only app context. Lives here so companion pages never download it. */
+function AdminProviders({ children }: PropsWithChildren) {
+  return (
+    <SnackbarProvider
+      maxSnack={6}
+      autoHideDuration={10000}
+      Components={{
+        default: SnackbarAlert,
+        success: SnackbarAlert,
+        error: SnackbarAlert,
+        warning: SnackbarAlert,
+        info: SnackbarAlert,
+      }}
+    >
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <QueryClientProvider>
+          <AppInfoProvider>{children}</AppInfoProvider>
+        </QueryClientProvider>
+      </LocalizationProvider>
+    </SnackbarProvider>
+  );
+}
 
 function DrawerContent() {
   const navigate = useNavigate();
@@ -94,71 +124,73 @@ export default function AppShell() {
   }
 
   return (
-    <Box sx={{ display: "flex" }}>
-      <AppBar
-        position="fixed"
-        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            sx={{ mr: 2, display: { md: "none" } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            InQRess
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          display: { xs: "none", md: "block" },
-          "& .MuiDrawer-paper": {
+    <AdminProviders>
+      <Box sx={{ display: "flex" }}>
+        <AppBar
+          position="fixed"
+          sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        >
+          <Toolbar>
+            <IconButton
+              color="inherit"
+              edge="start"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              sx={{ mr: 2, display: { md: "none" } }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" noWrap component="div">
+              InQRess
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <Drawer
+          variant="permanent"
+          sx={{
             width: DRAWER_WIDTH,
-            boxSizing: "border-box",
-          },
-        }}
-      >
-        <DrawerContent />
-      </Drawer>
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          display: { xs: "block", md: "none" },
-          "& .MuiDrawer-paper": {
-            width: DRAWER_WIDTH,
-            boxSizing: "border-box",
-          },
-        }}
-      >
-        <DrawerContent />
-      </Drawer>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: fullWidth ? 0 : 3,
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-        }}
-      >
-        <Toolbar />
-        {fullWidth ? (
-          <Outlet />
-        ) : (
-          <Container fixed>
+            flexShrink: 0,
+            display: { xs: "none", md: "block" },
+            "& .MuiDrawer-paper": {
+              width: DRAWER_WIDTH,
+              boxSizing: "border-box",
+            },
+          }}
+        >
+          <DrawerContent />
+        </Drawer>
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            display: { xs: "block", md: "none" },
+            "& .MuiDrawer-paper": {
+              width: DRAWER_WIDTH,
+              boxSizing: "border-box",
+            },
+          }}
+        >
+          <DrawerContent />
+        </Drawer>
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            p: fullWidth ? 0 : 3,
+            width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          }}
+        >
+          <Toolbar />
+          {fullWidth ? (
             <Outlet />
-          </Container>
-        )}
+          ) : (
+            <Container fixed>
+              <Outlet />
+            </Container>
+          )}
+        </Box>
       </Box>
-    </Box>
+    </AdminProviders>
   );
 }
