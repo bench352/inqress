@@ -93,7 +93,7 @@ function KioskStatusLine({
         bottom: 32,
         alignItems: "center",
         lineHeight: 1,
-        color: "text.primary",
+        color: "textPrimary",
       }}
     >
       <BatteryIndicator battery={battery} warn={warn} />
@@ -370,7 +370,7 @@ export default function CompanionKiosk() {
         }}
       >
         <Typography variant="h5">This device is not paired.</Typography>
-        <Typography color="text.secondary">
+        <Typography color="textSecondary">
           The pairing token was rotated or the event was removed.
         </Typography>
         <Button
@@ -512,7 +512,7 @@ export default function CompanionKiosk() {
             sx={{
               alignItems: "center",
               justifyContent: "center",
-              color: "text.secondary",
+              color: "textSecondary",
               mt: 1,
             }}
           >

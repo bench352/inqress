@@ -26,7 +26,7 @@ export default function Settings() {
       </Typography>
 
       <Typography variant="h6">Owner's Information</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+      <Typography variant="body1" color="textSecondary" sx={{ mb: 1 }}>
         Contact your system administrator to update these details.
       </Typography>
       <List>

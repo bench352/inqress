@@ -325,7 +325,7 @@ function DataSourceEditorForm({
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
               Request headers (optional)
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="textSecondary">
               Static headers sent with every fetch, if the file host requires
               one.
             </Typography>
@@ -464,7 +464,7 @@ function DataSourceEditorForm({
                     </Table>
                   </TableContainer>
                 ) : (
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" color="textSecondary">
                     (empty sheet)
                   </Typography>
                 )}
@@ -667,7 +667,7 @@ export default function DataSourceEditor() {
       {sourceId && sourceQuery.isError ? (
         <Alert severity="error">This data source no longer exists.</Alert>
       ) : sourceId && !sourceQuery.data ? (
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="textSecondary">
           Loading...
         </Typography>
       ) : (

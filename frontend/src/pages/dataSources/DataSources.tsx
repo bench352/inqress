@@ -177,7 +177,7 @@ export default function DataSources() {
       </Stack>
 
       {!sourcesQuery.isLoading && sources.length === 0 && (
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="textSecondary">
           No data sources yet. Add one to keep this event's participants in sync
           with a spreadsheet link.
         </Typography>
@@ -206,7 +206,7 @@ export default function DataSources() {
               )}
             </Stack>
 
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="textSecondary">
               {source.activateNew
                 ? "New participants can check in"
                 : "New participants wait to be admitted"}
@@ -222,7 +222,7 @@ export default function DataSources() {
                 spacing={1}
                 sx={{ alignItems: "center", flexWrap: "wrap" }}
               >
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="textSecondary">
                   {summaryText(source)}
                 </Typography>
                 {errorSamples(source).length > 0 && (

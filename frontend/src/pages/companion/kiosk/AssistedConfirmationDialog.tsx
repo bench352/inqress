@@ -173,7 +173,7 @@ export default function AssistedConfirmationDialog({
           sx={{
             alignItems: "center",
             justifyContent: "center",
-            color: "text.secondary",
+            color: "textSecondary",
             mt: 1,
           }}
         >

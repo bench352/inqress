@@ -18,7 +18,7 @@ export default function ParticipantGrid({
   return (
     <>
       <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-        <Typography variant="subtitle1" color="text.secondary">
+        <Typography variant="subtitle1" color="textSecondary">
           {title}
         </Typography>
         <Divider sx={{ flexGrow: 1 }} />

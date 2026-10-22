@@ -63,7 +63,7 @@ export default function PairCompanionDialog({
             <CopyableField label="Pairing token" value={companionToken} />
           )}
         </Stack>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
           Or enter these values on the device's pairing screen. Rotate the
           pairing token to revoke all paired devices.
         </Typography>

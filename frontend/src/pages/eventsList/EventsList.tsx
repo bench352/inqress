@@ -128,7 +128,7 @@ export default function EventsList() {
                     >
                       {event.description || "No description"}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="textSecondary">
                       {event.date}
                     </Typography>
                   </CardContent>

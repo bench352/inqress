@@ -150,7 +150,7 @@ export default function BulkTicketDelivery() {
               </Table>
             </TableContainer>
           ) : (
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               No undelivered guests with ready tickets and email addresses.
             </Typography>
           )}
@@ -283,7 +283,7 @@ export default function BulkTicketDelivery() {
                     />
                   )}
                   {!previewLoading && !displayHtml && (
-                    <Typography color="text.secondary">
+                    <Typography color="textSecondary">
                       Failed to load preview.
                     </Typography>
                   )}
@@ -299,7 +299,7 @@ export default function BulkTicketDelivery() {
                   justifyContent: "center",
                 }}
               >
-                <Typography color="text.secondary">
+                <Typography color="textSecondary">
                   Select a participant to preview
                 </Typography>
               </Box>

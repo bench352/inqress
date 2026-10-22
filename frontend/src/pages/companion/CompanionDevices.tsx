@@ -153,7 +153,7 @@ export default function CompanionDevices() {
             <DeviceUnknownIcon
               sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
             />
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               Nothing is paired on this device yet. Try adding one using the (+)
               button.
             </Typography>
