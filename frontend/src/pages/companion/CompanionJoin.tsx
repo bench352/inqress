@@ -134,7 +134,7 @@ function ModeOptionCard({
             >
               {label}
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" color="textSecondary">
               {description}
             </Typography>
           </Stack>
@@ -310,7 +310,7 @@ export default function CompanionJoin() {
             </Card>
             <Typography
               variant="body1"
-              color="text.secondary"
+              color="textSecondary"
               sx={{ textAlign: "center" }}
             >
               Scan the QR code shown on the "Pair companion device" screen.
@@ -323,7 +323,7 @@ export default function CompanionJoin() {
             <Divider>Or</Divider>
             <Typography
               variant="body1"
-              color="text.secondary"
+              color="textSecondary"
               sx={{ textAlign: "center" }}
             >
               Enter manually

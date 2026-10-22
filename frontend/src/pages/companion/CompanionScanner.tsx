@@ -5,6 +5,8 @@ import {
   Chip,
   CircularProgress,
   Dialog,
+  DialogContent,
+  DialogTitle,
   Snackbar,
   Stack,
   Typography,
@@ -21,12 +23,34 @@ import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
 import BatteryIndicator from "./BatteryIndicator";
 import useBattery, { type BatteryState } from "./useBattery";
+
 const CAMERA_KEY = "settings.webcamDeviceId";
-const RESULT_MS = 2500;
-const RESULT_ICON_SIZE = 96;
+const RESULT_MS = 6000;
+const RESULT_ICON_SIZE = 60;
+// A tracker drops the library's idle rate to 33ms. Stay at the idle pace so a
+// result dialog does not keep the decoder hot.
+const SCAN_INTERVAL_MS = 500;
 // Camera start errors arrive within this window; later errors are per-frame
 // detection hiccups and should not swap the preview for an error message.
 const CAMERA_START_MS = 4000;
+// A ticket seen again within this window is the same hold, not a new scan.
+// Long enough to survive a dropped detection frame, short enough to retry.
+const SEEN_WINDOW_MS = 3000;
+// A failed display read on first load would otherwise leave the scanner waiting
+// until a reload.
+const DISPLAY_RETRY_MS = 5000;
+
+function rawValues(codes: unknown): string[] {
+  if (!Array.isArray(codes)) {
+    const value = String(codes ?? "");
+    return value ? [value] : [];
+  }
+  return codes
+    .map((code) =>
+      String((code as { rawValue?: unknown } | undefined)?.rawValue ?? ""),
+    )
+    .filter(Boolean);
+}
 
 interface Display {
   eventName: string;
@@ -50,11 +74,13 @@ function ScannerFooter({
   status,
   battery,
   warn,
+  busy = false,
 }: {
   display: Display | null;
   status: ConnectionStatus;
   battery: BatteryState | null;
   warn: boolean;
+  busy?: boolean;
 }) {
   return (
     <Box sx={{ width: "100%", px: 2, py: 1.5, bgcolor: "#111", color: "#fff" }}>
@@ -84,6 +110,13 @@ function ScannerFooter({
           spacing={1}
           sx={{ alignItems: "center", flexShrink: 0 }}
         >
+          {busy && (
+            <CircularProgress
+              size={18}
+              color="inherit"
+              aria-label="Verifying ticket"
+            />
+          )}
           <BatteryIndicator battery={battery} warn={warn} size="small" />
           {status === "connected" ? (
             <SensorsOutlinedIcon
@@ -108,6 +141,7 @@ export default function CompanionScanner() {
   const navigate = useNavigate();
   const api = useCompanionApi();
   const [display, setDisplay] = useState<Display | null>(null);
+  const [displayLoaded, setDisplayLoaded] = useState(false);
   const [unpaired, setUnpaired] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [cameraFailed, setCameraFailed] = useState(false);
@@ -119,6 +153,30 @@ export default function CompanionScanner() {
   const esRef = useRef<EventSource | null>(null);
   const resultTimer = useRef<number | null>(null);
   const mountedAt = useRef(0);
+  const seenTicket = useRef<string | null>(null);
+  const seenAt = useRef(0);
+  const acceptLock = useRef(false);
+  const resultRef = useRef<ScanOutcome>(null);
+  const cameraOnRef = useRef(false);
+  const dismissResult = useCallback(() => {
+    resultRef.current = null;
+    setResult(null);
+    if (resultTimer.current !== null) {
+      window.clearTimeout(resultTimer.current);
+      resultTimer.current = null;
+    }
+  }, []);
+
+  // Called where the camera pauses, so a result cannot outlive its check-in.
+  const pauseScanner = useCallback(() => {
+    // Closes the window where a scan already in flight could still show a
+    // result after the mode left live/test.
+    cameraOnRef.current = false;
+    dismissResult();
+    setCameraFailed(false);
+    seenTicket.current = null;
+  }, [dismissResult]);
+
   const loadDisplay = useCallback(async () => {
     try {
       const d = await api.get<Display>(
@@ -126,15 +184,19 @@ export default function CompanionScanner() {
       );
       setDisplay(d);
       setUnpaired(false);
+      if (d.mode === "disabled") pauseScanner();
       return true;
     } catch (e: unknown) {
       if (e instanceof ApiError && e.status === 401) {
         setUnpaired(true);
+        pauseScanner();
         return false;
       }
       return true;
+    } finally {
+      setDisplayLoaded(true);
     }
-  }, [api, eventId]);
+  }, [api, eventId, pauseScanner]);
 
   const connect = useCallback(() => {
     esRef.current?.close();
@@ -157,6 +219,9 @@ export default function CompanionScanner() {
           typeof parsed.data?.value === "string"
         ) {
           setDisplay((d) => (d ? { ...d, mode: parsed.data.value } : d));
+          if (parsed.data.value !== "test" && parsed.data.value !== "live") {
+            pauseScanner();
+          }
         }
         if (parsed.eventType === "CONTROL") {
           if (parsed.data?.command === "CLOSE") {
@@ -170,7 +235,7 @@ export default function CompanionScanner() {
         // ignore malformed events
       }
     };
-  }, [eventId, loadDisplay]);
+  }, [eventId, loadDisplay, pauseScanner]);
 
   // A handheld shares the browser with the admin pages; leaving the admin
   // signed in would expose the admin section to whoever picks it up.
@@ -179,7 +244,6 @@ export default function CompanionScanner() {
   const battery = useBattery();
 
   useEffect(() => {
-    mountedAt.current = Date.now();
     (async () => {
       await loadDisplay();
     })();
@@ -191,25 +255,60 @@ export default function CompanionScanner() {
     };
   }, [loadDisplay, connect]);
 
+  // The scanner stays mounted for the whole visit. Pausing it is the only stop
+  // that is queued behind a camera start already in flight; unmounting is not.
+  const cameraOn =
+    !unpaired &&
+    display !== null &&
+    (display.mode === "test" || display.mode === "live");
+
+  useEffect(() => {
+    cameraOnRef.current = cameraOn;
+    if (cameraOn) {
+      // The error window starts when the lens starts, not when the page does.
+      mountedAt.current = Date.now();
+    }
+  }, [cameraOn]);
+
+  useEffect(() => {
+    if (!displayLoaded || display || unpaired) return;
+    const id = window.setInterval(() => void loadDisplay(), DISPLAY_RETRY_MS);
+    return () => window.clearInterval(id);
+  }, [displayLoaded, display, unpaired, loadDisplay]);
+
   const showResult = (outcome: Exclude<ScanOutcome, null>) => {
+    resultRef.current = outcome;
     setResult(outcome);
     if (resultTimer.current !== null) window.clearTimeout(resultTimer.current);
-    resultTimer.current = window.setTimeout(() => setResult(null), RESULT_MS);
+    resultTimer.current = window.setTimeout(dismissResult, RESULT_MS);
   };
 
   const onScan = async (codes: unknown) => {
-    if (busy || result || unpaired || display?.mode === "disabled") return;
-    const text = Array.isArray(codes)
-      ? String((codes[0] as { rawValue?: unknown } | undefined)?.rawValue ?? "")
-      : String((codes as unknown) ?? "");
+    const text = rawValues(codes)[0];
     if (!text) return;
+    // Refresh even while a result dialog is up, so a held ticket stays held.
+    if (
+      text === seenTicket.current &&
+      Date.now() - seenAt.current < SEEN_WINDOW_MS
+    ) {
+      seenAt.current = Date.now();
+      return;
+    }
+    if (acceptLock.current || resultRef.current || !cameraOnRef.current) {
+      return;
+    }
 
+    acceptLock.current = true;
+    seenTicket.current = text;
+    seenAt.current = Date.now();
     setBusy(true);
     try {
       const res = await api.post<{
         success: boolean;
         detail?: { title?: string | null; name?: string; reason?: string };
       }>(`/api/events/${eventId}/companion/scan`, { ticket: text });
+      // Check-in may have closed while the scan was in flight.
+      if (!cameraOnRef.current) return;
       if (res.success) {
         showResult({
           ok: true,
@@ -225,7 +324,8 @@ export default function CompanionScanner() {
     } catch (e: unknown) {
       if (e instanceof ApiError && e.status === 401) {
         setUnpaired(true);
-      } else {
+        pauseScanner();
+      } else if (cameraOnRef.current) {
         const detail =
           e && typeof e === "object" && "detail" in e
             ? (e as { detail: unknown }).detail
@@ -236,85 +336,20 @@ export default function CompanionScanner() {
         });
       }
     } finally {
+      acceptLock.current = false;
       setBusy(false);
     }
   };
 
-  if (unpaired) {
-    return (
-      <Box
-        sx={{
-          height: "100dvh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 2,
-          p: 3,
-          textAlign: "center",
-        }}
-      >
-        <Typography variant="h5">This device is not paired.</Typography>
-        <Typography color="text.secondary">
-          The pairing token was rotated or the event was removed.
-        </Typography>
-        <Button
-          variant="contained"
-          onClick={() => navigate({ to: "/companion" })}
-        >
-          Back to devices
-        </Button>
-      </Box>
-    );
-  }
-
-  if (display?.mode === "disabled") {
-    return (
-      <Box
-        sx={{
-          height: "100dvh",
-          display: "flex",
-          flexDirection: "column",
-          bgcolor: "#000",
-          color: "#fff",
-        }}
-      >
-        <Box
-          sx={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            gap: 2,
-            p: 4,
-          }}
-        >
-          <PhonelinkLockIcon sx={{ fontSize: 72 }} />
-          <Typography variant="h6">QR scanner is disabled</Typography>
-          <Typography variant="h4">{display.eventName}</Typography>
-          <Typography variant="subtitle1">
-            The scanner will activate once the host opens check-in.
-          </Typography>
-        </Box>
-        <ScannerFooter
-          display={display}
-          status={status}
-          battery={battery}
-          warn
-        />
-      </Box>
-    );
-  }
-
   return (
     <Box
       sx={{
+        position: "relative",
         height: "100dvh",
         display: "flex",
         flexDirection: "column",
         bgcolor: "#000",
+        color: "#fff",
       }}
     >
       <Box
@@ -326,57 +361,64 @@ export default function CompanionScanner() {
           overflow: "hidden",
         }}
       >
-        {cameraFailed ? (
-          <Box
-            sx={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              p: 3,
-              textAlign: "center",
-            }}
-          >
-            <Typography color="error">
-              Camera unavailable. Check camera settings on the devices page.
-            </Typography>
-          </Box>
-        ) : (
-          <QrScanner
-            onScan={onScan}
-            onError={() => {
-              if (Date.now() - mountedAt.current < CAMERA_START_MS) {
-                setCameraFailed(true);
-              }
-            }}
-            paused={busy || !!result}
-            constraints={
-              cameraDeviceId
-                ? {
-                    deviceId: { exact: cameraDeviceId },
-                    width: { ideal: 1080 },
-                    height: { ideal: 1920 },
-                  }
-                : {
-                    facingMode: "environment",
-                    width: { ideal: 1080 },
-                    height: { ideal: 1920 },
-                  }
+        <QrScanner
+          paused={!cameraOn}
+          onScan={onScan}
+          onError={() => {
+            if (cameraOn && Date.now() - mountedAt.current < CAMERA_START_MS) {
+              setCameraFailed(true);
             }
-            components={{
-              finder: false,
-              torch: false,
-              onOff: false,
-              zoom: false,
-            }}
-            styles={{
-              container: { width: "100%", height: "100%", aspectRatio: "auto" },
-              video: { width: "100%", height: "100%", objectFit: "cover" },
-            }}
-          />
-        )}
-        {busy && !result && (
+          }}
+          allowMultiple
+          scanDelay={SCAN_INTERVAL_MS}
+          retryDelay={SCAN_INTERVAL_MS}
+          sound={false}
+          tracker={(codes) => {
+            const ticket = seenTicket.current;
+            if (ticket && codes.some((code) => code.rawValue === ticket)) {
+              seenAt.current = Date.now();
+            }
+          }}
+          constraints={
+            cameraDeviceId
+              ? {
+                  deviceId: { exact: cameraDeviceId },
+                  width: { ideal: 1080 },
+                  height: { ideal: 1920 },
+                }
+              : {
+                  facingMode: "environment",
+                  width: { ideal: 1080 },
+                  height: { ideal: 1920 },
+                }
+          }
+          components={{
+            finder: false,
+            torch: false,
+            onOff: false,
+            zoom: false,
+          }}
+          styles={{
+            container: { width: "100%", height: "100%", aspectRatio: "auto" },
+            video: { width: "100%", height: "100%", objectFit: "cover" },
+          }}
+        />
+
+        {!display ? (
+          !unpaired && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <CircularProgress color="inherit" />
+            </Box>
+          )
+        ) : display.mode === "disabled" ? (
           <Box
             sx={{
               position: "absolute",
@@ -385,14 +427,37 @@ export default function CompanionScanner() {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
+              textAlign: "center",
               gap: 2,
-              bgcolor: "background.paper",
+              p: 4,
+              bgcolor: "#000",
             }}
           >
-            <CircularProgress />
-            <Typography variant="h6">Verifying...</Typography>
+            <PhonelinkLockIcon sx={{ fontSize: 72 }} />
+            <Typography variant="h6">QR scanner is disabled</Typography>
+            <Typography variant="h4">{display.eventName}</Typography>
+            <Typography variant="subtitle1">
+              The scanner will activate once the host opens check-in.
+            </Typography>
           </Box>
-        )}
+        ) : cameraFailed ? (
+          <Box
+            sx={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              p: 3,
+              textAlign: "center",
+              bgcolor: "#000",
+            }}
+          >
+            <Typography color="warning">
+              Camera unavailable. Check camera settings on the devices page.
+            </Typography>
+          </Box>
+        ) : null}
       </Box>
 
       <ScannerFooter
@@ -400,49 +465,49 @@ export default function CompanionScanner() {
         status={status}
         battery={battery}
         warn={!result}
+        busy={busy && cameraOn && !result}
       />
 
-      {/* Result card: full-screen, non-transparent, same treatment as the
-          kiosk so a scan result is unambiguous on a small handheld screen. */}
-      <Dialog open={!!result} fullScreen>
+      <Dialog
+        open={!!result}
+        onClose={dismissResult}
+        maxWidth="xs"
+        fullWidth
+        aria-labelledby="scan-result-title"
+        slotProps={{ paper: { onClick: dismissResult } }}
+      >
         {result && (
-          <Box
-            onClick={() => setResult(null)}
-            sx={{
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-              gap: 3,
-              p: 4,
-            }}
-          >
-            {result.ok ? (
-              <>
-                <CheckCircleIcon
-                  sx={{ fontSize: RESULT_ICON_SIZE, color: "success.main" }}
-                />
-                <Typography variant="h4">Checked in</Typography>
-                <Typography variant="h6">
-                  {result.title ? `${result.title} ` : ""}
-                  {result.name}
+          <>
+            <DialogTitle id="scan-result-title" sx={{ textAlign: "center" }}>
+              {result.ok ? "Checked in" : "Cannot check in"}
+            </DialogTitle>
+            <DialogContent>
+              <Stack
+                spacing={2}
+                sx={{ alignItems: "center", textAlign: "center" }}
+              >
+                {result.ok ? (
+                  <CheckCircleIcon
+                    color="success"
+                    sx={{ fontSize: RESULT_ICON_SIZE }}
+                  />
+                ) : (
+                  <ErrorIcon
+                    color="error"
+                    sx={{ fontSize: RESULT_ICON_SIZE }}
+                  />
+                )}
+                <Typography variant="h5" noWrap>
+                  {result.ok
+                    ? `${result.title ? `${result.title} ` : ""}${result.name ?? ""}`
+                    : result.reason}
                 </Typography>
-              </>
-            ) : (
-              <>
-                <ErrorIcon
-                  sx={{ fontSize: RESULT_ICON_SIZE, color: "error.main" }}
-                />
-                <Typography variant="h4">Not checked in</Typography>
-                <Typography variant="h6">{result.reason}</Typography>
-              </>
-            )}
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-              Tap to dismiss
-            </Typography>
-          </Box>
+                <Typography variant="body2" color="textSecondary">
+                  Tap to dismiss
+                </Typography>
+              </Stack>
+            </DialogContent>
+          </>
         )}
       </Dialog>
 
@@ -462,6 +527,35 @@ export default function CompanionScanner() {
       />
 
       <CompanionAdminSessionAlert show={adminCleared} />
+
+      {unpaired && (
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+            p: 3,
+            textAlign: "center",
+            bgcolor: "background.default",
+            color: "textPrimary",
+          }}
+        >
+          <Typography variant="h5">This device is not paired.</Typography>
+          <Typography color="textSecondary">
+            The pairing token was rotated or the event was removed.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => navigate({ to: "/companion" })}
+          >
+            Back to devices
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }

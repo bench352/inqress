@@ -340,7 +340,7 @@ export default function EventDetail() {
                 <ToggleButton value="test">Test</ToggleButton>
                 <ToggleButton value="live">Live</ToggleButton>
               </ToggleButtonGroup>
-              <Typography variant="body1" color="text.secondary">
+              <Typography variant="body1" color="textSecondary">
                 attendance mode
               </Typography>
             </Stack>
@@ -468,7 +468,7 @@ export default function EventDetail() {
       )}
 
       {participants.length === 0 && (
-        <Typography color="text.secondary">
+        <Typography color="textSecondary">
           No participants yet. Add some using the + button.
         </Typography>
       )}
@@ -480,7 +480,7 @@ export default function EventDetail() {
         filteredNotDelivered.length === 0 &&
         filteredTicketUndelivered.length === 0 &&
         filteredDeactivated.length === 0 && (
-          <Typography color="text.secondary">No matches found.</Typography>
+          <Typography color="textSecondary">No matches found.</Typography>
         )}
 
       <AddParticipantsSpeedDial eventId={eventId} />

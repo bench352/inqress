@@ -31,7 +31,7 @@ def _inactive_reason(activated: bool | None) -> str | None:
         return None
     if activated is False:
         return "Ticket is deactivated."
-    return "Ticket is not yet admitted."
+    return "Participant is not yet admitted."
 
 
 def _insert_attendance(

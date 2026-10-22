@@ -135,7 +135,7 @@ function OptionCard({
             >
               {label}
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" color="textSecondary">
               {description}
             </Typography>
           </Stack>
@@ -234,7 +234,7 @@ export default function DataHandlingStep({
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
           New Participant Admission
         </Typography>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="textSecondary">
           Whether participants added in this import (who are not already on the
           event) are immediately allowed to check in.
         </Typography>

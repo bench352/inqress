@@ -89,10 +89,10 @@ export default function CheckinNotificationDialog({
           {dialog.title ? `${dialog.title} ` : ""}
           {dialog.name}
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 0.5 }}>
+        <Typography variant="body1" color="textSecondary" sx={{ mb: 0.5 }}>
           Checked in at {formattedTime}
         </Typography>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="textSecondary">
           By {formatMethod(dialog.checkInMethod)}
         </Typography>
       </DialogContent>
