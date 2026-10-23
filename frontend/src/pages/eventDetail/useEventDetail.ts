@@ -16,10 +16,11 @@ export interface ParticipantItem {
   isTicketReady: boolean;
   checkedInAt: string | null;
   activated: boolean | null;
+  detached: boolean | null;
   managedBy: {
     id: string;
     name: string;
-    writesDetails: boolean;
+    overwritesDetails: boolean;
   } | null;
 }
 

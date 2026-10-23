@@ -80,6 +80,12 @@ class Participant(Base):
         nullable=True,
         default=None,
     )
+    detached: Mapped[bool] = mapped_column(
+        sqlalchemy.Boolean,
+        nullable=False,
+        default=False,
+        server_default=sqlalchemy.false(),
+    )
     managed_by_data_source_id: Mapped[uuid.UUID | None] = mapped_column(
         sqlalchemy.Uuid,
         sqlalchemy.ForeignKey("data_source.id", ondelete="SET NULL"),

@@ -94,6 +94,7 @@ class ExistingRow:
     raw_phone: str | None
     country_code: str | None
     phone: str | None
+    detached: bool
 
 
 def _differs(stored: ExistingRow, values: RowValues) -> bool:
@@ -274,6 +275,11 @@ def plan_row_tracking(
     skipped: list[int] = []
     errors: list[str] = []
     for row in rows:
+        stored = existing.get(row.row_number)
+        if stored is not None and stored.detached:
+            # The admin took this person over. Keep the row link, write nothing.
+            skipped.append(row.row_number)
+            continue
         name = row.name.strip()
         if not name:
             skipped.append(row.row_number)
@@ -291,7 +297,6 @@ def plan_row_tracking(
             country_code=country_code,
             phone=phone,
         )
-        stored = existing.get(row.row_number)
         if stored is None:
             creates.append(RowCreate(row_number=row.row_number, values=values))
         elif _differs(stored, values):
@@ -329,6 +334,7 @@ def _apply_row_tracking(
                 raw_phone=raw_phone,
                 country_code=country_code,
                 phone=phone,
+                detached=detached,
             )
             for (
                 row_number,
@@ -339,6 +345,7 @@ def _apply_row_tracking(
                 raw_phone,
                 country_code,
                 phone,
+                detached,
             ) in session.execute(
                 select(
                     schema.orm.DataSourceRow.row_number,
@@ -349,6 +356,7 @@ def _apply_row_tracking(
                     schema.orm.Participant.raw_phone,
                     schema.orm.Participant.country_code,
                     schema.orm.Participant.phone,
+                    schema.orm.Participant.detached,
                 )
                 .join(
                     schema.orm.Participant,

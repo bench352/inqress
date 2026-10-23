@@ -1,5 +1,7 @@
 import { useState } from "react";
 import {
+  Alert,
+  AlertTitle,
   Button,
   Chip,
   Dialog,
@@ -15,6 +17,8 @@ import {
   Typography,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import LinkIcon from "@mui/icons-material/Link";
+import LinkOffIcon from "@mui/icons-material/LinkOff";
 import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
 import BlockIcon from "@mui/icons-material/Block";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -51,6 +55,8 @@ type SubView =
   | "attend"
   | "delete"
   | "deactivate"
+  | "attach"
+  | "detach"
   | "edit";
 
 interface Props {
@@ -153,6 +159,26 @@ export default function ParticipantDetailsDialog({
     },
   });
 
+  const setDetachedMutation = useMutation({
+    mutationFn: async (detached: boolean) => {
+      await api.put(
+        `/api/events/${eventId}/participants/${participant.id}/detached`,
+        { detached },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
+    },
+    onError: (err: Error & { status?: number; detail?: unknown }) => {
+      enqueueSnackbar(
+        (typeof err.detail === "string" ? err.detail : err.message) ||
+          "Failed to update sync",
+        { variant: "error" },
+      );
+      setSubView("main");
+    },
+  });
+
   const handleDeliverConfirm = () => {
     deliverMutation.mutate(undefined, {
       onSuccess: () => setSubView("main"),
@@ -167,6 +193,18 @@ export default function ParticipantDetailsDialog({
 
   const handleDeactivateConfirm = () => {
     setActivatedMutation.mutate(false, {
+      onSuccess: () => setSubView("main"),
+    });
+  };
+
+  const handleAttachConfirm = () => {
+    setDetachedMutation.mutate(false, {
+      onSuccess: () => setSubView("main"),
+    });
+  };
+
+  const handleDetachConfirm = () => {
+    setDetachedMutation.mutate(true, {
       onSuccess: () => setSubView("main"),
     });
   };
@@ -187,13 +225,6 @@ export default function ParticipantDetailsDialog({
                   {participant.name}
                 </Typography>
                 <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                  {participant.managedBy && (
-                    <Chip
-                      label="Externally managed"
-                      color="primary"
-                      size="small"
-                    />
-                  )}
                   {participant.activated === false && (
                     <Chip label="Deactivated" color="error" size="small" />
                   )}
@@ -238,6 +269,41 @@ export default function ParticipantDetailsDialog({
               )}
             </Stack>
 
+            {participant.managedBy && (
+              <Alert
+                severity={participant.detached ? "warning" : "info"}
+                role="status"
+                icon={participant.detached ? <LinkOffIcon /> : <LinkIcon />}
+                action={
+                  participant.detached != null ? (
+                    <Button
+                      color="inherit"
+                      size="small"
+                      loading={setDetachedMutation.isPending}
+                      onClick={() =>
+                        setSubView(participant.detached ? "attach" : "detach")
+                      }
+                    >
+                      {participant.detached ? "Attach" : "Detach"}
+                    </Button>
+                  ) : undefined
+                }
+              >
+                <AlertTitle>
+                  {participant.detached
+                    ? `Detached from ${participant.managedBy.name}`
+                    : `Managed by ${participant.managedBy.name}`}
+                </AlertTitle>
+                {participant.detached
+                  ? "You can edit the details freely because the data source no longer writes them. " +
+                    "Delete is still unavailable until the data source is removed."
+                  : participant.managedBy.overwritesDetails
+                    ? "Editing participant detail is unavailable while data source is active."
+                    : "You can edit the participant detail because the data source does not write them. " +
+                      "Delete is still unavailable until the data source is removed."}
+              </Alert>
+            )}
+
             {participant.activated !== true && (
               <Button
                 variant="contained"
@@ -271,18 +337,17 @@ export default function ParticipantDetailsDialog({
             <List disablePadding>
               <ListItemButton
                 onClick={() => setSubView("edit")}
-                disabled={participant.managedBy?.writesDetails === true}
+                disabled={
+                  participant.managedBy?.overwritesDetails === true &&
+                  participant.detached !== true
+                }
               >
                 <ListItemIcon>
                   <EditIcon />
                 </ListItemIcon>
                 <ListItemText
                   primary="Update personal information"
-                  secondary={
-                    participant.managedBy?.writesDetails
-                      ? `Details follow ${participant.managedBy.name}. Change them in that source.`
-                      : "Change title, name, email, or phone."
-                  }
+                  secondary="Change title, name, email, or phone."
                 />
               </ListItemButton>
               <ListItemButton
@@ -538,6 +603,62 @@ export default function ParticipantDetailsDialog({
             loading={setActivatedMutation.isPending}
           >
             Deactivate
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={subView === "detach"} onClose={() => setSubView("main")}>
+        <DialogTitle>Detach from {participant.managedBy?.name}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Personal information of{" "}
+            {participant.title ? `${participant.title} ` : ""}
+            {participant.name} will no longer be syned with{" "}
+            {participant.managedBy?.name}, so you can edit them here as you
+            want. Delete remains unavailable until the data source is removed.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setSubView("main")}
+            disabled={setDetachedMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDetachConfirm}
+            variant="contained"
+            loading={setDetachedMutation.isPending}
+          >
+            Detach
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={subView === "attach"} onClose={() => setSubView("main")}>
+        <DialogTitle>Attach to {participant.managedBy?.name}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Changes you made to the personal information of{" "}
+            {participant.title ? `${participant.title} ` : ""}
+            {participant.name} will be replaced with the values from{" "}
+            {participant.managedBy?.name} on the next sync. You will no longer
+            be able to edit them here.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setSubView("main")}
+            disabled={setDetachedMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAttachConfirm}
+            variant="contained"
+            loading={setDetachedMutation.isPending}
+          >
+            Attach
           </Button>
         </DialogActions>
       </Dialog>
