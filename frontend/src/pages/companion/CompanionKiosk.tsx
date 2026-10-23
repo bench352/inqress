@@ -55,10 +55,13 @@ function KioskDisabledScreen({
   return (
     <Box sx={KIOSK_DISABLED_SX}>
       <NoMeetingRoomIcon sx={{ fontSize: 200 }} />
-      <Typography variant="h3" sx={{ fontWeight: 700 }}>
+      <Typography variant="h3" sx={{ fontWeight: 900 }}>
         Check-in will open shortly
       </Typography>
-      <Typography variant="h5" sx={{ opacity: 0.75, maxWidth: 900 }}>
+      <Typography
+        variant="h5"
+        sx={{ fontWeight: 500, opacity: 0.75, maxWidth: 900 }}
+      >
         Please wait until the host opens check-in{" "}
         {eventName ? `for ${eventName}` : ""}.
       </Typography>
@@ -125,6 +128,7 @@ export default function CompanionKiosk() {
   const [accentColor, setAccentColor] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [scanResult, setScanResult] = useState<{
+    key: number;
     phase: ResultPhase;
     result: CheckinResponse;
   } | null>(null);
@@ -146,6 +150,7 @@ export default function CompanionKiosk() {
   const pendingConfirmRef = useRef<typeof pendingConfirm>(null);
   const ownCheckinRef = useRef<{ name: string; ts: number } | null>(null);
   const bannerTimerRef = useRef<number | null>(null);
+  const scanSeqRef = useRef(0);
 
   const closeDialog = useCallback(() => {
     setDialog(null);
@@ -249,6 +254,9 @@ export default function CompanionKiosk() {
             typeof parsed.data?.value === "string"
           ) {
             setDisplay((d) => (d ? { ...d, mode: parsed.data.value } : d));
+            // Closing the booth drops whatever result is up, so reopening
+            // cannot flash it.
+            if (parsed.data.value === "disabled") setScanResult(null);
           }
           if (
             parsed.eventType === "ATTENDANCE" &&
@@ -294,12 +302,41 @@ export default function CompanionKiosk() {
             // Idle kiosk: full-screen check-in success, original booth style.
             setBanner(null);
             setScanResult({
+              key: ++scanSeqRef.current,
               phase: "success",
               result: {
                 success: true,
                 detail: {
                   title: data.title ?? null,
                   name: data.name,
+                },
+              },
+            });
+          }
+          if (
+            parsed.eventType === "SCAN_REFUSAL" &&
+            parsed.type === "NOTIFICATION"
+          ) {
+            // Busy or closed booth leaves the verdict on the staff phone.
+            if (
+              displayRef.current?.mode === "disabled" ||
+              dialogRef.current !== null ||
+              pendingConfirmRef.current !== null
+            ) {
+              return;
+            }
+            const data = parsed.data;
+            if (typeof data?.reason !== "string") return;
+            setBanner(null);
+            setScanResult({
+              key: ++scanSeqRef.current,
+              phase: "error",
+              result: {
+                success: false,
+                detail: {
+                  reason: data.reason,
+                  title: data.title ?? null,
+                  name: data.name ?? null,
                 },
               },
             });
@@ -369,8 +406,10 @@ export default function CompanionKiosk() {
           textAlign: "center",
         }}
       >
-        <Typography variant="h5">This device is not paired.</Typography>
-        <Typography color="textSecondary">
+        <Typography variant="h5" sx={{ fontWeight: 500 }}>
+          This device is not paired.
+        </Typography>
+        <Typography color="textSecondary" sx={{ fontWeight: 500 }}>
           The pairing token was rotated or the event was removed.
         </Typography>
         <Button
@@ -399,6 +438,7 @@ export default function CompanionKiosk() {
       // workflows render inside, so both success screens are identical.
       <Box sx={{ height: "100dvh", bgcolor: "background.paper" }}>
         <CheckinResultDisplay
+          key={scanResult.key}
           phase={scanResult.phase}
           result={scanResult.result}
           onDismiss={() => setScanResult(null)}
@@ -467,7 +507,9 @@ export default function CompanionKiosk() {
         }}
       >
         {banner && (
-          <Typography sx={{ color: "success.main" }}>{banner}</Typography>
+          <Typography sx={{ fontWeight: 500, color: "success.main" }}>
+            {banner}
+          </Typography>
         )}
         <Stack spacing={1.5}>
           <Typography
@@ -483,11 +525,15 @@ export default function CompanionKiosk() {
           >
             {display?.eventName}
           </Typography>
-          <Typography variant="h4">{display?.kioskMessage}</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 500 }}>
+            {display?.kioskMessage}
+          </Typography>
         </Stack>
 
         <Stack spacing={2} sx={{ width: "100%", maxWidth: 420, mt: 2 }}>
-          <Typography variant="h5">Cannot scan QR code?</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 500 }}>
+            Cannot scan QR code?
+          </Typography>
           <Button
             variant="contained"
             size="large"
@@ -512,12 +558,11 @@ export default function CompanionKiosk() {
             sx={{
               alignItems: "center",
               justifyContent: "center",
-              color: "textSecondary",
-              mt: 1,
+              color: "text.secondary",
             }}
           >
             <TouchAppOutlinedIcon fontSize="medium" />
-            <Typography variant="h6">
+            <Typography variant="h6" sx={{ fontWeight: 500 }}>
               Tap an option on the screen to continue
             </Typography>
           </Stack>

@@ -277,7 +277,6 @@ function LetterForm({
                 px: 2,
                 py: 1.5,
                 textAlign: "center",
-                color: "textSecondary",
               },
               "& .ticket-qr.ProseMirror-selectednode": {
                 borderStyle: "solid",

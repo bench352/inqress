@@ -6,7 +6,6 @@ import {
   CircularProgress,
   Dialog,
   DialogContent,
-  DialogTitle,
   Snackbar,
   Stack,
   Typography,
@@ -18,6 +17,8 @@ import SensorsOutlinedIcon from "@mui/icons-material/SensorsOutlined";
 import SensorsOffOutlinedIcon from "@mui/icons-material/SensorsOffOutlined";
 import ErrorIcon from "@mui/icons-material/Error";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import useSound from "use-sound";
+import scannedBeep from "@/assets/soundEffects/scanned_beep.aac";
 import { ApiError, useCompanionApi } from "@/api";
 import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
@@ -140,6 +141,7 @@ export default function CompanionScanner() {
   const { eventId } = useParams({ strict: false }) as { eventId: string };
   const navigate = useNavigate();
   const api = useCompanionApi();
+  const [playScannedBeep] = useSound(scannedBeep);
   const [display, setDisplay] = useState<Display | null>(null);
   const [displayLoaded, setDisplayLoaded] = useState(false);
   const [unpaired, setUnpaired] = useState(false);
@@ -302,6 +304,8 @@ export default function CompanionScanner() {
     seenTicket.current = text;
     seenAt.current = Date.now();
     setBusy(true);
+    // Beep as soon as the ticket is accepted, not when the result arrives.
+    playScannedBeep();
     try {
       const res = await api.post<{
         success: boolean;
@@ -319,6 +323,8 @@ export default function CompanionScanner() {
         showResult({
           ok: false,
           reason: res.detail?.reason ?? "Check-in failed",
+          title: res.detail?.title ?? null,
+          name: res.detail?.name,
         });
       }
     } catch (e: unknown) {
@@ -473,14 +479,10 @@ export default function CompanionScanner() {
         onClose={dismissResult}
         maxWidth="xs"
         fullWidth
-        aria-labelledby="scan-result-title"
         slotProps={{ paper: { onClick: dismissResult } }}
       >
         {result && (
           <>
-            <DialogTitle id="scan-result-title" sx={{ textAlign: "center" }}>
-              {result.ok ? "Checked in" : "Cannot check in"}
-            </DialogTitle>
             <DialogContent>
               <Stack
                 spacing={2}
@@ -497,12 +499,18 @@ export default function CompanionScanner() {
                     sx={{ fontSize: RESULT_ICON_SIZE }}
                   />
                 )}
-                <Typography variant="h5" noWrap>
+                <Typography variant="h5" sx={{ fontWeight: 500 }} noWrap>
                   {result.ok
-                    ? `${result.title ? `${result.title} ` : ""}${result.name ?? ""}`
-                    : result.reason}
+                    ? "Check-in successful"
+                    : (result.reason ?? "Unknown error")}
                 </Typography>
-                <Typography variant="body2" color="textSecondary">
+                {result.name && (
+                  <Typography variant="h4" sx={{ fontWeight: 900 }} noWrap>
+                    {result.title ? `${result.title} ` : ""}
+                    {result.name}
+                  </Typography>
+                )}
+                <Typography variant="body1" color="textSecondary">
                   Tap to dismiss
                 </Typography>
               </Stack>

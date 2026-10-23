@@ -127,6 +127,9 @@ class CheckinSuccessDetail(RestModel):
 
 class CheckinErrorDetail(RestModel):
     reason: str
+    # Set when the refused scan identified the guest. Other check-in errors omit these.
+    title: str | None = None
+    name: str | None = None
 
 
 class CheckinConflictDetail(RestModel):

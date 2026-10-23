@@ -15,6 +15,7 @@ import "react-simple-keyboard/build/css/index.css";
 import { ApiError, useCompanionApi } from "@/api";
 import CheckinResultDisplay from "./CheckinResultDisplay";
 import ConflictPickerDialog from "./ConflictPickerDialog";
+import useIdleDismiss from "./useIdleDismiss";
 import {
   isConflictDetail,
   isSuccessDetail,
@@ -65,6 +66,7 @@ export default function KioskEmailDialog({
   const [result, setResult] = useState<CheckinResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [conflicting, setConflicting] = useState<ConflictParticipant[]>([]);
+  const bumpIdle = useIdleDismiss(onClose, phase === "input");
 
   const handleSubmit = async () => {
     if (!email) return;
@@ -126,7 +128,7 @@ export default function KioskEmailDialog({
           }}
         >
           <Stack
-            spacing={3}
+            spacing={5}
             sx={{
               flex: "1 1 0",
               minHeight: 0,
@@ -136,56 +138,68 @@ export default function KioskEmailDialog({
             }}
           >
             <EmailIcon sx={{ fontSize: EMAIL_ICON_SIZE, color: accentColor }} />
-            <Typography variant="h3" sx={{ textAlign: "center", fontSize: 36 }}>
+            <Typography
+              variant="h3"
+              sx={{ textAlign: "center", fontWeight: 500 }}
+            >
               Enter the email you registered for this event
             </Typography>
-            <TextField
-              value={email}
-              placeholder="name@example.com"
-              slotProps={{
-                input: {
-                  readOnly: true,
-                  sx: { fontSize: 28, textAlign: "center" },
-                },
-              }}
-              sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
-            />
             <Stack
-              direction="row"
-              spacing={2}
-              sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
+              spacing={3}
+              sx={{
+                width: "100%",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
             >
-              <Button
-                variant="outlined"
-                size="large"
-                startIcon={<CloseIcon />}
-                onClick={onClose}
-                sx={{
-                  flex: 1,
-                  py: 1.5,
-                  fontSize: "1.2rem",
-                  borderColor: accentColor,
-                  color: accentColor,
+              <TextField
+                value={email}
+                placeholder="name@example.com"
+                slotProps={{
+                  input: {
+                    readOnly: true,
+                    sx: { fontSize: 28, textAlign: "center" },
+                  },
                 }}
+                sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
+              />
+              <Stack
+                direction="row"
+                spacing={2}
+                sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
               >
-                Cancel
-              </Button>
-              <Button
-                variant="contained"
-                size="large"
-                startIcon={<CheckIcon />}
-                disabled={!email}
-                onClick={handleSubmit}
-                sx={{
-                  flex: 1,
-                  py: 1.5,
-                  fontSize: "1.2rem",
-                  bgcolor: accentColor,
-                  "&:hover": { bgcolor: accentColor },
-                }}
-              >
-                Check In
-              </Button>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  startIcon={<CloseIcon />}
+                  onClick={onClose}
+                  sx={{
+                    flex: 1,
+                    py: 1.5,
+                    fontSize: "1.2rem",
+                    borderColor: accentColor,
+                    color: accentColor,
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={<CheckIcon />}
+                  disabled={!email}
+                  onClick={handleSubmit}
+                  sx={{
+                    flex: 1,
+                    py: 1.5,
+                    fontSize: "1.2rem",
+                    bgcolor: accentColor,
+                    "&:hover": { bgcolor: accentColor },
+                  }}
+                >
+                  Check In
+                </Button>
+              </Stack>
             </Stack>
           </Stack>
           <Box
@@ -232,7 +246,10 @@ export default function KioskEmailDialog({
             <Keyboard
               layout={EMAIL_LAYOUT}
               display={EMAIL_DISPLAY}
-              onChange={(input: string) => setEmail(input)}
+              onChange={(input: string) => {
+                setEmail(input);
+                bumpIdle();
+              }}
             />
           </Box>
         </Box>
