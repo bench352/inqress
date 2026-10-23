@@ -81,6 +81,10 @@ class ParticipantActivatedUpdate(RestModel):
     activated: bool
 
 
+class ParticipantDetachedUpdate(RestModel):
+    detached: bool
+
+
 class ParticipantsCreateRequest(RestModel):
     strategy: schema.enum.DuplicateStrategy = schema.enum.DuplicateStrategy.SKIP
     name_match_mode: schema.enum.NameMatchMode = schema.enum.NameMatchMode.EXACT
@@ -91,7 +95,7 @@ class ParticipantsCreateRequest(RestModel):
 class ManagedBy(RestModel):
     id: uuid.UUID
     name: str
-    writes_details: bool
+    overwrites_details: bool
 
 
 class ParticipantResponse(RestModel):
@@ -107,6 +111,8 @@ class ParticipantResponse(RestModel):
     is_ticket_ready: bool
     checked_in_at: str | None = None
     activated: bool | None
+    # None when the source does not track rows, so there is no link to detach.
+    detached: bool | None = None
     managed_by: ManagedBy | None = None
 
 

@@ -10,6 +10,7 @@ import {
 import EmailIcon from "@mui/icons-material/Email";
 import PhoneIcon from "@mui/icons-material/Phone";
 import SyncLockIcon from "@mui/icons-material/SyncLock";
+import SyncDisabledIcon from "@mui/icons-material/SyncDisabled";
 import type { ParticipantItem } from "../useEventDetail";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import dayjs from "dayjs";
@@ -36,14 +37,27 @@ export function ParticipantCard({ participant, onClick }: Props) {
             {participant.managedBy && (
               <Tooltip
                 describeChild
-                title={`Managed by ${participant.managedBy.name}`}
+                title={
+                  participant.detached
+                    ? `Detached from ${participant.managedBy.name}`
+                    : `Managed by ${participant.managedBy.name}`
+                }
               >
-                <SyncLockIcon
-                  fontSize="small"
-                  color="action"
-                  aria-label={`Managed by ${participant.managedBy.name}`}
-                  sx={{ flexShrink: 0 }}
-                />
+                {participant.detached ? (
+                  <SyncDisabledIcon
+                    fontSize="small"
+                    color="action"
+                    aria-label={`Detached from ${participant.managedBy.name}`}
+                    sx={{ flexShrink: 0 }}
+                  />
+                ) : (
+                  <SyncLockIcon
+                    fontSize="small"
+                    color="action"
+                    aria-label={`Managed by ${participant.managedBy.name}`}
+                    sx={{ flexShrink: 0 }}
+                  />
+                )}
               </Tooltip>
             )}
           </Stack>

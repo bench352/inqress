@@ -61,6 +61,10 @@ def _text(value: str | None) -> str | None:
 ExistingParticipant = schema.orm.Participant | schema.rest.ParticipantResponse
 
 
+class DetachNotAllowed(Exception):
+    """The participant's source does not track rows, so there is no row link."""
+
+
 @dataclass
 class _Match:
     participant: ExistingParticipant
@@ -283,7 +287,7 @@ def _reload(session, participant_id: uuid.UUID) -> schema.orm.Participant:
 
 
 def _managed_by(source: schema.orm.DataSource) -> schema.rest.ManagedBy:
-    writes_details = source.tracking == schema.enum.DataSourceTracking.ROW or (
+    overwrites_details = source.tracking == schema.enum.DataSourceTracking.ROW or (
         source.strategy
         in (
             schema.enum.DuplicateStrategy.SMART_MERGE,
@@ -291,7 +295,7 @@ def _managed_by(source: schema.orm.DataSource) -> schema.rest.ManagedBy:
         )
     )
     return schema.rest.ManagedBy(
-        id=source.id, name=source.name, writes_details=writes_details
+        id=source.id, name=source.name, overwrites_details=overwrites_details
     )
 
 
@@ -299,8 +303,12 @@ def _to_response(
     row: schema.orm.Participant, source: schema.orm.DataSource | None = None
 ) -> schema.rest.ParticipantResponse:
     response = schema.rest.ParticipantResponse.model_validate(row)
+    # Detach only means something when the source remembers the row.
+    response.detached = None
     if source is not None:
         response.managed_by = _managed_by(source)
+        if source.tracking == schema.enum.DataSourceTracking.ROW:
+            response.detached = row.detached
     return response
 
 
@@ -405,6 +413,35 @@ def set_participant_activated(
         )
         row = result.scalars().first()
         return _to_response(row, _managed_source(session, row)) if row else None
+
+
+def set_participant_detached(
+    event_id: uuid.UUID, participant_id: uuid.UUID, detached: bool
+) -> schema.rest.ParticipantResponse | None:
+    """Stop or resume the source's writes. The row link and claim stay."""
+    with service.db.get_session() as session:
+        row = session.execute(
+            select(schema.orm.Participant).where(
+                schema.orm.Participant.id == participant_id,
+                schema.orm.Participant.event_id == event_id,
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            return None
+        source = _managed_source(session, row)
+        if source is None or source.tracking != schema.enum.DataSourceTracking.ROW:
+            raise DetachNotAllowed
+        # The sync can only skip a row it still remembers.
+        link = session.execute(
+            select(schema.orm.DataSourceRow.participant_id).where(
+                schema.orm.DataSourceRow.data_source_id == source.id,
+                schema.orm.DataSourceRow.participant_id == participant_id,
+            )
+        ).first()
+        if link is None:
+            raise DetachNotAllowed
+        row.detached = detached
+        return _to_response(row, source)
 
 
 def bulk_delete(

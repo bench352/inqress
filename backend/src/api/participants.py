@@ -113,6 +113,31 @@ def set_participant_activated(
     return result
 
 
+@router.put("/{participant_id}/detached")
+def set_participant_detached(
+    event_id: uuid.UUID,
+    participant_id: uuid.UUID,
+    payload: schema.rest.ParticipantDetachedUpdate,
+) -> schema.rest.ParticipantResponse:
+    api.utils.check_event_exists(event_id)
+    check_participant_exists(event_id, participant_id)
+    try:
+        result = service.participants.set_participant_detached(
+            event_id, participant_id, payload.detached
+        )
+    except service.participants.DetachNotAllowed:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_409_CONFLICT,
+            detail="This participant is not tracked by row, so they cannot be detached.",
+        )
+    if result is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail="Participant not found",
+        )
+    return result
+
+
 @router.delete("")
 def bulk_delete_participants(
     event_id: uuid.UUID, payload: list[uuid.UUID]
