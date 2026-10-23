@@ -123,15 +123,17 @@ export default function AssistedConfirmationDialog({
         }}
       >
         <PersonSearchIcon sx={{ fontSize: 120, color: accentColor }} />
-        <Typography variant="h2">Confirm this is you</Typography>
-        <Typography variant="h1">
+        <Typography variant="h2" sx={{ fontWeight: 500 }}>
+          Confirm this is you
+        </Typography>
+        <Typography variant="h1" sx={{ fontWeight: 900 }}>
           {title ? `${title} ` : ""}
           {name}
         </Typography>
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <PhoneIcon fontSize="large" color="action" />
-            <Typography variant="h4">
+            <Typography variant="h4" sx={{ fontWeight: 500 }}>
               {countryCode && phone
                 ? `${countryCode} ${maskPhone(phone)}`
                 : "(No phone number)"}
@@ -139,7 +141,7 @@ export default function AssistedConfirmationDialog({
           </Stack>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <EmailIcon fontSize="large" color="action" />
-            <Typography variant="h4">
+            <Typography variant="h4" sx={{ fontWeight: 500 }}>
               {email ? maskEmail(email) : "(No email address)"}
             </Typography>
           </Stack>
@@ -173,12 +175,11 @@ export default function AssistedConfirmationDialog({
           sx={{
             alignItems: "center",
             justifyContent: "center",
-            color: "textSecondary",
-            mt: 1,
+            color: "text.secondary",
           }}
         >
           <TouchAppOutlinedIcon fontSize="medium" />
-          <Typography variant="h6">
+          <Typography variant="h6" sx={{ fontWeight: 500 }}>
             Tap an option on the screen to select
           </Typography>
         </Stack>

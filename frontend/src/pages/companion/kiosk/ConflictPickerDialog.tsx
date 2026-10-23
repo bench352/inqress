@@ -4,6 +4,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EmailIcon from "@mui/icons-material/Email";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PhoneIcon from "@mui/icons-material/Phone";
+import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
 import useSound from "use-sound";
 import successSound from "@/assets/soundEffects/checkin_success.aac";
 import failSound from "@/assets/soundEffects/checkin_fail.aac";
@@ -138,10 +139,19 @@ export default function ConflictPickerDialog({
         }}
       >
         <GroupsIcon sx={{ fontSize: 96, color: accentColor }} />
-        <Typography variant="h3">Multiple participants found</Typography>
-        <Typography variant="h5">
-          Select the correct participant to check in
+        <Typography variant="h3" sx={{ fontWeight: 500 }}>
+          Multiple participants found
         </Typography>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: "center", justifyContent: "center" }}
+        >
+          <TouchAppOutlinedIcon fontSize="medium" />
+          <Typography variant="h5" sx={{ fontWeight: 500 }}>
+            Tap &quot;Check in&quot; for the correct participants on the screen
+          </Typography>
+        </Stack>
 
         {participants.map((p) => {
           const isCheckedIn = p.checkedInAt != null || checkedInIds.has(p.id);
@@ -157,7 +167,7 @@ export default function ConflictPickerDialog({
                 sx={{ alignItems: "center", justifyContent: "space-between" }}
               >
                 <Stack spacing={1}>
-                  <Typography variant="h5">
+                  <Typography variant="h5" sx={{ fontWeight: 900 }}>
                     {p.title ? `${p.title} ` : ""}
                     {p.name}
                   </Typography>
@@ -167,7 +177,7 @@ export default function ConflictPickerDialog({
                     sx={{ alignItems: "center" }}
                   >
                     <PhoneIcon sx={{ fontSize: 28 }} color="action" />
-                    <Typography variant="h6">
+                    <Typography variant="h6" sx={{ fontWeight: 500 }}>
                       {p.countryCode && p.phone
                         ? `${p.countryCode} ${maskPhone(p.phone)}`
                         : "(No phone number)"}
@@ -179,13 +189,13 @@ export default function ConflictPickerDialog({
                     sx={{ alignItems: "center" }}
                   >
                     <EmailIcon sx={{ fontSize: 28 }} color="action" />
-                    <Typography variant="h6">
+                    <Typography variant="h6" sx={{ fontWeight: 500 }}>
                       {p.email ? maskEmail(p.email) : "(No email address)"}
                     </Typography>
                   </Stack>
                 </Stack>
                 {errorById[p.id] && (
-                  <Typography color="error" sx={{ mt: 1 }}>
+                  <Typography color="error" sx={{ mt: 1, fontWeight: 500 }}>
                     {errorById[p.id]}
                   </Typography>
                 )}

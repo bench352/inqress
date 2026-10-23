@@ -86,7 +86,35 @@ def _emit_attendance(
     service.companion_stream.companion_stream_manager.send(event_id, evt)
 
 
+def _emit_scan_refusal(
+    event_id: uuid.UUID,
+    reason: str,
+    title: str | None = None,
+    name: str | None = None,
+) -> None:
+    """Show a refused scan on the kiosks. Success stays on the attendance event."""
+    evt = schema.sse.SseEvent[schema.sse.ScanRefusalData](
+        event_type=schema.sse.SseEventType.SCAN_REFUSAL,
+        type=schema.sse.SseType.NOTIFICATION,
+        data=schema.sse.ScanRefusalData(reason=reason, title=title, name=name),
+    )
+    service.companion_stream.companion_stream_manager.send(
+        event_id, evt, modes={"kiosk"}
+    )
+
+
 def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinResponse:
+    def refuse(
+        reason: str, title: str | None = None, name: str | None = None
+    ) -> schema.rest.CheckinResponse:
+        _emit_scan_refusal(event_id, reason, title, name)
+        return schema.rest.CheckinResponse(
+            success=False,
+            detail=schema.rest.CheckinErrorDetail(
+                reason=reason, title=title, name=name
+            ),
+        )
+
     with service.db.get_session() as session:
         event = (
             session.execute(
@@ -96,36 +124,20 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinRe
             .first()
         )
         if event is None:
-            return schema.rest.CheckinResponse(
-                success=False,
-                detail=schema.rest.CheckinErrorDetail(reason="Event not found"),
-            )
+            return refuse("Event not found")
 
         try:
             payload = service.ticket.verify_ticket(
                 event.paseto_public_key, ticket_token
             )
         except ValueError as e:
-            return schema.rest.CheckinResponse(
-                success=False,
-                detail=schema.rest.CheckinErrorDetail(reason=str(e)),
-            )
+            return refuse(str(e))
 
         if payload.event_id != event_id:
-            return schema.rest.CheckinResponse(
-                success=False,
-                detail=schema.rest.CheckinErrorDetail(
-                    reason="Ticket is not for this event."
-                ),
-            )
+            return refuse("Ticket is not for this event.")
 
         if event.mode == schema.enum.EventMode.DISABLED:
-            return schema.rest.CheckinResponse(
-                success=False,
-                detail=schema.rest.CheckinErrorDetail(
-                    reason="Event check-in is not active"
-                ),
-            )
+            return refuse("Event check-in is not active")
 
         participant = (
             session.execute(
@@ -138,12 +150,7 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinRe
             .first()
         )
         if participant is None:
-            return schema.rest.CheckinResponse(
-                success=False,
-                detail=schema.rest.CheckinErrorDetail(
-                    reason="You are not registered for this event."
-                ),
-            )
+            return refuse("You are not registered for this event.")
 
         already_checked_in = (
             session.execute(
@@ -157,17 +164,11 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinRe
             is not None
         )
         if already_checked_in:
-            return schema.rest.CheckinResponse(
-                success=False,
-                detail=schema.rest.CheckinErrorDetail(reason="Already checked in."),
-            )
+            return refuse("Already checked in.", participant.title, participant.name)
 
         inactive = _inactive_reason(participant.activated)
         if inactive is not None:
-            return schema.rest.CheckinResponse(
-                success=False,
-                detail=schema.rest.CheckinErrorDetail(reason=inactive),
-            )
+            return refuse(inactive, participant.title, participant.name)
 
         is_test = 1 if event.mode == schema.enum.EventMode.TEST else 0
         participant_title = participant.title
@@ -176,10 +177,7 @@ def scan_ticket(event_id: uuid.UUID, ticket_token: str) -> schema.rest.CheckinRe
 
     checked_in_at = _insert_attendance(event_id, participant_id, "scan", is_test)
     if checked_in_at is None:
-        return schema.rest.CheckinResponse(
-            success=False,
-            detail=schema.rest.CheckinErrorDetail(reason="Already checked in."),
-        )
+        return refuse("Already checked in.", participant_title, participant_name)
 
     _emit_attendance(
         event_id,

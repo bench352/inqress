@@ -21,6 +21,7 @@ import PhoneDialPad, {
 } from "./PhoneDialPad";
 import CheckinResultDisplay from "./CheckinResultDisplay";
 import ConflictPickerDialog from "./ConflictPickerDialog";
+import useIdleDismiss from "./useIdleDismiss";
 import {
   isConflictDetail,
   isSuccessDetail,
@@ -43,7 +44,7 @@ interface CountryCodesResponse {
   options: string[];
 }
 
-const PHONE_ICON_SIZE = 120;
+const PHONE_ICON_SIZE = 96;
 const PHONE_NO_FONT_SIZE = 22;
 const FIELD_MAX_WIDTH = DIAL_PAD_MAX_WIDTH;
 
@@ -64,6 +65,7 @@ export default function KioskPhoneDialog({
   const [result, setResult] = useState<CheckinResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [conflicting, setConflicting] = useState<ConflictParticipant[]>([]);
+  const bumpIdle = useIdleDismiss(onClose, phase === "input");
 
   useEffect(() => {
     (async () => {
@@ -81,13 +83,18 @@ export default function KioskPhoneDialog({
 
   const selectedCountryCode = userSelectedCode ?? defaultCountryCode;
 
-  const handleDigit = useCallback((digit: string) => {
-    setPhoneNo((prev) => prev + digit);
-  }, []);
+  const handleDigit = useCallback(
+    (digit: string) => {
+      setPhoneNo((prev) => prev + digit);
+      bumpIdle();
+    },
+    [bumpIdle],
+  );
 
   const handleBackspace = useCallback(() => {
     setPhoneNo((prev) => prev.slice(0, -1));
-  }, []);
+    bumpIdle();
+  }, [bumpIdle]);
 
   const handleSubmit = async () => {
     if (!phoneNo) return;
@@ -160,7 +167,7 @@ export default function KioskPhoneDialog({
             />
             <Typography
               variant="h3"
-              sx={{ textAlign: "center", pt: 4, fontSize: 42 }}
+              sx={{ textAlign: "center", pt: 4, fontWeight: 500 }}
             >
               Enter the phone number you registered for this event
             </Typography>
@@ -179,7 +186,7 @@ export default function KioskPhoneDialog({
           >
             <Stack
               direction="row"
-              spacing={2}
+              spacing={3}
               sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
             >
               <FormControl sx={{ flex: "0 0 auto", minWidth: 120 }}>
@@ -187,7 +194,10 @@ export default function KioskPhoneDialog({
                 <Select
                   value={selectedCountryCode}
                   label="Code"
-                  onChange={(e) => setUserSelectedCode(e.target.value)}
+                  onChange={(e) => {
+                    setUserSelectedCode(e.target.value);
+                    bumpIdle();
+                  }}
                   sx={{
                     fontSize: PHONE_NO_FONT_SIZE,
                     whiteSpace: "nowrap",

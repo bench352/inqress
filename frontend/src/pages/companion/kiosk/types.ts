@@ -20,6 +20,10 @@ export interface CheckinConflictDetail {
 
 export interface CheckinErrorDetail {
   reason: string;
+  // Set when the server identified the guest (refused scan, or that refusal
+  // relayed to the kiosk). Other check-in errors carry the reason alone.
+  title?: string | null;
+  name?: string | null;
 }
 
 export interface CheckinResponse {
