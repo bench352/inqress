@@ -208,8 +208,9 @@ export default function KioskEmailDialog({
               minHeight: 0,
               width: "100%",
               // The library ships .hg-button at height 40px / width 20px and
-              // caps the @ key at max-width 60px, so caps stay small and rows
-              // never fill their container unless every level is told to grow.
+              // caps the @ key at max-width 60px. Vite injects the library CSS
+              // after Emotion, so the selector must be longer than the library's
+              // own to win.
               "& .simple-keyboard": {
                 height: "100%",
                 padding: 0,
@@ -226,7 +227,7 @@ export default function KioskEmailDialog({
                 padding: "8px",
               },
               "& .hg-row": { flex: 1, minHeight: 0 },
-              "& .hg-button": {
+              "& .simple-keyboard.hg-theme-default .hg-button": {
                 height: "100%",
                 width: "auto",
                 minWidth: 0,
@@ -235,11 +236,6 @@ export default function KioskEmailDialog({
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: EMAIL_KEY_FONT_SIZE,
-              },
-              // Same specificity as the library rule that pins @ at 60px, so
-              // source order decides and every key in a row ends up equal.
-              "& .hg-button.hg-standardBtn[data-skbtn='@']": {
-                maxWidth: "none",
               },
             }}
           >
