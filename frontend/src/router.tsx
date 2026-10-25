@@ -4,7 +4,7 @@ import {
   createRouter,
   lazyRouteComponent,
 } from "@tanstack/react-router";
-import BootScreen from "./components/BootScreen";
+import { RoutePending } from "./components/boot";
 import FullPage from "./layouts/FullPage";
 
 // Every page is its own chunk: a kiosk or scanner URL must not download the
@@ -210,7 +210,7 @@ const routeTree = rootRoute.addChildren([
 
 export const router = createRouter({
   routeTree,
-  defaultPendingComponent: BootScreen,
+  defaultPendingComponent: RoutePending,
 });
 
 declare module "@tanstack/react-router" {

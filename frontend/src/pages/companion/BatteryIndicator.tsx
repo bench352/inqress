@@ -12,9 +12,9 @@ import {
 import PowerOutlinedIcon from "@mui/icons-material/PowerOutlined";
 import Battery0BarOutlinedIcon from "@mui/icons-material/Battery0BarOutlined";
 import BatteryAlertOutlinedIcon from "@mui/icons-material/BatteryAlertOutlined";
-import useSound from "use-sound";
-import lowBatterySound from "@/assets/soundEffects/low_battery_alert.aac";
 import { type BatteryState, LOW_PERCENT } from "./useBattery";
+import lowBatterySound from "@/assets/soundEffects/low_battery_alert.aac";
+import { playSound } from "./sounds";
 
 interface Props {
   battery: BatteryState | null;
@@ -75,10 +75,9 @@ function LowBatteryAlert({
   open: boolean;
   onClose: () => void;
 }) {
-  const [playLowBattery] = useSound(lowBatterySound);
   useEffect(() => {
-    if (open) playLowBattery();
-  }, [open, playLowBattery]);
+    if (open) playSound(lowBatterySound);
+  }, [open]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>

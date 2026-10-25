@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useBootHold } from "../components/bootHold";
 import { AuthContext } from "./useAuth";
 
 const STORAGE_KEY = "admin.sessionStamp";
@@ -100,6 +101,8 @@ export default function SessionAuthProvider({ children }: PropsWithChildren) {
     () => ({ isAuthenticated, username, login, logout }),
     [isAuthenticated, username, login, logout],
   );
+
+  useBootHold(loading);
 
   if (loading) {
     return null;

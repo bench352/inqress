@@ -3,10 +3,10 @@ import { Box, CircularProgress, Stack, Typography } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
-import useSound from "use-sound";
 import successSound from "@/assets/soundEffects/checkin_success.aac";
 import failSound from "@/assets/soundEffects/checkin_fail.aac";
 import { useConfetti } from "@/hooks/useConfetti";
+import { playSound } from "../sounds";
 import { isErrorDetail, isSuccessDetail, type CheckinResponse } from "./types";
 
 interface Props {
@@ -36,17 +36,15 @@ export default function CheckinResultDisplay({
   errorMessage = "",
   onDismiss,
 }: Props) {
-  const [playSuccess] = useSound(successSound);
-  const [playFail] = useSound(failSound);
   const { fire: fireConfetti } = useConfetti();
 
   useEffect(() => {
     if (phase === "success") {
-      playSuccess();
+      playSound(successSound);
       fireConfetti();
     }
-    if (phase === "error") playFail();
-  }, [phase, playSuccess, playFail, fireConfetti]);
+    if (phase === "error") playSound(failSound);
+  }, [phase, fireConfetti]);
 
   useEffect(() => {
     if (phase === "loading") return;

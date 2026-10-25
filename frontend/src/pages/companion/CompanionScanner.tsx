@@ -17,9 +17,11 @@ import SensorsOutlinedIcon from "@mui/icons-material/SensorsOutlined";
 import SensorsOffOutlinedIcon from "@mui/icons-material/SensorsOffOutlined";
 import ErrorIcon from "@mui/icons-material/Error";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import useSound from "use-sound";
-import scannedBeep from "@/assets/soundEffects/scanned_beep.aac";
 import { ApiError, useCompanionApi } from "@/api";
+import { useBootHold } from "@/components/bootHold";
+import scannedBeep from "@/assets/soundEffects/scanned_beep.aac";
+import lowBatterySound from "@/assets/soundEffects/low_battery_alert.aac";
+import { playSound, useSounds } from "./sounds";
 import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
 import BatteryIndicator from "./BatteryIndicator";
@@ -40,6 +42,7 @@ const SEEN_WINDOW_MS = 3000;
 // A failed display read on first load would otherwise leave the scanner waiting
 // until a reload.
 const DISPLAY_RETRY_MS = 5000;
+const SCANNER_SOUNDS = [scannedBeep, lowBatterySound];
 
 function rawValues(codes: unknown): string[] {
   if (!Array.isArray(codes)) {
@@ -141,7 +144,6 @@ export default function CompanionScanner() {
   const { eventId } = useParams({ strict: false }) as { eventId: string };
   const navigate = useNavigate();
   const api = useCompanionApi();
-  const [playScannedBeep] = useSound(scannedBeep);
   const [display, setDisplay] = useState<Display | null>(null);
   const [displayLoaded, setDisplayLoaded] = useState(false);
   const [unpaired, setUnpaired] = useState(false);
@@ -189,7 +191,7 @@ export default function CompanionScanner() {
       if (d.mode === "disabled") pauseScanner();
       return true;
     } catch (e: unknown) {
-      if (e instanceof ApiError && e.status === 401) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 404)) {
         setUnpaired(true);
         pauseScanner();
         return false;
@@ -244,6 +246,11 @@ export default function CompanionScanner() {
   const adminCleared = useClearAdminSession();
 
   const battery = useBattery();
+  const soundsReady = useSounds(SCANNER_SOUNDS);
+  useBootHold(
+    !unpaired && !(display !== null && soundsReady),
+    "Getting scanner ready...",
+  );
 
   useEffect(() => {
     (async () => {
@@ -305,7 +312,7 @@ export default function CompanionScanner() {
     seenAt.current = Date.now();
     setBusy(true);
     // Beep as soon as the ticket is accepted, not when the result arrives.
-    playScannedBeep();
+    playSound(scannedBeep);
     try {
       const res = await api.post<{
         success: boolean;

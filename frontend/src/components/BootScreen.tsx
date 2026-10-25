@@ -3,27 +3,42 @@ import { Box, Fade, Portal, Stack, Typography } from "@mui/material";
 import LinearProgress from "@mui/material/LinearProgress";
 import { brandFontFamily } from "@/brandFont.ts";
 
+let faded = false;
+
+interface Props {
+  open: boolean;
+  /** What the current wait is loading; null leaves the reserved line empty. */
+  message: string | null;
+}
+
 /**
- * Full-page wait shown while the app is not ready yet: a route chunk still
- * downloading, or the app info request right after login.
- * Portaled so a nested route's pending fallback still covers the shell until
- * this unmounts. The white layer does not fade; only the name and bar do,
- * and only after Reglo is loaded, so font-display:swap cannot flash the
- * fallback face on this screen.
+ * Full-page wait shown while the app is not ready yet. Only the first hold of a
+ * visit fades the name and bar in, after Reglo is loaded so font-display:swap
+ * cannot flash the fallback face. Later holds reuse the same screen without
+ * another fade.
  */
-export default function BootScreen() {
-  const [ready, setReady] = useState(false);
+export default function BootScreen({ open, message }: Props) {
+  if (!open) return null;
+  return <BootScreenContent message={message} />;
+}
+
+function BootScreenContent({ message }: { message: string | null }) {
+  const [ready, setReady] = useState(faded);
+  const [fade] = useState(!faded);
 
   useEffect(() => {
+    if (!fade) return;
     let cancelled = false;
     // Weight must match the @font-face in reglo.css, or the face is not loaded.
     document.fonts.load('700 16px "Reglo"').finally(() => {
-      if (!cancelled) setReady(true);
+      if (cancelled) return;
+      faded = true;
+      setReady(true);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fade]);
 
   return (
     <Portal>
@@ -38,15 +53,27 @@ export default function BootScreen() {
           bgcolor: "#fff",
         })}
       >
-        <Fade in={ready} timeout={1000}>
-          <Stack spacing={2} sx={{ alignItems: "center" }}>
+        <Fade in={ready} appear={false} timeout={fade ? 1000 : 0}>
+          <Stack spacing={32} sx={{ alignItems: "center" }}>
             <Typography
               variant="h2"
               sx={{ fontFamily: brandFontFamily, fontWeight: 700 }}
             >
               InQRess
             </Typography>
-            <LinearProgress sx={{ width: 120 }} color="inherit" />
+            <Stack spacing={1} sx={{ alignItems: "center" }}>
+              <LinearProgress sx={{ width: 180 }} color="inherit" />
+              <Fade in={message !== null} appear={false} timeout={1000}>
+                <Typography
+                  variant="body1"
+                  color="textSecondary"
+                  noWrap
+                  sx={{ maxWidth: 360 }}
+                >
+                  {message ?? "\u00A0"}
+                </Typography>
+              </Fade>
+            </Stack>
           </Stack>
         </Fade>
       </Box>

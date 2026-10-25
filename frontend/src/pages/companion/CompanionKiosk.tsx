@@ -9,7 +9,13 @@ import CloudOffOutlinedIcon from "@mui/icons-material/CloudOffOutlined";
 import NoMeetingRoomIcon from "@mui/icons-material/NoMeetingRoom";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { ApiError, useCompanionApi } from "@/api";
+import { useBootHold } from "@/components/bootHold";
 import { useSystemClock } from "@/providers/useSystemClock";
+import successSound from "@/assets/soundEffects/checkin_success.aac";
+import failSound from "@/assets/soundEffects/checkin_fail.aac";
+import confirmSound from "@/assets/soundEffects/checkin_need_confirmation.aac";
+import lowBatterySound from "@/assets/soundEffects/low_battery_alert.aac";
+import { useSounds } from "./sounds";
 import KioskPhoneDialog from "./kiosk/KioskPhoneDialog";
 import KioskEmailDialog from "./kiosk/KioskEmailDialog";
 import AssistedConfirmationDialog from "./kiosk/AssistedConfirmationDialog";
@@ -30,6 +36,9 @@ type DialogKind = "phone" | "email" | null;
 
 type ResultPhase = "loading" | "success" | "error";
 type StreamStatus = "connecting" | "connected" | "lost";
+
+const KIOSK_SOUNDS = [successSound, failSound, confirmSound, lowBatterySound];
+const RETRY_MS = 5000;
 
 const KIOSK_DISABLED_SX = {
   height: "100dvh",
@@ -133,7 +142,10 @@ export default function CompanionKiosk() {
     result: CheckinResponse;
   } | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
-  const [hasImage, setHasImage] = useState(true);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverReady, setCoverReady] = useState(false);
+  const [accentReady, setAccentReady] = useState(false);
+  const [displayReady, setDisplayReady] = useState(false);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
   const [pendingConfirm, setPendingConfirm] = useState<{
     participantId: string;
@@ -175,28 +187,117 @@ export default function CompanionKiosk() {
   const adminCleared = useClearAdminSession();
 
   const battery = useBattery();
+  const soundsReady = useSounds(KIOSK_SOUNDS);
+  const boothReady = displayReady && accentReady && coverReady && soundsReady;
+  useBootHold(!unpaired && !boothReady, "Getting kiosk ready...");
 
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const load = async () => {
       try {
         const d = await api.get<Display>(
           `/api/events/${eventId}/companion/display`,
         );
+        if (cancelled) return;
         setDisplay(d);
+        setDisplayReady(true);
       } catch (e: unknown) {
-        if (e instanceof ApiError && e.status === 401) {
+        if (cancelled) return;
+        if (e instanceof ApiError && (e.status === 401 || e.status === 404)) {
           setUnpaired(true);
+          return;
         }
+        timer = window.setTimeout(() => void load(), RETRY_MS);
       }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [eventId, api]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const load = async () => {
       try {
         const c = await api.get<{ colorCode: string }>(
           `/api/events/${eventId}/companion/accentColor`,
         );
+        if (cancelled) return;
         setAccentColor(c.colorCode);
-      } catch {
-        // keep theme default
+        setAccentReady(true);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        // A themed default is fine; only a network failure is worth retrying.
+        if (e instanceof ApiError) {
+          setAccentReady(true);
+          return;
+        }
+        timer = window.setTimeout(() => void load(), RETRY_MS);
       }
-    })();
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [eventId, api]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | null = null;
+    let objectUrl: string | null = null;
+
+    const load = async () => {
+      let blob: Blob;
+      try {
+        blob = await api.getBlob(`/api/events/${eventId}/companion/boothImage`);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        if (e instanceof ApiError && e.status === 404) {
+          setCoverReady(true);
+          return;
+        }
+        if (e instanceof ApiError && e.status === 401) {
+          setUnpaired(true);
+          return;
+        }
+        timer = window.setTimeout(() => void load(), RETRY_MS);
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      try {
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+      } catch {
+        URL.revokeObjectURL(url);
+        if (!cancelled) setCoverReady(true);
+        return;
+      }
+      if (cancelled) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      objectUrl = url;
+      setCoverUrl(url);
+      setCoverReady(true);
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+      if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
+    };
   }, [eventId, api]);
 
   useEffect(() => {
@@ -471,7 +572,7 @@ export default function CompanionKiosk() {
   return (
     <Box sx={{ display: "flex", height: "100dvh" }}>
       {/* Left: cover, natural aspect, full height, capped at half the width */}
-      {hasImage && (
+      {coverUrl && (
         <Box
           sx={{
             maxWidth: "50%",
@@ -482,11 +583,9 @@ export default function CompanionKiosk() {
           }}
         >
           <img
-            src={`/api/events/${eventId}/companion/boothImage`}
+            src={coverUrl}
             alt=""
             style={{ height: "100%", width: "auto", display: "block" }}
-            onLoad={() => setHasImage(true)}
-            onError={() => setHasImage(false)}
           />
         </Box>
       )}

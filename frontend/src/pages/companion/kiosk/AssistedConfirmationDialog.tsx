@@ -6,10 +6,10 @@ import EmailIcon from "@mui/icons-material/Email";
 import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 import PhoneIcon from "@mui/icons-material/Phone";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
-import useSound from "use-sound";
 import confirmSound from "@/assets/soundEffects/checkin_need_confirmation.aac";
 import { maskEmail, maskPhone } from "@/utils/masking";
 import { useCompanionApi } from "@/api";
+import { playSound } from "../sounds";
 import CheckinResultDisplay from "./CheckinResultDisplay";
 import type { CheckinResponse } from "./types";
 
@@ -45,14 +45,13 @@ export default function AssistedConfirmationDialog({
   const api = useCompanionApi();
   const [phase, setPhase] = useState<ConfirmPhase>("input");
   const [result, setResult] = useState<CheckinResponse | null>(null);
-  const [playConfirm] = useSound(confirmSound);
   const [countdown, setCountdown] = useState(INITIAL_TIMEOUT_S);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef(INITIAL_TIMEOUT_S);
 
   useEffect(() => {
-    playConfirm();
-  }, [playConfirm]);
+    playSound(confirmSound);
+  }, []);
 
   useEffect(() => {
     countdownRef.current = INITIAL_TIMEOUT_S;

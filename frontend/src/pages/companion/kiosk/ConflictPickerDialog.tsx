@@ -5,13 +5,13 @@ import EmailIcon from "@mui/icons-material/Email";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PhoneIcon from "@mui/icons-material/Phone";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
-import useSound from "use-sound";
 import successSound from "@/assets/soundEffects/checkin_success.aac";
 import failSound from "@/assets/soundEffects/checkin_fail.aac";
 import confirmSound from "@/assets/soundEffects/checkin_need_confirmation.aac";
 import { useCompanionApi } from "@/api";
 import { maskEmail, maskPhone } from "@/utils/masking";
 import { useConfetti } from "@/hooks/useConfetti";
+import { playSound } from "../sounds";
 import type { ConflictParticipant } from "./types";
 
 const INITIAL_TIMEOUT_S = 60;
@@ -36,9 +36,6 @@ export default function ConflictPickerDialog({
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [errorById, setErrorById] = useState<Record<string, string>>({});
-  const [playSuccess] = useSound(successSound);
-  const [playFail] = useSound(failSound);
-  const [playConfirm] = useSound(confirmSound);
   const { fire: fireConfetti } = useConfetti();
   const [countdown, setCountdown] = useState(INITIAL_TIMEOUT_S);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -76,8 +73,8 @@ export default function ConflictPickerDialog({
   }, [open, onClose]);
 
   useEffect(() => {
-    if (open) playConfirm();
-  }, [open, playConfirm]);
+    if (open) playSound(confirmSound);
+  }, [open]);
 
   const handleCheckin = useCallback(
     async (participantId: string) => {
@@ -103,13 +100,13 @@ export default function ConflictPickerDialog({
           );
         }
         setCheckedInIds((prev) => new Set(prev).add(participantId));
-        playSuccess();
+        playSound(successSound);
         fireConfetti();
         countdownRef.current = INITIAL_TIMEOUT_S;
         setCountdown(INITIAL_TIMEOUT_S);
       } catch (e: unknown) {
         // keep the picker open; guest can try another entry or Close
-        playFail();
+        playSound(failSound);
         const detail =
           e && typeof e === "object" && "detail" in e
             ? (e as { detail: unknown }).detail
@@ -123,7 +120,7 @@ export default function ConflictPickerDialog({
         setPendingId(null);
       }
     },
-    [api, eventId, playSuccess, playFail, fireConfetti],
+    [api, eventId, fireConfetti],
   );
 
   return (

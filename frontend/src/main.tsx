@@ -9,6 +9,7 @@ import "@fontsource/roboto/700.css";
 import "./assets/fonts/Reglo/reglo.css";
 import SessionAuthProvider from "./providers/SessionAuthProvider";
 import SystemClockProvider from "./providers/SystemClockProvider";
+import BootHost from "./components/boot";
 import { router } from "./router";
 
 const theme = createTheme({
@@ -27,11 +28,13 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <SessionAuthProvider>
-        <SystemClockProvider>
-          <RouterProvider router={router} />
-        </SystemClockProvider>
-      </SessionAuthProvider>
+      <BootHost>
+        <SessionAuthProvider>
+          <SystemClockProvider>
+            <RouterProvider router={router} />
+          </SystemClockProvider>
+        </SessionAuthProvider>
+      </BootHost>
     </ThemeProvider>
   </StrictMode>,
 );
