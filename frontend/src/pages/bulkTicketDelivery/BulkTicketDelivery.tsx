@@ -21,9 +21,10 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import SendIcon from "@mui/icons-material/Send";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSnackbar } from "notistack";
 import ConflictDialog from "@/components/ConflictDialog";
 import DOMPurify from "dompurify";
-import { ApiError, useApi } from "../../api";
+import { ApiError, useApi } from "@/api.ts";
 import { useAppInfo } from "@/providers/useAppInfo";
 import type { ParticipantItem } from "../eventDetail/useEventDetail";
 import type { EventItem } from "../eventsList/useEvents";
@@ -35,7 +36,8 @@ export default function BulkTicketDelivery() {
   const navigate = useNavigate();
   const api = useApi();
   const queryClient = useQueryClient();
-  const { sendViaEmail } = useAppInfo();
+  const { fromHeader, fromError: infoFromError } = useAppInfo();
+  const { enqueueSnackbar } = useSnackbar();
 
   const eventQuery = useQuery<EventItem>({
     queryKey: ["event", eventId],
@@ -70,6 +72,25 @@ export default function BulkTicketDelivery() {
   );
   const currentParticipant = undeliveredReady[clampedIndex] ?? null;
 
+  const settingsQuery = useQuery({
+    queryKey: ["emailSettings", eventId],
+    queryFn: () =>
+      api.get<{
+        subject: string | null;
+        fromHeader: string | null;
+        fromError: string | null;
+      }>(`/api/events/${eventId}/emailSettings`),
+    enabled: !!eventId,
+  });
+
+  // The event's own sender name, until its settings load.
+  const from = settingsQuery.data
+    ? {
+        text: settingsQuery.data.fromHeader ?? "",
+        error: settingsQuery.data.fromError,
+      }
+    : { text: fromHeader, error: infoFromError };
+
   const previewQuery = useQuery({
     queryKey: ["emailPreview", eventId, currentParticipant?.id],
     queryFn: () =>
@@ -98,6 +119,11 @@ export default function BulkTicketDelivery() {
     onError: (err: ApiError) => {
       if (err.status === 409) {
         setConflictDetail(typeof err.detail === "string" ? err.detail : null);
+      } else {
+        enqueueSnackbar(
+          typeof err.detail === "string" ? err.detail : "Failed to send emails",
+          { variant: "error" },
+        );
       }
     },
   });
@@ -248,8 +274,11 @@ export default function BulkTicketDelivery() {
             {currentParticipant ? (
               <>
                 <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
-                  <Typography variant="body1">
-                    <strong>From: </strong> {sendViaEmail}
+                  <Typography
+                    variant="body1"
+                    color={from.error ? "error" : undefined}
+                  >
+                    <strong>From: </strong> {from.error ?? from.text}
                   </Typography>
                 </Box>
                 <Divider />
@@ -261,7 +290,8 @@ export default function BulkTicketDelivery() {
                 <Divider />
                 <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
                   <Typography variant="body1">
-                    <strong>Subject:</strong> [Ticket] {event?.name}
+                    <strong>Subject:</strong>{" "}
+                    {settingsQuery.data?.subject ?? `[Ticket] ${event?.name}`}
                   </Typography>
                 </Box>
                 <Divider />

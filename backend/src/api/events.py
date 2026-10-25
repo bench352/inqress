@@ -3,11 +3,14 @@ import uuid
 import fastapi
 import fastapi.responses
 
+import config
 import schema.rest
 import schema.sse
 import service.companion_stream
+import service.email
 import service.events
 import service.filenames
+import service.settings
 import service.ticket
 import service.uploads
 
@@ -102,6 +105,37 @@ def update_email_template(
     event_id: uuid.UUID, payload: schema.rest.EmailTemplateRequest
 ) -> fastapi.responses.Response:
     updated = service.events.update_email_template(event_id, payload.text)
+    if not updated:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
+        )
+    return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{event_id}/emailSettings")
+def get_email_settings(event_id: uuid.UUID) -> schema.rest.EmailSettingsResponse:
+    result = service.settings.get_email_settings(event_id)
+    if result is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
+        )
+    cfg = config.get_config()
+    sender_name = service.email.resolve_sender_name(
+        result.sender_name, cfg.app.organization_name
+    )
+    from_header, from_error = service.email.resolve_from(
+        cfg.email_smtp.from_address, cfg.email_smtp.username, sender_name
+    )
+    return result.model_copy(
+        update={"from_header": from_header, "from_error": from_error}
+    )
+
+
+@router.put("/{event_id}/emailSettings", status_code=fastapi.status.HTTP_204_NO_CONTENT)
+def update_email_settings(
+    event_id: uuid.UUID, payload: schema.rest.EmailSettingsRequest
+) -> fastapi.responses.Response:
+    updated = service.settings.update_email_settings(event_id, payload)
     if not updated:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"

@@ -173,5 +173,6 @@ cython_debug/
 backend/data/config.yaml
 .cortexkit/magic-context/
 
-# Local dev data directory (git-ignored, committed config is in local_dev/config.yaml)
+# Local dev data directory and local config (template is local_dev/config.yaml.example)
 local_dev/data/
+local_dev/config.yaml

@@ -9,7 +9,9 @@ const RETRY_MS = 5000;
 
 interface AppInfo {
   orgName: string;
-  sendViaEmail: string;
+  fromHeader: string;
+  fromError: string | null;
+  emailFooterEnabled: boolean;
   appVersion: string;
 }
 
@@ -52,7 +54,9 @@ export default function AppInfoProvider({ children }: PropsWithChildren) {
   const value = useMemo(
     () => ({
       orgName: info?.orgName ?? null,
-      sendViaEmail: info?.sendViaEmail ?? "",
+      fromHeader: info?.fromHeader ?? "",
+      fromError: info?.fromError ?? null,
+      emailFooterEnabled: info?.emailFooterEnabled ?? true,
       appVersion: info?.appVersion ?? "0.0.0",
       isLoading: loading,
     }),

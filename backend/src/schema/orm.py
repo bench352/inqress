@@ -31,6 +31,10 @@ class Event(Base):
         sqlalchemy.String, nullable=False, default=schema.enum.EventMode.DISABLED
     )
     email_template: Mapped[str] = mapped_column(sqlalchemy.Text, nullable=False)
+    email_subject: Mapped[str | None] = mapped_column(sqlalchemy.String, nullable=True)
+    email_sender_name: Mapped[str | None] = mapped_column(
+        sqlalchemy.String, nullable=True
+    )
     booth_image: Mapped[bytes | None] = mapped_column(
         sqlalchemy.LargeBinary, nullable=True
     )

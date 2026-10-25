@@ -1,13 +1,10 @@
-Dear {{ title }} {{ fullName }},
+Hi {{ title }} {{ fullName }},
 
-Thank you for registering for **{{ eventName }}**!
-
-Your personal QR code ticket is ready below. For a smooth check-in, please present it at the check-in booth when you arrive:
+Thank you for registering for **{{ eventName }}**! Please check your QR code ticket included with this message.
 
 {{ ticketQR }}
 
-We look forward to seeing you at the event!
+Remember to keep it safe, and present it at check-in. We look forward to seeing you at the event!
 
 Best regards,
-
-**{{ senderName }}**
+{{ senderName }}

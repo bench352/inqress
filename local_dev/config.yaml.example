@@ -30,5 +30,6 @@ email_smtp:
   port: 420
   username: "noreply@example.com"
   password: "<not-a-password>"
-  display_email: chriswong@example.com
+  from_address: chriswong@example.com
+  email_footer_enabled: true
   wait_between_delivery_second: 5

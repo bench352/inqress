@@ -21,7 +21,7 @@ smtp_host=""
 smtp_port="465"
 smtp_username=""
 smtp_password=""
-smtp_display_email=""
+smtp_from_address=""
 smtp_wait="5"
 exposed_port="8000"
 
@@ -146,7 +146,7 @@ prompt_smtp_config() {
     smtp_port="465"
     smtp_username=""
     smtp_password=""
-    smtp_display_email=""
+    smtp_from_address=""
     smtp_wait="5"
     return
   fi
@@ -162,7 +162,7 @@ prompt_smtp_config() {
       break
     fi
   done
-  prompt_optional "  Sender's display name (shown as From)" smtp_display_email ""
+  prompt_optional "  From address (what recipients see; empty uses the SMTP username)" smtp_from_address ""
   prompt_optional "  Wait between deliveries (seconds)" smtp_wait "5"
 }
 
@@ -223,18 +223,21 @@ generate_config() {
       echo "  port: $smtp_port"
       echo '  username: "'"$(yaml_quote "$smtp_username")"'"'
       echo '  password: "'"$(yaml_quote "$smtp_password")"'"'
-      if [ -n "$smtp_display_email" ]; then
-        echo '  display_email: "'"$(yaml_quote "$smtp_display_email")"'"'
+      if [ -n "$smtp_from_address" ]; then
+        echo '  from_address: "'"$(yaml_quote "$smtp_from_address")"'"'
       else
-        echo "  display_email:"
+        echo "  from_address:"
       fi
+      echo "  # Show the InQRess footer in ticket emails."
+      echo "  email_footer_enabled: true"
       echo "  wait_between_delivery_second: $smtp_wait"
     else
       echo "  host: \"\""
       echo "  port: 465"
       echo "  username: \"\""
       echo "  password: \"\""
-      echo "  display_email:"
+      echo "  from_address:"
+      echo "  email_footer_enabled: true"
       echo "  wait_between_delivery_second: 5"
     fi
   } > "$CONFIG_FILE"
