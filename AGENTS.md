@@ -23,9 +23,12 @@ If `inqress-inqress-1` is up and healthy, use it. Do not start a second stack.
 
 If it is not running:
 
-```bash
-docker compose -f dev-compose.yaml watch
-```
+1. Check if `local_dev/config.yaml` exists. If not, copy one from `local_dev/config.yaml.example`.
+2. Start the auto-reload dev server using Docker Compose with the following command:
+
+   ```bash
+   docker compose -f dev-compose.yaml watch
+   ```
 
 - Backend source changes under `backend/src/` are synced and restart the container.
 - Frontend, `pyproject.toml`, `uv.lock`, or `Dockerfile` changes trigger a cached rebuild.
@@ -36,7 +39,7 @@ docker compose -f dev-compose.yaml watch
 
 The Chrome browser with remote debugging is available. Use it to access `http://localhost:7000` and perform operation freely.
 
-If a login form is presented, read credentials from the committed file `local_dev/config.yaml`, fill the username and password fields, then submit the form.
+If a login form is presented, read credentials from the local config file `local_dev/config.yaml`, fill the username and password fields, then submit the form.
 
 > Note: Only perform a full-stack browser inspection when the user specifically requested it. For usual implementation, just perform linting and formatting
 
@@ -71,8 +74,8 @@ These relationships must be kept in sync. Breaking any of them causes runtime or
 ### Config
 - New required fields must be added in `backend/src/config.py`
 - The same fields must be emitted by `install.sh:generate_config()`
-- `local_dev/config.yaml` must contain the new keys (or rely on pydantic defaults)
-- YAML uses snake_case. `install.sh` writes to `~/.inqress/config.yaml`. Dev compose mounts `local_dev/config.yaml` at `/app/config.yaml` and sets `CONFIG_PATH`.
+- `local_dev/config.yaml.example` must contain the new keys (or rely on pydantic defaults)
+- YAML uses snake_case. `install.sh` writes to `~/.inqress/config.yaml`. Dev compose mounts `local_dev/config.yaml.example` at `/app/config.yaml` and sets `CONFIG_PATH`.
 
 ### Database schema
 - `backend/src/schema/orm.py` must match the live tables and the chain of alembic revisions that live in `backend/src/alembic/versions/`.
@@ -93,7 +96,7 @@ These relationships must be kept in sync. Breaking any of them causes runtime or
 
 ## Never
 
-- Do not put real secrets, passwords, or API keys in this file or any committed file. (Exception being `NeverGonnaGiveYouUp` and `NeverGonnaLetYouDown`, which are admin credentials used for the reusable local dev server)
+- Do not put real secrets, passwords, or API keys in any committed file. (Exception being `NeverGonnaGiveYouUp` and `NeverGonnaLetYouDown`, which are admin credentials used for the reusable local dev server)
 - Do not create a second Dockerfile for development.
 - Do not mount or copy `local_dev/` into the release image.
 - Do not set `trusted_proxies: ["0.0.0.0/0"]`.

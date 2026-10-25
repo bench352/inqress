@@ -16,7 +16,7 @@ import { useAppInfo } from "@/providers/useAppInfo";
 import LicenseDialog from "./components/LicenseDialog";
 
 export default function Settings() {
-  const { orgName, sendViaEmail, appVersion } = useAppInfo();
+  const { orgName, fromHeader, fromError, appVersion } = useAppInfo();
   const [licenseDialogOpen, setLicenseDialogOpen] = useState(false);
 
   return (
@@ -41,8 +41,11 @@ export default function Settings() {
             <EmailIcon />
           </ListItemIcon>
           <ListItemText
-            primary="Email (for ticket delivery)"
-            secondary={sendViaEmail}
+            primary="From"
+            secondary={fromError ?? fromHeader}
+            slotProps={{
+              secondary: { color: fromError ? "error" : "text.secondary" },
+            }}
           />
         </ListItem>
       </List>

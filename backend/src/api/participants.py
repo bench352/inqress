@@ -10,6 +10,7 @@ import service.checkin
 import service.email
 import service.events
 import service.markup
+import service.settings
 import service.ticket
 import service.participants
 import schema.rest
@@ -28,6 +29,20 @@ def check_participant_exists(event_id: uuid.UUID, participant_id: uuid.UUID) -> 
             status_code=fastapi.status.HTTP_404_NOT_FOUND,
             detail="Participant not found",
         )
+
+
+def check_from_address() -> None:
+    """A configured address that cannot be used fails the send, not the app."""
+    cfg = config.get_config()
+    try:
+        service.email.resolve_from_address(
+            cfg.email_smtp.from_address, cfg.email_smtp.username
+        )
+    except ValueError as error:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
 
 
 @router.get("")
@@ -180,7 +195,10 @@ def preview_email(
             detail="Email template not found",
         )
     cfg = config.get_config()
-    sender_name = cfg.app.organization_name or "Event Organizer"
+    settings = service.settings.get_email_settings(event_id)
+    sender_name = service.email.resolve_sender_name(
+        settings.sender_name if settings else None, cfg.app.organization_name
+    )
     html = service.email.render_preview_html(
         template.text,
         participant.title,
@@ -188,6 +206,7 @@ def preview_email(
         event.name,
         sender_name,
         qr_bytes,
+        cfg.email_smtp.email_footer_enabled,
     )
     return fastapi.responses.HTMLResponse(content=html)
 
@@ -211,12 +230,15 @@ def get_ticket_message(
             detail="Message template not found",
         )
     cfg = config.get_config()
+    settings = service.settings.get_email_settings(event_id)
     message = service.markup.render_message_text(
         template.text,
         participant.title,
         participant.name,
         event.name,
-        cfg.app.organization_name or "Event Organizer",
+        service.email.resolve_sender_name(
+            settings.sender_name if settings else None, cfg.app.organization_name
+        ),
     )
     return fastapi.responses.PlainTextResponse(content=message)
 
@@ -238,6 +260,7 @@ def send_email(
             status_code=fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Participant has no email address",
         )
+    check_from_address()
     qr_bytes = service.checkin.get_ticket_image(event_id, participant_id)
     if qr_bytes is None:
         raise fastapi.HTTPException(
@@ -250,7 +273,16 @@ def send_email(
             detail="Email template not found",
         )
     cfg = config.get_config()
-    subject = f"[Ticket] {event.name}"
+    settings = service.settings.get_email_settings(event_id)
+    sender_name = service.email.resolve_sender_name(
+        settings.sender_name if settings else None, cfg.app.organization_name
+    )
+    subject = service.email.resolve_subject(
+        event.name, settings.subject if settings else None
+    )
+    ticket_card = service.email.render_ticket_card(
+        event_id, participant_id, participant.name
+    )
     service.email.send_ticket_email(
         participant.email or "",
         subject,
@@ -258,8 +290,10 @@ def send_email(
         participant.title,
         participant.name,
         event.name,
-        cfg.app.organization_name or "Event Organizer",
+        sender_name,
         qr_bytes,
+        ticket_card=ticket_card,
+        include_footer=cfg.email_smtp.email_footer_enabled,
     )
     if not service.participants.mark_ticket_delivered(event_id, participant_id):
         logger.warning(
@@ -293,6 +327,7 @@ def bulk_send_email(
     payload: list[uuid.UUID] = fastapi.Body(...),
 ) -> dict:
     api.utils.check_event_exists(event_id)
+    check_from_address()
     for participant_id in payload:
         check_participant_exists(event_id, participant_id)
 

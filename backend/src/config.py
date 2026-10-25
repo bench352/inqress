@@ -42,7 +42,8 @@ class EmailSmtpConfig(pydantic.BaseModel):
     port: int = 465
     username: str = ""
     password: str = ""
-    display_email: str | None = None
+    from_address: str | None = None
+    email_footer_enabled: bool = True
     wait_between_delivery_second: int = 5
 
 

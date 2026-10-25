@@ -34,6 +34,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { ApiError, useApi } from "../../../api";
+import { useAppInfo } from "@/providers/useAppInfo";
 import {
   FIELD_TRIGGER,
   LETTER_FIELDS,
@@ -61,6 +62,7 @@ function LetterForm({
   const api = useApi();
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
+  const { emailFooterEnabled } = useAppInfo();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("sm"));
   const [fieldMenu, setFieldMenu] = useState<{
@@ -180,8 +182,9 @@ function LetterForm({
     <>
       <DialogContent sx={{ pb: toolbarBottom !== null ? 10 : undefined }}>
         <DialogContentText sx={{ mb: 2 }}>
-          Write the message. Insert a field from the toolbar. A short InQRess
-          footer is added only when this is sent by email.
+          Write the message. Insert a field from the toolbar.
+          {emailFooterEnabled &&
+            " A short InQRess footer is added only when this is sent by email."}
         </DialogContentText>
         <Stack spacing={2}>
           <Box

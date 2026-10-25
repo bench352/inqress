@@ -2,7 +2,9 @@ import { createContext, useContext } from "react";
 
 export interface AppInfoContextValue {
   orgName: string | null;
-  sendViaEmail: string;
+  fromHeader: string;
+  fromError: string | null;
+  emailFooterEnabled: boolean;
   appVersion: string;
   isLoading: boolean;
 }

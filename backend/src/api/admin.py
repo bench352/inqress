@@ -2,6 +2,7 @@ import logging
 import uuid
 
 import fastapi
+import fastapi.responses
 
 import schema.rest
 import schema.sse

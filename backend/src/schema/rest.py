@@ -48,6 +48,32 @@ class EmailTemplateRequest(RestModel):
     text: str
 
 
+class EmailSettingsResponse(RestModel):
+    subject: str | None = None
+    sender_name: str | None = None
+    # Computed for the preview, not stored and not accepted on save.
+    from_header: str | None = None
+    from_error: str | None = None
+
+
+class EmailSettingsRequest(RestModel):
+    subject: str | None = None
+    sender_name: str | None = None
+
+    @pydantic.field_validator("subject", "sender_name")
+    @classmethod
+    def clean(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        # Line breaks would otherwise reach a mail header.
+        cleaned = " ".join(v.splitlines()).strip()
+        if not cleaned:
+            return None
+        if len(cleaned) > 200:
+            raise ValueError("must be at most 200 characters")
+        return cleaned
+
+
 class AccentColorRequest(RestModel):
     color_code: str
 
@@ -278,7 +304,9 @@ class DataSourcePreviewResponse(RestModel):
 
 class InfoResponse(RestModel):
     org_name: str | None
-    send_via_email: str
+    from_header: str
+    from_error: str | None = None
+    email_footer_enabled: bool
     app_version: str
 
 

@@ -10,7 +10,8 @@ _QR_PARAGRAPH = re.compile(r"<p>\s*\{\{\s*ticketQR\s*\}\}\s*</p>")
 TICKET_QR_HTML = (
     '<p style="text-align: center; margin: 20px 0;">'
     '<img src="cid:qr_code" alt="Your QR Code Ticket" '
-    'style="max-width: 320px; border: 2px solid #ddd; padding: 12px; border-radius: 8px;"/>'
+    'style="max-width: 320px; background-color: #fff; border: 2px solid #ddd; '
+    'padding: 12px; border-radius: 8px;"/>'
     "</p>"
 )
 
@@ -26,10 +27,12 @@ _EMAIL_SHELL = """<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
 {body}
-<hr>
-<p style="font-size: 0.9em; color: #777;">This email was sent automatically by <strong>InQRess</strong>, an open-source QR ticketing system.</p>
-</body>
+{footer}</body>
 </html>
+"""
+
+_EMAIL_FOOTER = """<hr>
+<p style="font-size: 0.9em; color: #777;">This email was sent automatically by <strong>InQRess</strong>, an open-source QR ticketing system.</p>
 """
 
 
@@ -44,7 +47,10 @@ class _SafeMarkdown(MarkdownIt):
 
 
 def _markdown() -> MarkdownIt:
-    return _SafeMarkdown("commonmark", {"html": False, "linkify": False})
+    # breaks: a single newline is a real line break, as in an email editor.
+    return _SafeMarkdown(
+        "commonmark", {"html": False, "linkify": False, "breaks": True}
+    )
 
 
 def fill_placeholders(
@@ -69,6 +75,7 @@ def render_email_html(
     full_name: str,
     event_name: str,
     sender_name: str,
+    include_footer: bool = True,
 ) -> str:
     rendered = _markdown().render(template)
     rendered = _QR_PARAGRAPH.sub(TICKET_QR_HTML, rendered)
@@ -83,7 +90,9 @@ def render_email_html(
         },
         raw=frozenset({"ticketQR"}),
     )
-    return _EMAIL_SHELL.format(body=body)
+    return _EMAIL_SHELL.format(
+        body=body, footer=_EMAIL_FOOTER if include_footer else ""
+    )
 
 
 def _html_to_text(fragment: str) -> str:

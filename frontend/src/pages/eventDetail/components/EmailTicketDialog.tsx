@@ -34,7 +34,7 @@ export default function EmailTicketDialog({
 }: Props) {
   const api = useApi();
   const queryClient = useQueryClient();
-  const { sendViaEmail } = useAppInfo();
+  const { fromHeader, fromError: infoFromError } = useAppInfo();
 
   const previewQuery = useQuery({
     queryKey: ["emailPreview", eventId, participantId],
@@ -44,6 +44,25 @@ export default function EmailTicketDialog({
       ),
     enabled: open,
   });
+
+  const settingsQuery = useQuery({
+    queryKey: ["emailSettings", eventId],
+    queryFn: () =>
+      api.get<{
+        subject: string | null;
+        fromHeader: string | null;
+        fromError: string | null;
+      }>(`/api/events/${eventId}/emailSettings`),
+    enabled: open,
+  });
+
+  // The event's own sender name, until its settings load.
+  const from = settingsQuery.data
+    ? {
+        text: settingsQuery.data.fromHeader ?? "",
+        error: settingsQuery.data.fromError,
+      }
+    : { text: fromHeader, error: infoFromError };
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -75,8 +94,11 @@ export default function EmailTicketDialog({
           {previewHtml && (
             <Paper variant="outlined" sx={{ overflow: "hidden" }}>
               <Box sx={{ px: 2, py: 1 }}>
-                <Typography variant="body1">
-                  <strong>From: </strong> {sendViaEmail}
+                <Typography
+                  variant="body1"
+                  color={from.error ? "error" : undefined}
+                >
+                  <strong>From: </strong> {from.error ?? from.text}
                 </Typography>
               </Box>
               <Divider />
@@ -88,7 +110,8 @@ export default function EmailTicketDialog({
               <Divider />
               <Box sx={{ px: 2, py: 1 }}>
                 <Typography variant="body1">
-                  <strong>Subject:</strong> [Ticket] {eventName}
+                  <strong>Subject:</strong>{" "}
+                  {settingsQuery.data?.subject ?? `[Ticket] ${eventName}`}
                 </Typography>
               </Box>
               <Divider />
