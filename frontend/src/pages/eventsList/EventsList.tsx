@@ -20,6 +20,8 @@ import AddIcon from "@mui/icons-material/Add";
 import { useNavigate } from "@tanstack/react-router";
 import { useEvents } from "./useEvents";
 import AddEventDialog from "./components/AddEventDialog";
+import EmptyState from "@/components/EmptyState";
+import SectionHeading from "@/components/SectionHeading";
 
 import { useAppInfo } from "@/providers/useAppInfo.ts";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -46,32 +48,41 @@ export default function EventsList() {
     [events, debouncedSearchQuery],
   );
 
+  const handleCreate = async (payload: {
+    name: string;
+    description: string;
+    date: string;
+  }) => {
+    const created = await createEvent(payload);
+    navigate({
+      to: "/admin/events/$eventId",
+      params: { eventId: created.id },
+    });
+  };
+
   return (
     <>
-      <Typography variant="h3" component="h1" sx={{ mb: 1 }}>
-        {orgName ? `Welcome, ${orgName}!` : "Welcome!"}
-      </Typography>
-      <Stack direction="column" spacing={1}>
+      <Stack spacing={2}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 900 }}>
+          {orgName ? `Welcome, ${orgName}!` : "Welcome!"}
+        </Typography>
         <Stack
-          direction="row"
-          spacing={1}
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
           sx={{
             justifyContent: "space-between",
-            alignItems: "center",
+            alignItems: { xs: "stretch", sm: "center" },
           }}
         >
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <EventIcon />
-            <Typography variant="h5">Your events</Typography>
-          </Stack>
+          <SectionHeading icon={<EventIcon />}>Your events</SectionHeading>
           <TextField
-            variant="standard"
             size="small"
             placeholder="Search events by name…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ minWidth: 280 }}
+            sx={{ minWidth: { sm: 280 } }}
             slotProps={{
+              htmlInput: { "aria-label": "Search events by name" },
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
@@ -81,8 +92,7 @@ export default function EventsList() {
                 endAdornment: searchQuery ? (
                   <InputAdornment position="end">
                     <IconButton
-                      size="small"
-                      aria-label="clear search"
+                      aria-label="Clear search"
                       onClick={() => setSearchQuery("")}
                       edge="end"
                     >
@@ -95,14 +105,24 @@ export default function EventsList() {
           />
         </Stack>
 
-        {isError && <Alert severity="error">Cannot load event</Alert>}
+        {isError && <Alert severity="error">Cannot load events</Alert>}
 
-        {isLoading && <LinearProgress aria-label="Loading…" />}
+        {isLoading && <LinearProgress aria-label="Loading events" />}
+
+        {!isLoading && events.length === 0 && (
+          <EmptyState icon={<EventIcon />}>
+            No events yet. Create one to start adding people.
+          </EmptyState>
+        )}
+
+        {events.length > 0 && filteredEvents.length === 0 && (
+          <Typography color="textSecondary">No matches found.</Typography>
+        )}
 
         <Grid container spacing={2}>
           {filteredEvents.map((event) => (
-            <Grid key={event.id} size={{ xs: 12, sm: 6, md: 4 }}>
-              <Card sx={{ height: "100%" }}>
+            <Grid key={event.id} size={{ xs: 12, sm: 6 }}>
+              <Card sx={{ height: "100%" }} variant="outlined">
                 <CardActionArea
                   onClick={() =>
                     navigate({
@@ -128,7 +148,7 @@ export default function EventsList() {
                     >
                       {event.description || "No description"}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body1" color="textSecondary">
                       {event.date}
                     </Typography>
                   </CardContent>
@@ -141,6 +161,7 @@ export default function EventsList() {
       <Fab
         color="secondary"
         variant="extended"
+        aria-label="Add event"
         onClick={() => setDialogOpen(true)}
         sx={{ position: "fixed", bottom: 24, right: 24 }}
       >
@@ -151,7 +172,7 @@ export default function EventsList() {
       <AddEventDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        onSubmit={createEvent}
+        onSubmit={handleCreate}
         loading={isCreating}
       />
     </>

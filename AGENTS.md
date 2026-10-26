@@ -11,6 +11,57 @@ InQRess is a single-admin QR ticketing and check-in system.
 - Auth: HttpOnly session cookie (`__Host-inqress_session` when `cookie_secure: true`)
 - Config: `backend/src/config.py` (pydantic models) + YAML loaded via `CONFIG_PATH`
 
+## Target resolutions
+
+### Admin UI (mobile-first responsive)
+
+Fully responsive across all form factors. Design mobile-first, then scale up.
+
+| Target                            | Viewport width                              | Notes                                                                 |
+|-----------------------------------|---------------------------------------------|-----------------------------------------------------------------------|
+| iPhone SE (floor)                 | 375 px                                      | Smallest supported width — all content must remain usable             |
+| Foldable (Galaxy Z Fold 6 cover)  | ~369 px (folded), ~707 px (unfolded)        | Test the fold/unfold transition — layout must reflow without breaking |
+| Tablet (iPad Mini / iPad Pro 11") | 744–834 px portrait, 1133–1210 px landscape |                                                                       |
+| Desktop                           | 1280–1920+ px                               |                                                                       |
+
+Key constraints:
+- All interactive elements must have a minimum 44×44 px tap target on touch devices.
+- Use MUI breakpoints (`xs` / `sm` / `md` / `lg` / `xl`) for layout adaptation.
+- No hover-dependent interactions — every action must work with tap/click only.
+
+### Companion Scanner (mobile-first)
+
+Runs on a phone held in hand at the check-in booth. Touch-only.
+
+| Target                | Viewport        | Notes                                                         |
+|-----------------------|-----------------|---------------------------------------------------------------|
+| iPhone SE (floor)     | 375 × 667       | Minimum supported — all scanner UI must fit without scrolling |
+| Standard phones       | 390–430 px wide |                                                               |
+| Foldable cover screen | ~369 px         | Same floor as admin                                           |
+
+Key constraints:
+- Touch-only — no right-click, no hover states.
+- Camera viewfinder must fill the available width with minimal chrome.
+- Result dialogs and overlays must be readable at 375 px wide.
+- Respect iOS safe-area insets (top 20 px on iPhone SE).
+
+### Companion Kiosk (touchscreen-first)
+
+Runs unattended at events on a dedicated display. Touch-only.
+
+| Target                                | Viewport               | Notes                                  |
+|---------------------------------------|------------------------|----------------------------------------|
+| **15.6" 1080p touchscreen** (primary) | 1920 × 1080            | Design target — fixed landscape, DPR 1 |
+| iPad Pro 11" (ideal secondary)        | 1210 × 834 (landscape) | Must be fully usable                   |
+| iPad Mini (ideal secondary)           | 1133 × 744 (landscape) | Must be fully usable                   |
+
+Key constraints:
+- Fixed landscape orientation — no portrait layout needed.
+- Touch-only — large tap targets (minimum 48×48 px, prefer 56+ px for kiosk).
+- Design for arm's-length interaction: larger text, higher contrast, prominent buttons.
+- The primary target (1920×1080) is the design baseline; tablets are a graceful adaptation, not the design driver.
+- No browser chrome in kiosk mode — the viewport is the full screen.
+
 ## Development server
 
 Before starting work, check if a dev server is already running:

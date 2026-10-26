@@ -308,6 +308,7 @@ class InfoResponse(RestModel):
     from_error: str | None = None
     email_footer_enabled: bool
     app_version: str
+    max_upload_mb: int
 
 
 class CompanionSessionRequest(RestModel):

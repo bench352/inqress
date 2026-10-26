@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Box,
   Button,
   Card,
   Chip,
@@ -16,6 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import DatasetLinkedIcon from "@mui/icons-material/DatasetLinked";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SyncIcon from "@mui/icons-material/Sync";
@@ -25,6 +25,9 @@ import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import dayjs from "dayjs";
 import { useSnackbar } from "notistack";
 import { ApiError, useApi } from "@/api.ts";
+import AppDialog from "@/components/AppDialog";
+import EmptyState from "@/components/EmptyState";
+import PageHeader from "@/components/PageHeader";
 import { useDataSourceSync } from "@/providers/useDataSourceSync";
 import { modeLabel, summaryParts, type DataSourceResponse } from "./types";
 
@@ -84,7 +87,7 @@ export default function DataSources() {
       enqueueSnackbar(
         err instanceof ApiError && typeof err.detail === "string"
           ? err.detail
-          : "Failed to start the sync",
+          : "Could not start the sync.",
         { variant: "error" },
       );
     },
@@ -96,7 +99,8 @@ export default function DataSources() {
         activated,
       }),
     onSuccess: invalidate,
-    onError: () => enqueueSnackbar("Failed to update", { variant: "error" }),
+    onError: () =>
+      enqueueSnackbar("Could not change automatic sync.", { variant: "error" }),
   });
 
   const deleteMutation = useMutation({
@@ -105,9 +109,12 @@ export default function DataSources() {
     onSuccess: () => {
       setPendingDelete(null);
       invalidate();
-      enqueueSnackbar("Data source deleted", { variant: "success" });
+      enqueueSnackbar("Data source deleted.", { variant: "success" });
     },
-    onError: () => enqueueSnackbar("Failed to delete", { variant: "error" }),
+    onError: () =>
+      enqueueSnackbar("Could not delete the data source.", {
+        variant: "error",
+      }),
   });
 
   const sources = sourcesQuery.data ?? [];
@@ -145,42 +152,37 @@ export default function DataSources() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4">{eventQuery.data?.name ?? "..."}</Typography>
-
-      <Stack
-        direction="row"
-        spacing={2}
-        sx={{ alignItems: "center", flexWrap: "wrap" }}
-      >
-        <Button
-          variant="outlined"
-          onClick={() =>
-            navigate({ to: "/admin/events/$eventId", params: { eventId } })
-          }
-        >
-          Back
-        </Button>
-        <Typography variant="h5">Data sources</Typography>
-        <Box sx={{ flexGrow: 1 }} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() =>
-            navigate({
-              to: "/admin/events/$eventId/dataSources/new",
-              params: { eventId },
-            })
-          }
-        >
-          Add data source
-        </Button>
-      </Stack>
+      <PageHeader
+        title="Data sources"
+        subtitle={eventQuery.data?.name}
+        onBack={() =>
+          navigate({
+            to: "/admin/events/$eventId/settings",
+            params: { eventId },
+          })
+        }
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() =>
+              navigate({
+                to: "/admin/events/$eventId/dataSources/new",
+                params: { eventId },
+              })
+            }
+            sx={{ width: { xs: "100%", sm: "auto" }, flexShrink: 0 }}
+          >
+            Add data source
+          </Button>
+        }
+      />
 
       {!sourcesQuery.isLoading && sources.length === 0 && (
-        <Typography variant="body1" color="textSecondary">
-          No data sources yet. Add one to keep this event's participants in sync
-          with a spreadsheet link.
-        </Typography>
+        <EmptyState icon={<DatasetLinkedIcon />}>
+          No data sources yet. Add one to keep the guest list up to date from a
+          spreadsheet.
+        </EmptyState>
       )}
 
       {sources.map((source) => (
@@ -198,7 +200,7 @@ export default function DataSources() {
                   size="small"
                   color="info"
                   icon={<CircularProgress size={12} color="inherit" />}
-                  label="Syncing..."
+                  label="Syncing…"
                 />
               )}
               {!source.activated && (
@@ -206,13 +208,13 @@ export default function DataSources() {
               )}
             </Stack>
 
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body1" color="textSecondary">
               {source.activateNew
                 ? "New participants can check in"
                 : "New participants wait to be admitted"}
               {" · "}
               {source.lastSuccessAt
-                ? `Last successful sync ${dayjs(source.lastSuccessAt).format("YYYY-MM-DD HH:mm")}`
+                ? `Last synced ${dayjs(source.lastSuccessAt).format("YYYY-MM-DD HH:mm")}`
                 : "Not synced yet"}
             </Typography>
 
@@ -222,7 +224,7 @@ export default function DataSources() {
                 spacing={1}
                 sx={{ alignItems: "center", flexWrap: "wrap" }}
               >
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body1" color="textSecondary">
                   {summaryText(source)}
                 </Typography>
                 {errorSamples(source).length > 0 && (
@@ -238,7 +240,7 @@ export default function DataSources() {
             )}
 
             {source.lastError && (
-              <Typography variant="body2" color="error">
+              <Typography variant="body1" color="error">
                 {source.lastError}
               </Typography>
             )}
@@ -297,37 +299,31 @@ export default function DataSources() {
         </Card>
       ))}
 
-      <Dialog open={!!errorSource} onClose={hideErrors} fullWidth maxWidth="sm">
-        <DialogTitle>{errorSource?.name} - Sync errors</DialogTitle>
-        <DialogContent>
-          <Stack spacing={1}>
-            <Stack spacing={0.5}>
-              {errorSamples(errorSource).map((sample, index) => (
-                <Typography key={index} variant="body1" color="error">
-                  {sample}
-                </Typography>
-              ))}
-            </Stack>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={hideErrors}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        open={!!errorSource}
+        onClose={hideErrors}
+        title={`Sync errors in ${errorSource?.name}`}
+      >
+        <Stack spacing={0.5}>
+          {errorSamples(errorSource).map((sample, index) => (
+            <Typography key={index} variant="body1" color="error">
+              {sample}
+            </Typography>
+          ))}
+        </Stack>
+      </AppDialog>
 
       <Dialog open={!!pendingDelete} onClose={() => setPendingDelete(null)}>
-        <DialogTitle>Delete data source</DialogTitle>
+        <DialogTitle>Delete this data source?</DialogTitle>
         <DialogContent>
           <Typography>
-            Delete &ldquo;{pendingDelete?.name}&rdquo;? Syncing stops and the
-            saved row links are removed. Participants and tickets already
-            created are not removed.
+            &ldquo;{pendingDelete?.name}&rdquo; stops syncing and its saved row
+            links are removed. People and tickets already created stay.
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
           <Button
-            variant="contained"
             color="error"
             loading={deleteMutation.isPending}
             onClick={() =>

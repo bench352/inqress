@@ -72,11 +72,14 @@ export default function ActionsSection({
               >
                 <EmojiPeopleIcon color="primary" />
                 <Typography variant="h6">
-                  New participants are waiting to be admitted
+                  Some participants are waiting to be admitted
                 </Typography>
               </Stack>
               <Typography variant="body1">
-                {`${pendingCount} participant(s) have been added but not yet admitted. Please check and decide whether they're allowed to attend by admit/deactivate their registration.`}
+                {pendingCount === 1
+                  ? "1 participant joined the list but cannot check in yet."
+                  : `${pendingCount} participants joined the list but cannot check in yet.`}{" "}
+                Admit or deactivate each one below.
               </Typography>
               <Button
                 variant="contained"
@@ -100,12 +103,14 @@ export default function ActionsSection({
                 sx={{ alignItems: "center" }}
               >
                 <ErrorOutlineIcon color="warning" />
-                <Typography variant="h6">Data source sync failed</Typography>
+                <Typography variant="h6">
+                  A data source could not sync
+                </Typography>
               </Stack>
               <Typography variant="body1">
                 {failedSources[0].name}: {failedSources[0].lastError}
                 {failedSources.length > 1
-                  ? ` (and ${failedSources.length - 1} more source(s))`
+                  ? ` (and ${failedSources.length - 1} more)`
                   : ""}
               </Typography>
               <Button
@@ -123,12 +128,15 @@ export default function ActionsSection({
           </Card>
         )}
         <ProgressCard
-          title="Importing participants..."
+          title="Importing participants…"
           progress={createParticipantProgress}
         />
-        <ProgressCard title="Sending emails..." progress={sendEmailProgress} />
         <ProgressCard
-          title="Generating ticket QR codes..."
+          title="Sending tickets by email…"
+          progress={sendEmailProgress}
+        />
+        <ProgressCard
+          title="Making ticket images…"
           progress={generateTicketQrProgress}
         />
         {notReadyCount > 0 && !generateTicketQrProgress?.inProgress && (
@@ -140,20 +148,20 @@ export default function ActionsSection({
                 sx={{ alignItems: "center" }}
               >
                 <QrCodeIcon color="primary" />
-                <Typography variant="h6">
-                  Generate ticket QR codes for all participants
-                </Typography>
+                <Typography variant="h6">Some tickets are not ready</Typography>
               </Stack>
               <Typography variant="body1">
-                {notReadyCount} participant(s) don't have a ticket QR code yet.
-                This must be done before delivering tickets.
+                {notReadyCount === 1
+                  ? "1 participant has no ticket image yet."
+                  : `${notReadyCount} participants have no ticket image yet.`}{" "}
+                Tickets must be made before they can be sent.
               </Typography>
               <Button
                 variant="contained"
                 loading={generateQrMutation.isPending}
                 onClick={() => generateQrMutation.mutate()}
               >
-                Generate all ticket QR codes
+                Make all tickets
               </Button>
             </Stack>
           </Card>
@@ -168,14 +176,12 @@ export default function ActionsSection({
                 sx={{ alignItems: "center" }}
               >
                 <EmailIcon color="primary" />
-                <Typography variant="h6">
-                  Deliver tickets to participants in one click
-                </Typography>
+                <Typography variant="h6">Send tickets by email</Typography>
               </Stack>
               <Typography variant="body1">
                 {undeliveredReadyCount === 1
-                  ? "1 participant is waiting for ticket delivery and has registered their email address. Click here to send the ticket at once."
-                  : `${undeliveredReadyCount} participants are waiting for ticket delivery and have registered their email addresses. Click here to send tickets to them at once.`}
+                  ? "1 participant has a ticket ready and an email address. Send it now."
+                  : `${undeliveredReadyCount} participants have tickets ready and email addresses. Send them at once.`}
               </Typography>
               <Button
                 variant="contained"
@@ -186,7 +192,7 @@ export default function ActionsSection({
                   })
                 }
               >
-                Bulk ticket delivery to undelivered participants
+                Send tickets
               </Button>
             </Stack>
           </Card>

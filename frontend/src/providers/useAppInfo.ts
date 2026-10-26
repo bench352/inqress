@@ -6,6 +6,7 @@ export interface AppInfoContextValue {
   fromError: string | null;
   emailFooterEnabled: boolean;
   appVersion: string;
+  maxUploadMb: number;
   isLoading: boolean;
 }
 

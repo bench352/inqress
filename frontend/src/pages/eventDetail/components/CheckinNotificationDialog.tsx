@@ -83,9 +83,11 @@ export default function CheckinNotificationDialog({
   return (
     <Dialog open onClose={handleDismiss} maxWidth="xs" fullWidth>
       <LinearProgress variant="determinate" value={progress} />
-      <DialogTitle sx={{ textAlign: "center", pb: 0 }}>Checked In</DialogTitle>
+      <DialogTitle sx={{ textAlign: "center", pb: 0.5 }}>
+        Checked in
+      </DialogTitle>
       <DialogContent sx={{ textAlign: "center" }}>
-        <Typography variant="h5" sx={{ mb: 1 }}>
+        <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>
           {dialog.title ? `${dialog.title} ` : ""}
           {dialog.name}
         </Typography>
@@ -96,10 +98,8 @@ export default function CheckinNotificationDialog({
           By {formatMethod(dialog.checkInMethod)}
         </Typography>
       </DialogContent>
-      <DialogActions sx={{ justifyContent: "center", pb: 2 }}>
-        <Button variant="outlined" onClick={handleDismiss}>
-          Dismiss ({countdown}s)
-        </Button>
+      <DialogActions sx={{ justifyContent: "center" }}>
+        <Button onClick={handleDismiss}>Dismiss ({countdown}s)</Button>
       </DialogActions>
     </Dialog>
   );

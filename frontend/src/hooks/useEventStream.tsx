@@ -241,10 +241,10 @@ export function useEventStream(
       /** Two lines read better than one long sentence on a sync failure. */
       const syncToast = (title: string, body: string) => (
         <Box>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          <Typography variant="body1" sx={{ fontWeight: 600 }}>
             {title}
           </Typography>
-          <Typography variant="body2">{body}</Typography>
+          <Typography variant="body1">{body}</Typography>
         </Box>
       );
 

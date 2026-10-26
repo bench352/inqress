@@ -13,6 +13,7 @@ interface AppInfo {
   fromError: string | null;
   emailFooterEnabled: boolean;
   appVersion: string;
+  maxUploadMb: number;
 }
 
 export default function AppInfoProvider({ children }: PropsWithChildren) {
@@ -58,6 +59,7 @@ export default function AppInfoProvider({ children }: PropsWithChildren) {
       fromError: info?.fromError ?? null,
       emailFooterEnabled: info?.emailFooterEnabled ?? true,
       appVersion: info?.appVersion ?? "0.0.0",
+      maxUploadMb: info?.maxUploadMb ?? 30,
       isLoading: loading,
     }),
     [info, loading],

@@ -173,6 +173,16 @@ def set_booth_image(event_id: uuid.UUID, image_bytes: bytes, content_type: str) 
         return result.rowcount > 0  # type: ignore[attr-defined]
 
 
+def clear_booth_image(event_id: uuid.UUID) -> bool:
+    with service.db.get_session() as session:
+        result = session.execute(
+            update(schema.orm.Event)
+            .where(schema.orm.Event.id == event_id)
+            .values(booth_image=None, booth_image_type=None)
+        )
+        return result.rowcount > 0  # type: ignore[attr-defined]
+
+
 def get_accent_color(event_id: uuid.UUID) -> str | None:
     with service.db.get_session() as session:
         result = session.execute(

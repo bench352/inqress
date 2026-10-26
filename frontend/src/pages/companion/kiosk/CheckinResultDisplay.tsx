@@ -1,13 +1,12 @@
 import { useEffect } from "react";
-import { Box, CircularProgress, Stack, Typography } from "@mui/material";
+import { Box, CircularProgress, Typography } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
-import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
 import successSound from "@/assets/soundEffects/checkin_success.aac";
 import failSound from "@/assets/soundEffects/checkin_fail.aac";
 import { useConfetti } from "@/hooks/useConfetti";
 import { playSound } from "../sounds";
-import { isErrorDetail, isSuccessDetail, type CheckinResponse } from "./types";
+import { type CheckinResponse, isErrorDetail, isSuccessDetail } from "./types";
 
 interface Props {
   phase: "loading" | "success" | "error";
@@ -105,22 +104,6 @@ export default function CheckinResultDisplay({
             </Typography>
           )}
         </>
-      )}
-      {phase !== "loading" && (
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            alignItems: "center",
-            justifyContent: "center",
-            color: "text.secondary",
-          }}
-        >
-          <TouchAppOutlinedIcon fontSize="medium" />
-          <Typography variant="h6" sx={{ fontWeight: 500 }}>
-            Tap the screen to close
-          </Typography>
-        </Stack>
       )}
     </Box>
   );

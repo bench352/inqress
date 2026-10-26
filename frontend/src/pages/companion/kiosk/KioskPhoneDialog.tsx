@@ -60,6 +60,7 @@ export default function KioskPhoneDialog({
   const [userSelectedCode, setUserSelectedCode] = useState<string | null>(null);
   const [countryCodes, setCountryCodes] = useState<string[]>([]);
   const [defaultCountryCode, setDefaultCountryCode] = useState("");
+  const [countryCodesLoaded, setCountryCodesLoaded] = useState(false);
   const [phoneNo, setPhoneNo] = useState("");
   const [phase, setPhase] = useState<CheckinPhase>("input");
   const [result, setResult] = useState<CheckinResponse | null>(null);
@@ -77,11 +78,23 @@ export default function KioskPhoneDialog({
         setDefaultCountryCode(res.default);
       } catch {
         // leave empty; submit will report the failure
+      } finally {
+        setCountryCodesLoaded(true);
       }
     })();
   }, [eventId, api]);
 
-  const selectedCountryCode = userSelectedCode ?? defaultCountryCode;
+  const effectiveDefault =
+    countryCodes.includes(defaultCountryCode) && defaultCountryCode
+      ? defaultCountryCode
+      : (countryCodes[0] ?? "");
+  const selectedCountryCode = userSelectedCode ?? effectiveDefault;
+
+  useEffect(() => {
+    if (countryCodesLoaded && countryCodes.length === 0 && phase === "input") {
+      onClose();
+    }
+  }, [countryCodesLoaded, countryCodes.length, phase, onClose]);
 
   const handleDigit = useCallback(
     (digit: string) => {

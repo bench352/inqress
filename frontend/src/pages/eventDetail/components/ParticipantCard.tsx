@@ -23,12 +23,23 @@ interface Props {
 
 export function ParticipantCard({ participant, onClick }: Props) {
   return (
-    <Card variant="outlined" sx={{ height: "100%" }}>
-      <CardActionArea onClick={onClick} sx={{ height: "100%" }}>
-        <Box sx={{ px: 2, py: 1 }}>
+    <Card
+      variant="outlined"
+      sx={{ height: "100%", display: "flex", flexDirection: "column" }}
+    >
+      <CardActionArea
+        onClick={onClick}
+        sx={{
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+        }}
+      >
+        <Box sx={{ px: 2, py: 2, flex: 1 }}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
             <Typography
-              variant="subtitle1"
+              variant="h6"
               sx={{ fontWeight: 600, flexGrow: 1, minWidth: 0 }}
             >
               {participant.title ? `${participant.title} ` : ""}
@@ -61,13 +72,13 @@ export function ParticipantCard({ participant, onClick }: Props) {
               </Tooltip>
             )}
           </Stack>
-          <Stack spacing={0.25}>
+          <Stack spacing={0.5} sx={{ mt: 0.5 }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <EmailIcon fontSize="small" color="action" />
               <Typography variant="body1">
                 {participant.email
                   ? maskEmail(participant.email)
-                  : "(No email address)"}
+                  : "No email address"}
               </Typography>
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
@@ -75,7 +86,7 @@ export function ParticipantCard({ participant, onClick }: Props) {
               <Typography variant="body1">
                 {participant.countryCode && participant.phone
                   ? `${participant.countryCode} ${maskPhone(participant.phone)}`
-                  : "(No phone number)"}
+                  : "No phone number"}
               </Typography>
             </Stack>
           </Stack>
@@ -86,7 +97,12 @@ export function ParticipantCard({ participant, onClick }: Props) {
             <Stack
               direction="row"
               spacing={1}
-              sx={{ alignItems: "center", px: 2, py: 0.5, bgcolor: "grey.100" }}
+              sx={{
+                alignItems: "center",
+                px: 2,
+                py: 1,
+                bgcolor: "action.hover",
+              }}
             >
               <CheckCircleIcon fontSize="small" color="success" />
               <Typography variant="body1" color="success">

@@ -26,30 +26,27 @@ export default function ModeDialog({
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>
-        Confirm changing to "
+        Switch to{" "}
         {pendingMode &&
-          pendingMode.charAt(0).toUpperCase() + pendingMode.slice(1)}
-        " mode
+          pendingMode.charAt(0).toUpperCase() + pendingMode.slice(1)}{" "}
+        mode?
       </DialogTitle>
       <DialogContent>
         {pendingMode === "test" && (
           <Typography variant="body1">
-            Feel free to test the check-in flow as attendance records are
-            temporarily recorded. Once you switch back to Disabled mode, all
-            records created during Test mode will be rolled back.
+            Attendance is recorded for trying the flow out. When you switch to
+            Disabled, everything recorded in Test mode is removed.
           </Typography>
         )}
         {pendingMode === "disabled" && (
           <Typography variant="body1">
-            Attendance will no longer be accepted. All attendance recorded
-            during Live mode will be kept, while those created during Test mode
-            will be rolled back.
+            Nobody can check in until you choose Test or Live again. Real
+            attendance stays; anything from Test mode is removed.
           </Typography>
         )}
         {pendingMode === "live" && (
           <Typography variant="body1">
-            Attendance will be recorded permanently. It will be kept even if you
-            switch to Disabled mode later.
+            Attendance is kept for good, even if you switch to Disabled later.
           </Typography>
         )}
       </DialogContent>
@@ -57,8 +54,8 @@ export default function ModeDialog({
         <Button onClick={onClose} disabled={loading}>
           Cancel
         </Button>
-        <Button onClick={onConfirm} variant="contained" loading={loading}>
-          Confirm
+        <Button onClick={onConfirm} loading={loading}>
+          Switch
         </Button>
       </DialogActions>
     </Dialog>

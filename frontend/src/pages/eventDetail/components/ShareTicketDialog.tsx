@@ -1,26 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   Box,
   Button,
   ButtonBase,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Paper,
   Stack,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
 import ShareIcon from "@mui/icons-material/Share";
+import DownloadIcon from "@mui/icons-material/Download";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import { useApi } from "@/api.ts";
+import AppDialog from "@/components/AppDialog";
+import ImagePreviewDialog from "@/components/ImagePreviewDialog";
 import type { ParticipantItem } from "../useEventDetail";
+import { useTicketImage } from "../useTicketImage";
 
 // Name for the share sheet only, so the original characters survive. Control
 // characters and bidi overrides go: the first can break a save, the second can
@@ -52,21 +50,10 @@ export default function ShareTicketDialog({
 }: Props) {
   const api = useApi();
   const queryClient = useQueryClient();
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up("sm"));
   const { enqueueSnackbar } = useSnackbar();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const blobUrlRef = useRef<string | null>(null);
 
-  const imageQuery = useQuery({
-    queryKey: ["shareTicketImage", eventId, participant.id],
-    queryFn: () =>
-      api.getBlob(
-        `/api/events/${eventId}/participants/${participant.id}/ticketImage`,
-      ),
-    enabled: open,
-  });
+  const ticket = useTicketImage(eventId, participant.id, open);
 
   const messageQuery = useQuery({
     queryKey: ["ticketMessage", eventId, participant.id],
@@ -77,26 +64,6 @@ export default function ShareTicketDialog({
     enabled: open,
   });
 
-  useEffect(() => {
-    if (imageQuery.data) {
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-      }
-      const url = URL.createObjectURL(imageQuery.data);
-      blobUrlRef.current = url;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Blob URL management requires state sync with external resource
-      setImageUrl(url);
-    } else {
-      setImageUrl(null);
-    }
-    return () => {
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = null;
-      }
-    };
-  }, [imageQuery.data]);
-
   const deliverMutation = useMutation({
     mutationFn: async () => {
       await api.post(
@@ -105,13 +72,13 @@ export default function ShareTicketDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
-      enqueueSnackbar("Ticket marked as delivered", { variant: "success" });
+      enqueueSnackbar("Ticket marked as delivered.", { variant: "success" });
     },
   });
 
   const message = messageQuery.data ?? "";
   const fileName = ticketFileName(participant.name);
-  const blob = imageQuery.data ?? null;
+  const blob = ticket.blob;
   let canShare = false;
   if (blob) {
     try {
@@ -132,14 +99,11 @@ export default function ShareTicketDialog({
       await navigator.clipboard.write([
         new ClipboardItem({ "image/png": blob }),
       ]);
-      enqueueSnackbar("Ticket image copied", { variant: "success" });
+      enqueueSnackbar("Ticket image copied.", { variant: "success" });
     } catch {
-      enqueueSnackbar(
-        "Could not copy the image. Save the ticket image itself.",
-        {
-          variant: "error",
-        },
-      );
+      enqueueSnackbar("Could not copy the image. Download it instead.", {
+        variant: "error",
+      });
     }
   };
 
@@ -147,10 +111,20 @@ export default function ShareTicketDialog({
     if (!message) return;
     try {
       await navigator.clipboard.writeText(message);
-      enqueueSnackbar("Message copied", { variant: "success" });
+      enqueueSnackbar("Message copied.", { variant: "success" });
     } catch {
-      enqueueSnackbar("Could not copy the message", { variant: "error" });
+      enqueueSnackbar("Could not copy the message.", { variant: "error" });
     }
+  };
+
+  const handleDownload = () => {
+    if (!ticket.url) return;
+    const a = document.createElement("a");
+    a.href = ticket.url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const handleShare = async () => {
@@ -164,7 +138,7 @@ export default function ShareTicketDialog({
     } catch (error) {
       if ((error as DOMException).name !== "AbortError") {
         enqueueSnackbar(
-          "Sharing failed. Copy the image and the message instead.",
+          "Could not share. Copy the image and message instead.",
           {
             variant: "error",
           },
@@ -173,231 +147,207 @@ export default function ShareTicketDialog({
     }
   };
 
-  const isLoading = imageQuery.isLoading || messageQuery.isLoading;
-  const isError = imageQuery.isError || messageQuery.isError;
+  const isLoading = ticket.isLoading || messageQuery.isLoading;
+  const isError = ticket.isError || messageQuery.isError;
 
   return (
-    <Dialog
+    <AppDialog
       open={open}
       onClose={onClose}
       maxWidth="lg"
-      fullWidth
-      fullScreen={!isDesktop}
-      slotProps={{ paper: { sx: { height: "100%" } } }}
+      title="Share ticket"
+      contentSx={{
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "hidden",
+      }}
+      paperSx={{ height: "100%" }}
     >
-      <DialogTitle>Share Ticket</DialogTitle>
-      <DialogContent
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          overflowY: "hidden",
-        }}
-      >
-        <Box sx={{ mt: 1, flex: 1, minHeight: 0, display: "flex" }}>
-          {isLoading && (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                py: 4,
-                m: "auto",
-              }}
-            >
-              <CircularProgress />
-            </Box>
-          )}
-          {!isLoading && isError && (
-            <Typography color="error" sx={{ m: "auto" }}>
-              Failed to load the ticket.
-            </Typography>
-          )}
-          {!isLoading && !isError && (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: { xs: "column", md: "row" },
-                gap: 2,
-                flex: 1,
-                minHeight: 0,
-              }}
-            >
-              <Stack spacing={2} sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+      <Box sx={{ mt: 1, flex: 1, minHeight: 0, display: "flex" }}>
+        {isLoading && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              py: 4,
+              m: "auto",
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        )}
+        {!isLoading && isError && (
+          <Typography color="error" sx={{ m: "auto" }}>
+            Could not load the ticket.
+          </Typography>
+        )}
+        {!isLoading && !isError && (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "column", md: "row" },
+              gap: 2,
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
+            <Stack spacing={2} sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  flex: 1,
+                  minHeight: { xs: 96, md: 0 },
+                  overflow: "auto",
+                }}
+              >
+                <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                  {message}
+                </Typography>
+              </Paper>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 1,
+                }}
+              >
+                <Button
+                  onClick={handleCopyText}
+                  disabled={!message}
+                  variant="outlined"
+                  size="large"
+                  startIcon={<ContentCopyIcon />}
+                >
+                  Copy message
+                </Button>
+                <Button
+                  onClick={handleCopyImage}
+                  disabled={!blob}
+                  variant="outlined"
+                  size="large"
+                  startIcon={<ContentCopyIcon />}
+                >
+                  Copy image
+                </Button>
+                <Button
+                  onClick={handleDownload}
+                  disabled={!ticket.url}
+                  variant="outlined"
+                  size="large"
+                  startIcon={<DownloadIcon />}
+                >
+                  Download
+                </Button>
+                <Button
+                  onClick={handleShare}
+                  disabled={!canShare}
+                  variant="contained"
+                  size="large"
+                  startIcon={<ShareIcon />}
+                >
+                  Share
+                </Button>
+                <Button
+                  onClick={() => deliverMutation.mutate()}
+                  disabled={
+                    participant.isTicketDelivered || deliverMutation.isPending
+                  }
+                  variant="outlined"
+                  size="large"
+                  color="success"
+                  startIcon={<HowToRegIcon />}
+                  sx={{ gridColumn: { xs: "1 / -1" } }}
+                >
+                  {participant.isTicketDelivered
+                    ? "Ticket delivered"
+                    : "Mark delivered"}
+                </Button>
+              </Box>
+              <ButtonBase
+                onClick={() => setPreviewOpen(true)}
+                sx={{
+                  display: { xs: "flex", md: "none" },
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  gap: 1.5,
+                  p: 1,
+                  borderRadius: 1,
+                  textAlign: "left",
+                }}
+              >
                 <Paper
                   variant="outlined"
                   sx={{
-                    p: 2,
-                    flex: 1,
-                    minHeight: { xs: 96, md: 0 },
-                    overflow: "auto",
+                    width: 64,
+                    height: 64,
+                    flexShrink: 0,
+                    overflow: "hidden",
                   }}
                 >
-                  <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
-                    {message}
-                  </Typography>
+                  {ticket.url && (
+                    // The QR band is the top square of the 9:16 ticket.
+                    <Box
+                      component="img"
+                      src={ticket.url}
+                      alt=""
+                      sx={{
+                        display: "block",
+                        width: 1,
+                        aspectRatio: "1",
+                        objectFit: "cover",
+                        objectPosition: "top",
+                      }}
+                    />
+                  )}
                 </Paper>
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                    gap: 1,
-                  }}
-                >
-                  <Button
-                    onClick={handleCopyText}
-                    disabled={!message}
-                    variant="outlined"
-                    size="large"
-                    startIcon={<ContentCopyIcon />}
-                  >
-                    Copy message
-                  </Button>
-                  <Button
-                    onClick={handleCopyImage}
-                    disabled={!blob}
-                    variant="outlined"
-                    size="large"
-                    startIcon={<ContentCopyIcon />}
-                  >
-                    Copy ticket image
-                  </Button>
-                  <Button
-                    onClick={handleShare}
-                    disabled={!canShare}
-                    variant="contained"
-                    size="large"
-                    fullWidth
-                    startIcon={<ShareIcon />}
-                  >
-                    Share
-                  </Button>
-                  <Button
-                    onClick={() => deliverMutation.mutate()}
-                    disabled={
-                      participant.isTicketDelivered || deliverMutation.isPending
-                    }
-                    variant="outlined"
-                    size="large"
-                    color="success"
-                    startIcon={<HowToRegIcon />}
-                  >
-                    {participant.isTicketDelivered
-                      ? "Delivered"
-                      : "Mark delivered"}
-                  </Button>
+                <Box>
+                  <Typography variant="subtitle1">
+                    Preview ticket image
+                  </Typography>
+                  <Typography variant="body1" color="textSecondary">
+                    received by participant.
+                  </Typography>
                 </Box>
-                <ButtonBase
-                  onClick={() => setPreviewOpen(true)}
+              </ButtonBase>
+            </Stack>
+            <Paper
+              elevation={8}
+              sx={{
+                display: { xs: "none", md: "flex" },
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                flex: "0 1 auto",
+                // Safety net: the image column sizes itself, but never past
+                // half the dialog, so the message column stays usable.
+                maxWidth: { md: "50%" },
+              }}
+            >
+              {ticket.url && (
+                <Box
+                  component="img"
+                  src={ticket.url}
+                  alt="Ticket"
                   sx={{
-                    display: { xs: "flex", md: "none" },
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    gap: 1.5,
-                    p: 1,
-                    borderRadius: 1,
-                    textAlign: "left",
-                    "&:hover": { bgcolor: "action.hover" },
+                    width: { xs: "100%", md: "auto" },
+                    height: { md: "100%" },
+                    maxWidth: "100%",
+                    objectFit: "contain",
                   }}
-                >
-                  <Paper
-                    elevation={3}
-                    sx={{
-                      width: 64,
-                      height: 64,
-                      flexShrink: 0,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {imageUrl && (
-                      // The QR band is the top square of the 9:16 ticket.
-                      <Box
-                        component="img"
-                        src={imageUrl}
-                        alt=""
-                        sx={{
-                          display: "block",
-                          width: 1,
-                          aspectRatio: "1",
-                          objectFit: "cover",
-                          objectPosition: "top",
-                        }}
-                      />
-                    )}
-                  </Paper>
-                  <Box>
-                    <Typography variant="subtitle1">Ticket preview</Typography>
-                    <Typography variant="body1" color="textSecondary">
-                      Tap to view the full ticket
-                    </Typography>
-                  </Box>
-                </ButtonBase>
-              </Stack>
-              <Paper
-                elevation={3}
-                sx={{
-                  display: { xs: "none", md: "flex" },
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                  flex: "0 1 auto",
-                  // Safety net: the image column sizes itself, but never past
-                  // half the dialog, so the message column stays usable.
-                  maxWidth: { md: "50%" },
-                }}
-              >
-                {imageUrl && (
-                  <Box
-                    component="img"
-                    src={imageUrl}
-                    alt="Ticket"
-                    sx={{
-                      width: { xs: "100%", md: "auto" },
-                      height: { md: "100%" },
-                      maxWidth: "100%",
-                      objectFit: "contain",
-                    }}
-                  />
-                )}
-              </Paper>
-            </Box>
-          )}
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
-      {/* The preview is a picture: no chrome, the paper hugs the ticket. */}
-      <Dialog
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        maxWidth={false}
-        slotProps={{
-          paper: {
-            onClick: () => setPreviewOpen(false),
-            sx: {
-              width: "auto",
-              maxWidth: "calc(100% - 64px)",
-              maxHeight: "calc(100% - 64px)",
-              overflow: "hidden",
-            },
-          },
-        }}
-      >
-        {imageUrl && (
-          <Box
-            component="img"
-            src={imageUrl}
-            alt="Ticket"
-            sx={{
-              display: "block",
-              width: "auto",
-              height: "auto",
-              maxWidth: "100%",
-              maxHeight: "calc(100dvh - 64px)",
-              objectFit: "contain",
-            }}
-          />
+                />
+              )}
+            </Paper>
+          </Box>
         )}
-      </Dialog>
-    </Dialog>
+      </Box>
+
+      <ImagePreviewDialog
+        open={previewOpen}
+        src={ticket.url}
+        alt="Ticket"
+        onClose={() => setPreviewOpen(false)}
+      />
+    </AppDialog>
   );
 }

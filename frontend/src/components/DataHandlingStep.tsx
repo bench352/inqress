@@ -1,13 +1,8 @@
-import { useState } from "react";
 import {
   Alert,
-  Button,
+  Box,
   Card,
   CardActionArea,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Checkbox,
   FormControlLabel,
   Stack,
@@ -19,47 +14,45 @@ import StrikethroughSIcon from "@mui/icons-material/StrikethroughS";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 import WavesIcon from "@mui/icons-material/Waves";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutlined";
 import TableRowsIcon from "@mui/icons-material/TableRows";
 
 const DUPLICATE_STRATEGIES = [
   {
     value: "smartMerge",
-    label: "Smart Merge",
+    label: "Smart merge",
     icon: MergeIcon,
     description:
-      "Matching records are combined. The app keeps the more complete details.",
+      'Whichever has the more "complete" detail is kept. Recommended for most scenario.',
   },
   {
     value: "overwrite",
     label: "Overwrite",
     icon: StrikethroughSIcon,
     description:
-      "The new participant records will always overwrite the matching existing records. Use when your provided data is the source of truth.",
+      "The new record updates everything on the matching person. Use this when the data sheet is the source of truth.",
   },
   {
     value: "skip",
     label: "Skip",
     icon: SkipNextIcon,
     description:
-      "The new participant records will be discarded in favor of existing records.",
+      "The new record is ignored. The person already on the list keeps everything they have.",
   },
 ] as const;
 
 const NAME_MATCH_MODES = [
   {
     value: "exact",
-    label: "Exact Match",
+    label: "Exact match",
     icon: FactCheckIcon,
-    description:
-      "The name must match exactly. A matching email or phone confirms it.",
+    description: "The name must match exactly, plus matching email or phone.",
   },
   {
     value: "fuzzy",
-    label: "Match Similar Names",
+    label: "Match similar names",
     icon: WavesIcon,
     description:
-      "A similar name matches only when the email or phone also matches. The corrected name is then kept.",
+      "When the name is similar enough to an existing person, and the email or phone also matches. The corrected one is kept.",
   },
 ] as const;
 
@@ -70,7 +63,7 @@ interface Props {
   onNameMatchModeChange: (value: string) => void;
   activateNew: boolean;
   onActivateNewChange: (value: boolean) => void;
-  /** Present only on the data source page, where row tracking is available. */
+  /** Present only on the data source page, where "New record" (row) tracking is available. */
   tracking?: string;
   onTrackingChange?: (value: string) => void;
 }
@@ -80,11 +73,11 @@ const ROW_TRACKING = {
   label: "Row tracking",
   icon: TableRowsIcon,
   description:
-    "Each person keeps the row they came from. A later sync updates that same person, so a corrected name reaches the ticket they already hold.",
+    "Each person keeps the record they came from. A later sync updates that same person, so a corrected name reaches the ticket they already hold.",
 } as const;
 
 const ROW_TRACKING_WARNING =
-  "This matches people by row number. Sorting the sheet, or inserting or deleting a row above existing people, will write the wrong details onto tickets already issued. Use Skip, Smart Merge, or Overwrite if rows might move.";
+  "Records are matched by position. Sorting the sheet or adding a record above someone writes their details onto the wrong ticket. Don't pick this option when records might be rearranged in the data source.";
 
 function OptionCard({
   selected,
@@ -155,34 +148,40 @@ export default function DataHandlingStep({
   tracking,
   onTrackingChange,
 }: Props) {
-  const [helpOpen, setHelpOpen] = useState(false);
   const allowsRowTracking = !!onTrackingChange;
   const rowTracking = tracking === "row";
 
   return (
     <Stack spacing={3}>
       <Typography variant="body1">
-        {rowTracking
-          ? "Each row of the file is linked to the participant it created. Later syncs update those people in place."
-          : "Choose how new participant data is combined with existing records. Pick the option that matches how the source data was created."}
+        Choose what happens when a record matches someone already on the list.
       </Typography>
 
       <Stack spacing={1.5}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Duplicate Handling Strategy
-          </Typography>
-          <Button
-            variant="text"
-            size="small"
-            startIcon={<HelpOutlineIcon />}
-            onClick={() => setHelpOpen(true)}
-            sx={{ lineHeight: 1.25 }}
-          >
-            How are duplicates found?
-          </Button>
-        </Stack>
-        <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          Matching strategy
+        </Typography>
+
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "repeat(2, minmax(0, 1fr))",
+              lg: `repeat(${allowsRowTracking ? 4 : 3}, minmax(0, 1fr))`,
+            },
+          }}
+        >
+          {allowsRowTracking && (
+            <OptionCard
+              selected={rowTracking}
+              onClick={() => onTrackingChange(ROW_TRACKING.value)}
+              icon={ROW_TRACKING.icon}
+              label={ROW_TRACKING.label}
+              description={ROW_TRACKING.description}
+            />
+          )}
           {DUPLICATE_STRATEGIES.map((s) => (
             <OptionCard
               key={s.value}
@@ -196,16 +195,7 @@ export default function DataHandlingStep({
               description={s.description}
             />
           ))}
-          {allowsRowTracking && (
-            <OptionCard
-              selected={rowTracking}
-              onClick={() => onTrackingChange(ROW_TRACKING.value)}
-              icon={ROW_TRACKING.icon}
-              label={ROW_TRACKING.label}
-              description={ROW_TRACKING.description}
-            />
-          )}
-        </Stack>
+        </Box>
       </Stack>
 
       {rowTracking && <Alert severity="warning">{ROW_TRACKING_WARNING}</Alert>}
@@ -213,9 +203,18 @@ export default function DataHandlingStep({
       {!rowTracking && (
         <Stack spacing={1.5}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Name Matching Strategy
+            Name matching
           </Typography>
-          <Stack direction="row" spacing={2}>
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: {
+                xs: "1fr",
+                sm: "repeat(2, minmax(0, 1fr))",
+              },
+            }}
+          >
             {NAME_MATCH_MODES.map((m) => (
               <OptionCard
                 key={m.value}
@@ -226,17 +225,17 @@ export default function DataHandlingStep({
                 description={m.description}
               />
             ))}
-          </Stack>
+          </Box>
         </Stack>
       )}
 
       <Stack spacing={1.5}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          New Participant Admission
+          New participant admission
         </Typography>
         <Typography variant="body1" color="textSecondary">
-          Whether participants added in this import (who are not already on the
-          event) are immediately allowed to check in.
+          Whether newly added people are admitted automatically, so their
+          tickets are valid right away.
         </Typography>
         <FormControlLabel
           control={
@@ -245,31 +244,9 @@ export default function DataHandlingStep({
               onChange={(e) => onActivateNewChange(e.target.checked)}
             />
           }
-          label="New participants can check in (otherwise they wait to be admitted)"
+          label="Newly added people are admitted automatically"
         />
       </Stack>
-
-      <Dialog
-        open={helpOpen}
-        onClose={() => setHelpOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>How are duplicates found?</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1">
-            A row matches an existing person when the name rule agrees and the
-            email or phone does not point at someone else. If the row could be
-            more than one person, it is rejected. The strategy above then
-            decides what to keep.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setHelpOpen(false)} variant="contained">
-            Got it
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Stack>
   );
 }

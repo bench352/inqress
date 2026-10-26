@@ -6,9 +6,6 @@ import {
   Paper,
   Select,
   Stack,
-  Step,
-  StepLabel,
-  Stepper,
   Table,
   TableBody,
   TableCell,
@@ -16,7 +13,6 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -26,8 +22,11 @@ import { useSnackbar } from "notistack";
 import { ApiError, useApi } from "@/api.ts";
 import ConflictDialog from "@/components/ConflictDialog";
 import DataHandlingStep from "@/components/DataHandlingStep";
+import PageHeader from "@/components/PageHeader";
+import ResponsiveStepper from "@/components/ResponsiveStepper";
 
 const TITLE_OPTIONS = ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof."];
+const STEPS = ["Enter person details", "Choose what happens to duplicates"];
 
 interface ParticipantInput {
   key: number;
@@ -102,7 +101,7 @@ export default function AddParticipantsManually() {
         setConflictDetail(typeof err.detail === "string" ? err.detail : null);
       } else {
         const message =
-          err instanceof Error ? err.message : "Failed to add participants";
+          err instanceof Error ? err.message : "Could not add the people.";
         enqueueSnackbar(message, { variant: "error" });
       }
     },
@@ -149,7 +148,7 @@ export default function AddParticipantsManually() {
     for (const row of rows) {
       const rowErr: Record<string, string> = {};
       if (!row.name.trim()) {
-        rowErr.name = "Name is required";
+        rowErr.name = "Enter a name.";
         hasErrors = true;
       }
       if (Object.keys(rowErr).length > 0) newErrors[row.key] = rowErr;
@@ -173,19 +172,16 @@ export default function AddParticipantsManually() {
   };
 
   return (
-    <Stack spacing={3}>
-      <Typography variant="h4">{eventName}</Typography>
+    <Stack spacing={2}>
+      <PageHeader
+        title="Add participants manually"
+        subtitle={eventName}
+        onBack={() =>
+          navigate({ to: "/admin/events/$eventId", params: { eventId } })
+        }
+      />
 
-      <Typography variant="h5">Add Participants Manually</Typography>
-
-      <Stepper activeStep={activeStep}>
-        <Step>
-          <StepLabel>Enter participant information</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Choose how data is handled</StepLabel>
-        </Step>
-      </Stepper>
+      <ResponsiveStepper steps={STEPS} activeStep={activeStep} />
 
       {activeStep === 0 && (
         <Stack spacing={2}>

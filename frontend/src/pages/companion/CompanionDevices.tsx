@@ -33,6 +33,7 @@ import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import CheckIcon from "@mui/icons-material/Check";
 import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/providers/useAuth";
+import EmptyState from "@/components/EmptyState";
 import CameraSettingsDialog from "./CameraSettingsDialog";
 
 interface StoredCompanion {
@@ -149,15 +150,10 @@ export default function CompanionDevices() {
 
       <Container maxWidth="sm" sx={{ py: 3 }}>
         {devices.length === 0 && (
-          <Box sx={{ textAlign: "center", py: 8 }}>
-            <DeviceUnknownIcon
-              sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
-            />
-            <Typography color="textSecondary">
-              Nothing is paired on this device yet. Try adding one using the (+)
-              button.
-            </Typography>
-          </Box>
+          <EmptyState icon={<DeviceUnknownIcon />}>
+            Nothing is paired on this device yet. Try adding one using the (+)
+            button.
+          </EmptyState>
         )}
 
         {devices.map((d) => (
@@ -250,7 +246,6 @@ export default function CompanionDevices() {
         <DialogActions>
           <Button onClick={() => setConfirmDelete(null)}>Cancel</Button>
           <Button
-            variant="contained"
             color="error"
             onClick={() => {
               if (confirmDelete) removeDevice(confirmDelete);

@@ -185,7 +185,7 @@ def _download_filename(url: str, content_type: str, data: bytes) -> str:
 
 def parse_fetched_file(
     data: bytes, content_type: str, url: str
-) -> dict[str, tuple[list[str], list[list[str]]]]:
+) -> dict[str, tuple[list[str], list[list[str]], int]]:
     if not data.strip():
         raise ValueError("The link returned an empty file")
     head = data[:1024].lstrip().lower()
@@ -206,26 +206,26 @@ def preview(
     workbook = parse_fetched_file(data, content_type, url)
     sheets = {
         name: schema.rest.SheetPreview(columns=columns, heads=rows[:5])
-        for name, (columns, rows) in workbook.items()
+        for name, (columns, rows, _) in workbook.items()
     }
     return schema.rest.DataSourcePreviewResponse(sheets=sheets)
 
 
 def sheet_columns(
-    workbook: dict[str, tuple[list[str], list[list[str]]]], sheet_name: str
+    workbook: dict[str, tuple[list[str], list[list[str]], int]], sheet_name: str
 ) -> set[str]:
     entry = workbook.get(sheet_name)
     return set(entry[0]) if entry else set()
 
 
 def map_numbered_rows(
-    workbook: dict[str, tuple[list[str], list[list[str]]]],
+    workbook: dict[str, tuple[list[str], list[list[str]], int]],
     spec: _Spec,
 ) -> list[MappedRow]:
-    """Data rows with 1-based row numbers, counting blank rows."""
+    """Data rows with sheet-based row numbers (1-based, matching the original spreadsheet)."""
     if spec.sheet_name not in workbook:
         raise ValueError(f"Sheet '{spec.sheet_name}' was not found in the file")
-    columns, rows = workbook[spec.sheet_name]
+    columns, rows, header_row = workbook[spec.sheet_name]
     if spec.name_column not in columns:
         raise ValueError(
             f"Column '{spec.name_column}' was not found in the file. Check that the "
@@ -251,10 +251,11 @@ def map_numbered_rows(
         return row[index].strip() if index < len(row) else ""
 
     mapped: list[MappedRow] = []
-    for number, row in enumerate(rows, start=1):
+    for offset, row in enumerate(rows):
+        sheet_row = header_row + 1 + offset
         mapped.append(
             MappedRow(
-                row_number=number,
+                row_number=sheet_row,
                 title=_cell(row, title_index),
                 name=_cell(row, name_index) or "",
                 email=_cell(row, email_index),

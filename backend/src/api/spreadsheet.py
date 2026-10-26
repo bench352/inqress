@@ -50,7 +50,7 @@ def spreadsheet_preview(
         minutes=30
     )
     sheets: dict[str, schema.rest.SheetPreview] = {}
-    for name, (columns, rows) in workbook.items():
+    for name, (columns, rows, _) in workbook.items():
         sheets[name] = schema.rest.SheetPreview(columns=columns, heads=rows[:5])
     return schema.rest.SpreadsheetPreviewResponse(
         task_id=task_id,
