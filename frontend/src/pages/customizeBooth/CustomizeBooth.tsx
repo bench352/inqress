@@ -1,37 +1,105 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import Grid from "@mui/material/Grid";
+import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
-  FormControl,
-  InputLabel,
   LinearProgress,
-  Paper,
-  Select,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import ImageIcon from "@mui/icons-material/Image";
+import ChatOutlinedIcon from "@mui/icons-material/ChatOutlined";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
-import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
-import CheckIcon from "@mui/icons-material/Check";
-import BackspaceIcon from "@mui/icons-material/Backspace";
-import LoginIcon from "@mui/icons-material/Login";
+import DeleteIcon from "@mui/icons-material/Delete";
+import PaletteOutlinedIcon from "@mui/icons-material/PaletteOutlined";
+import SaveIcon from "@mui/icons-material/Save";
 import { MuiColorInput } from "mui-color-input";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, useApi } from "../../api";
 import { useSnackbar } from "notistack";
 import type { EventItem } from "../eventsList/useEvents";
+import FileUploadField from "@/components/FileUploadField";
+import PageHeader from "@/components/PageHeader";
+import SectionHeading from "@/components/SectionHeading";
+import CoverScreen, {
+  DEFAULT_KIOSK_MESSAGE,
+} from "../companion/kiosk/CoverScreen";
 
-const DIAL_DIGITS = [
-  ["1", "2", "3"],
-  ["4", "5", "6"],
-  ["7", "8", "9"],
-  ["*", "0", "#"],
-];
+/** The kiosk at its design size, scaled down to whatever width it gets. */
+function KioskCoverPreview({
+  eventName,
+  message,
+  accentColor,
+  coverUrl,
+}: {
+  eventName?: string;
+  message: string;
+  accentColor: string;
+  coverUrl: string | null;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setWidth(entry.contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <Box
+      ref={ref}
+      role="img"
+      aria-label="Preview of the kiosk screen"
+      sx={{
+        aspectRatio: "16 / 9",
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: 1,
+        border: 1,
+        borderColor: "divider",
+      }}
+    >
+      {width > 0 && (
+        <Box
+          aria-hidden
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1920,
+            height: 1080,
+            transform: `scale(${width / 1920})`,
+            transformOrigin: "top left",
+            pointerEvents: "none",
+          }}
+        >
+          <CoverScreen
+            eventName={eventName}
+            message={message}
+            accentColor={accentColor}
+            coverUrl={coverUrl}
+            onPhone={() => {}}
+            onEmail={() => {}}
+          />
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function errorDetail(error: unknown): string {
+  const detail =
+    error instanceof ApiError
+      ? String(error.detail)
+      : "Could not reach the server";
+  return detail.replace(/\.$/, "") + ".";
+}
 
 export default function CustomizeBooth() {
   const { eventId } = useParams({
@@ -45,9 +113,11 @@ export default function CustomizeBooth() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [accentColor, setAccentColor] = useState<string | null>(null);
-  const [kioskMessage, setKioskMessage] = useState<string>("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [removePending, setRemovePending] = useState(false);
+  const [accentDraft, setAccentDraft] = useState<string | null>(null);
+  const [messageDraft, setMessageDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const eventQuery = useQuery<EventItem>({
     queryKey: ["event", eventId],
@@ -67,7 +137,8 @@ export default function CustomizeBooth() {
   });
 
   const currentAccentColor =
-    accentColor ?? accentColorQuery.data?.colorCode ?? "#000000";
+    accentDraft ?? accentColorQuery.data?.colorCode ?? "#000000";
+  const currentMessage = messageDraft ?? kioskMessageQuery.data?.message ?? "";
 
   useEffect(() => {
     if (!eventQuery.data?.hasBoothImage) return;
@@ -98,414 +169,226 @@ export default function CustomizeBooth() {
   }, [previewUrl]);
 
   useEffect(() => {
-    const m = kioskMessageQuery.data?.message;
-    if (m === undefined) return;
-    const t = setTimeout(() => {
-      setKioskMessage(m);
-    }, 0);
-    return () => clearTimeout(t);
-  }, [kioskMessageQuery.data?.message]);
+    return () => {
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+    };
+  }, [imageUrl]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const clearSelection = () => {
+    setSelectedFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+  };
+
+  const handleFileSelect = (file: File) => {
     setSelectedFile(file);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
+    setRemovePending(false);
+    setSaveError(null);
   };
 
-  const handleColorChange = useCallback((newValue: string) => {
-    setAccentColor(newValue);
-  }, []);
+  const handleRemoveClick = () => {
+    setSaveError(null);
+    clearSelection();
+    setRemovePending(true);
+  };
 
-  const uploadMutation = useMutation({
-    mutationFn: async () => {
-      const promises: Promise<void>[] = [];
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
 
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        promises.push(
-          api
-            .postFormData(`/api/events/${eventId}/boothImage`, formData)
-            .then(() => {}),
-        );
+    const tasks: { section: string; run: () => Promise<void> }[] = [];
+
+    if (selectedFile) {
+      tasks.push({
+        section: "Cover image",
+        run: async () => {
+          const formData = new FormData();
+          formData.append("file", selectedFile);
+          await api.postFormData(`/api/events/${eventId}/boothImage`, formData);
+          setImageUrl(URL.createObjectURL(selectedFile));
+          clearSelection();
+          setRemovePending(false);
+          void queryClient.invalidateQueries({
+            queryKey: ["event", eventId],
+          });
+        },
+      });
+    } else if (removePending) {
+      tasks.push({
+        section: "Cover image",
+        run: async () => {
+          await api.del(`/api/events/${eventId}/boothImage`);
+          setImageUrl(null);
+          clearSelection();
+          setRemovePending(false);
+          void queryClient.invalidateQueries({
+            queryKey: ["event", eventId],
+          });
+        },
+      });
+    }
+
+    tasks.push({
+      section: "Accent color",
+      run: async () => {
+        await api.put(`/api/events/${eventId}/accentColor`, {
+          colorCode: currentAccentColor,
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ["accentColor", eventId],
+        });
+      },
+    });
+    tasks.push({
+      section: "Message for guests",
+      run: async () => {
+        const message = currentMessage.trim();
+        await api.put(`/api/admin/events/${eventId}/kiosk/message`, {
+          message,
+        });
+        setMessageDraft(message);
+        void queryClient.invalidateQueries({
+          queryKey: ["kioskMessage", eventId],
+        });
+      },
+    });
+
+    const results = await Promise.allSettled(tasks.map((task) => task.run()));
+    const failures: string[] = [];
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        failures.push(`${tasks[index].section}: ${errorDetail(result.reason)}`);
       }
+    });
 
-      promises.push(
-        api
-          .put(`/api/events/${eventId}/accentColor`, {
-            colorCode: currentAccentColor,
-          })
-          .then(() => {}),
+    if (failures.length > 0) {
+      const savedSome = results.some((result) => result.status === "fulfilled");
+      setSaveError(
+        `Some settings were not saved. ${failures.join(" ")} ${
+          savedSome ? "The other settings were saved." : "Nothing was saved."
+        }`,
       );
+    } else {
+      enqueueSnackbar("Kiosk settings saved.", { variant: "success" });
+    }
+    setSaving(false);
+  };
 
-      promises.push(
-        api
-          .put(`/api/admin/events/${eventId}/kiosk/message`, {
-            message: kioskMessage,
-          })
-          .then(() => {}),
-      );
-
-      await Promise.all(promises);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["accentColor", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["kioskMessage", eventId] });
-      navigate({ to: "/admin/events/$eventId", params: { eventId } });
-    },
-    onError: (err: unknown) => {
-      const message =
-        err instanceof ApiError ? String(err.detail) : "Failed to save changes";
-      enqueueSnackbar(message, { variant: "error" });
-    },
-  });
-
-  if (eventQuery.isLoading) {
+  if (
+    eventQuery.isLoading ||
+    accentColorQuery.isLoading ||
+    kioskMessageQuery.isLoading
+  ) {
     return <LinearProgress />;
   }
 
-  const event = eventQuery.data;
-  const displayUrl = previewUrl || imageUrl;
-  const isSaving = uploadMutation.isPending;
+  const ready = !!(
+    eventQuery.data &&
+    accentColorQuery.data &&
+    kioskMessageQuery.data
+  );
+  const displayUrl = removePending ? null : (previewUrl ?? imageUrl);
 
   return (
-    <Box sx={{ display: "flex", height: "calc(100vh - 64px)" }}>
-      <Box sx={{ flex: "1 1 0", minWidth: 0, overflow: "auto", p: 4 }}>
-        <Stack spacing={3}>
-          <Typography variant="h4">{event?.name}</Typography>
-          <Typography variant="h6">Customize check-in booth</Typography>
+    <Stack spacing={2} sx={{ maxWidth: 960 }}>
+      <PageHeader
+        title="Kiosk customization"
+        subtitle={eventQuery.data?.name}
+        onBack={() =>
+          navigate({
+            to: "/admin/events/$eventId/settings",
+            params: { eventId },
+          })
+        }
+      />
 
-          <Box>
-            <Typography variant="subtitle1" gutterBottom>
-              Choose a booth cover image{" "}
-              <strong>(1:1 aspect ratio recommended)</strong>
-            </Typography>
-            <Box
-              onClick={() => fileInputRef.current?.click()}
-              sx={{
-                border: "2px dashed",
-                borderColor: "divider",
-                borderRadius: 1,
-                p: 3,
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                cursor: "pointer",
-                "&:hover": {
-                  borderColor: "primary.main",
-                  bgcolor: "action.hover",
-                },
-              }}
-            >
-              <CloudUploadIcon color="action" sx={{ fontSize: 40 }} />
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body1">
-                  {selectedFile
-                    ? selectedFile.name
-                    : "Click to select an image file"}
-                </Typography>
-                {!selectedFile && (
-                  <Typography variant="caption">
-                    PNG, JPEG, GIF or WebP
-                  </Typography>
-                )}
-              </Box>
-              {selectedFile && (
-                <Button
-                  variant="text"
-                  size="small"
-                  color="error"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedFile(null);
-                    if (previewUrl) URL.revokeObjectURL(previewUrl);
-                    setPreviewUrl(null);
-                  }}
-                >
-                  Remove
-                </Button>
-              )}
-            </Box>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              hidden
-              onChange={handleFileSelect}
-            />
-          </Box>
+      {!ready && (
+        <Alert severity="error">
+          Could not load the kiosk settings. Refresh to try again.
+        </Alert>
+      )}
 
-          <Box>
-            <Typography variant="subtitle1" gutterBottom>
-              Choose an accent color for icons and buttons
-            </Typography>
-            <MuiColorInput
-              format="hex"
-              value={currentAccentColor}
-              onChange={handleColorChange}
-            />
-          </Box>
+      <KioskCoverPreview
+        eventName={eventQuery.data?.name}
+        message={currentMessage}
+        accentColor={currentAccentColor}
+        coverUrl={displayUrl}
+      />
 
-          <Box>
-            <Typography variant="subtitle1" gutterBottom>
-              Kiosk message (shown to guests when QR fails)
-            </Typography>
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              value={kioskMessage}
-              onChange={(e) => setKioskMessage(e.target.value)}
-              placeholder="Welcome. Check in with your phone number or email if your QR code cannot be scanned."
-            />
-          </Box>
-
-          <Stack direction="row" spacing={2}>
+      <Stack spacing={2}>
+        <SectionHeading icon={<CloudUploadIcon />}>Cover image</SectionHeading>
+        <FileUploadField
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          formats="PNG, JPEG, GIF, or WebP"
+          prompt="Upload image"
+          previewUrl={displayUrl}
+          previewAlt="Kiosk cover image"
+          onFileSelect={handleFileSelect}
+          disabled={saving}
+        />
+        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+          {(previewUrl || imageUrl) && !removePending && (
             <Button
-              variant="contained"
-              onClick={() => uploadMutation.mutate()}
-              loading={isSaving}
+              color="error"
+              startIcon={<DeleteIcon />}
+              disabled={saving}
+              onClick={handleRemoveClick}
             >
-              Save Changes
+              Remove image
             </Button>
-            <Button
-              variant="outlined"
-              onClick={() =>
-                navigate({ to: "/admin/events/$eventId", params: { eventId } })
-              }
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-          </Stack>
-          <Typography variant="body1" color="textSecondary">
-            (Note: Icons and buttons in the previews are not to scale)
-          </Typography>
+          )}
         </Stack>
-      </Box>
+      </Stack>
 
-      <Box
-        sx={{
-          flex: "1 1 0",
-          bgcolor: "grey.100",
-          p: 3,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 4,
-          minHeight: 0,
-          minWidth: 0,
-          overflow: "auto",
-        }}
-      >
-        <Paper
-          elevation={2}
-          sx={{
-            aspectRatio: "16 / 9",
-            display: "flex",
-            overflow: "hidden",
-            borderRadius: 1,
-            width: "100%",
-            maxWidth: 700,
-          }}
-        >
-          <Box
-            sx={{
-              aspectRatio: "1 / 1",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              bgcolor: "grey.200",
-              overflow: "hidden",
-              flexShrink: 0,
-            }}
-          >
-            {displayUrl ? (
-              <Box
-                component="img"
-                src={displayUrl}
-                alt="Booth cover preview"
-                sx={{ width: "100%", height: "100%", objectFit: "contain" }}
-              />
-            ) : (
-              <ImageIcon sx={{ fontSize: 48, color: "grey.400" }} />
-            )}
-          </Box>
-          <Box
-            sx={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              bgcolor: "grey.50",
-            }}
-          >
-            <Box
-              sx={{
-                aspectRatio: "16 / 9",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                bgcolor: "grey.100",
-                overflow: "hidden",
-              }}
-            >
-              <QrCodeScannerIcon
-                sx={{ fontSize: 80, color: currentAccentColor }}
-              />
-            </Box>
-            <Box
-              sx={{
-                flex: 1,
-                display: "flex",
-                alignItems: "flex-end",
-                justifyContent: "center",
-                p: 1.5,
-              }}
-            >
-              <Button
-                variant="contained"
-                sx={{
-                  bgcolor: currentAccentColor,
-                  "&:hover": { bgcolor: currentAccentColor },
-                  minWidth: "60%",
-                  pointerEvents: "none",
-                }}
-                size="large"
-              >
-                <LoginIcon />
-              </Button>
-            </Box>
-          </Box>
-        </Paper>
+      <Stack spacing={2}>
+        <SectionHeading icon={<PaletteOutlinedIcon />}>
+          Accent color
+        </SectionHeading>
+        <Typography variant="body1" color="textSecondary">
+          Used for icons and buttons on the kiosk screen.
+        </Typography>
+        <MuiColorInput
+          format="hex"
+          value={currentAccentColor}
+          onChange={setAccentDraft}
+          disabled={saving}
+        />
+      </Stack>
 
-        <Paper
-          elevation={2}
-          sx={{
-            aspectRatio: "16 / 9",
-            display: "flex",
-            overflow: "hidden",
-            borderRadius: 1,
-            width: "100%",
-            maxWidth: 700,
-          }}
+      <Stack spacing={2}>
+        <SectionHeading icon={<ChatOutlinedIcon />}>
+          Message for guests
+        </SectionHeading>
+        <Typography variant="body1" color="textSecondary">
+          Shown on the kiosk cover. Leave blank to use the default message.
+        </Typography>
+        <TextField
+          fullWidth
+          multiline
+          minRows={2}
+          value={currentMessage}
+          onChange={(e) => setMessageDraft(e.target.value)}
+          placeholder={DEFAULT_KIOSK_MESSAGE}
+          disabled={saving}
+        />
+      </Stack>
+
+      {saveError && <Alert severity="error">{saveError}</Alert>}
+
+      <Box>
+        <Button
+          variant="contained"
+          size="large"
+          startIcon={<SaveIcon />}
+          onClick={handleSave}
+          loading={saving}
+          disabled={!ready}
         >
-          <Box
-            sx={{
-              aspectRatio: "1 / 1",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 1,
-              bgcolor: "grey.100",
-              flexShrink: 0,
-            }}
-          >
-            <PhoneAndroidIcon
-              sx={{ fontSize: 64, color: currentAccentColor }}
-            />
-          </Box>
-          <Box
-            sx={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: 0.5,
-              p: 1,
-            }}
-          >
-            <Stack
-              direction="row"
-              spacing={0.5}
-              sx={{ width: "100%", maxWidth: 280 }}
-            >
-              <FormControl size="small" sx={{ flex: 1 }}>
-                <InputLabel>Code</InputLabel>
-                <Select value="" label="Code" disabled />
-              </FormControl>
-              <TextField
-                size="small"
-                disabled
-                sx={{ flex: 2 }}
-                placeholder="Phone"
-              />
-            </Stack>
-            <Grid container spacing={0.5} sx={{ maxWidth: 280 }}>
-              {DIAL_DIGITS.flat().map((_, i) => (
-                <Grid key={i} size={4}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    sx={{
-                      minHeight: 36,
-                      minWidth: 0,
-                      pointerEvents: "none",
-                      bgcolor: currentAccentColor,
-                      "&.Mui-disabled": {
-                        bgcolor: currentAccentColor,
-                        color: "#fff",
-                      },
-                    }}
-                  />
-                </Grid>
-              ))}
-              <Grid size={4}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  sx={{
-                    minHeight: 36,
-                    minWidth: 0,
-                    py: 0.8,
-                    pointerEvents: "none",
-                    borderColor: currentAccentColor,
-                    color: currentAccentColor,
-                  }}
-                >
-                  <BackspaceIcon fontSize="small" />
-                </Button>
-              </Grid>
-              <Grid size={8}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="success"
-                  sx={{
-                    minHeight: 36,
-                    minWidth: 0,
-                    py: 0.8,
-                    pointerEvents: "none",
-                  }}
-                >
-                  <CheckIcon fontSize="small" />
-                </Button>
-              </Grid>
-            </Grid>
-            <Button
-              variant="outlined"
-              fullWidth
-              sx={{
-                maxWidth: 280,
-                minHeight: 36,
-                py: 0.8,
-                pointerEvents: "none",
-                borderColor: currentAccentColor,
-                color: currentAccentColor,
-              }}
-            >
-              <QrCodeScannerIcon fontSize="small" />
-            </Button>
-          </Box>
-        </Paper>
+          Save
+        </Button>
       </Box>
-    </Box>
+    </Stack>
   );
 }

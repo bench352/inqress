@@ -16,7 +16,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import SensorsOutlinedIcon from "@mui/icons-material/SensorsOutlined";
 import SensorsOffOutlinedIcon from "@mui/icons-material/SensorsOffOutlined";
 import ErrorIcon from "@mui/icons-material/Error";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { ApiError, useCompanionApi } from "@/api";
 import { useBootHold } from "@/components/bootHold";
 import scannedBeep from "@/assets/soundEffects/scanned_beep.aac";
@@ -26,6 +26,7 @@ import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
 import BatteryIndicator from "./BatteryIndicator";
 import useBattery, { type BatteryState } from "./useBattery";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
 const CAMERA_KEY = "settings.webcamDeviceId";
 const RESULT_MS = 6000;
@@ -142,7 +143,6 @@ function ScannerFooter({
 
 export default function CompanionScanner() {
   const { eventId } = useParams({ strict: false }) as { eventId: string };
-  const navigate = useNavigate();
   const api = useCompanionApi();
   const [display, setDisplay] = useState<Display | null>(null);
   const [displayLoaded, setDisplayLoaded] = useState(false);
@@ -552,23 +552,19 @@ export default function CompanionScanner() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 2,
+            gap: 1,
             p: 3,
             textAlign: "center",
-            bgcolor: "background.default",
-            color: "textPrimary",
+            bgcolor: "#FFFFFF",
           }}
         >
-          <Typography variant="h5">This device is not paired.</Typography>
-          <Typography color="textSecondary">
+          <WarningAmberIcon sx={{ fontSize: 100, color: "error.main" }} />
+          <Typography variant="h6" color="error">
+            This scanner cannot be used
+          </Typography>
+          <Typography color="textSecondary" variant="body1">
             The pairing token was rotated or the event was removed.
           </Typography>
-          <Button
-            variant="contained"
-            onClick={() => navigate({ to: "/companion" })}
-          >
-            Back to devices
-          </Button>
         </Box>
       )}
     </Box>

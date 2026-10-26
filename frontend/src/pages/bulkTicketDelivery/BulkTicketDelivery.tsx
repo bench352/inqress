@@ -23,6 +23,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import ConflictDialog from "@/components/ConflictDialog";
+import PageHeader from "@/components/PageHeader";
 import DOMPurify from "dompurify";
 import { ApiError, useApi } from "@/api.ts";
 import { useAppInfo } from "@/providers/useAppInfo";
@@ -121,7 +122,9 @@ export default function BulkTicketDelivery() {
         setConflictDetail(typeof err.detail === "string" ? err.detail : null);
       } else {
         enqueueSnackbar(
-          typeof err.detail === "string" ? err.detail : "Failed to send emails",
+          typeof err.detail === "string"
+            ? err.detail
+            : "Could not send the emails.",
           { variant: "error" },
         );
       }
@@ -142,15 +145,23 @@ export default function BulkTicketDelivery() {
   const event = eventQuery.data;
 
   return (
-    <Box sx={{ display: "flex", height: "calc(100vh - 64px)" }}>
-      <Box sx={{ flex: 1, overflow: "auto", p: 4 }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: { xs: "column", md: "row" },
+        height: { xs: "auto", md: "calc(100vh - 64px)" },
+      }}
+    >
+      <Box sx={{ flex: 1, overflow: "auto", p: { xs: 2, md: 4 } }}>
         <Stack spacing={3}>
-          <Typography variant="h4">{event?.name}</Typography>
-          <Typography variant="h6">
-            Bulk ticket delivery to undelivered guests
-          </Typography>
+          <PageHeader
+            title="Send tickets by email"
+            subtitle={event?.name}
+            onBack={goBack}
+          />
           <Typography variant="body1">
-            Confirm sending ticket email to the following guests
+            Everyone below gets their ticket once. People without an email
+            address are not listed.
           </Typography>
 
           {undeliveredReady.length > 0 ? (
@@ -159,7 +170,7 @@ export default function BulkTicketDelivery() {
                 <TableHead>
                   <TableRow>
                     <TableCell>Name</TableCell>
-                    <TableCell>Email address</TableCell>
+                    <TableCell>Email</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -177,7 +188,7 @@ export default function BulkTicketDelivery() {
             </TableContainer>
           ) : (
             <Typography color="textSecondary">
-              No undelivered guests with ready tickets and email addresses.
+              Everyone has their ticket already.
             </Typography>
           )}
 
@@ -191,13 +202,6 @@ export default function BulkTicketDelivery() {
             >
               Send to all
             </Button>
-            <Button
-              variant="outlined"
-              onClick={goBack}
-              disabled={sendMutation.isPending}
-            >
-              Cancel
-            </Button>
           </Stack>
         </Stack>
       </Box>
@@ -206,8 +210,8 @@ export default function BulkTicketDelivery() {
         sx={{
           flex: 1,
           bgcolor: "grey.100",
-          p: 3,
-          display: "flex",
+          p: { xs: 2, md: 3 },
+          display: undeliveredReady.length > 0 ? "flex" : "none",
           flexDirection: "column",
           minHeight: 0,
         }}
@@ -268,7 +272,7 @@ export default function BulkTicketDelivery() {
               flex: 1,
               display: "flex",
               flexDirection: "column",
-              minHeight: 0,
+              minHeight: { xs: 480, md: 0 },
             }}
           >
             {currentParticipant ? (
@@ -314,7 +318,7 @@ export default function BulkTicketDelivery() {
                   )}
                   {!previewLoading && !displayHtml && (
                     <Typography color="textSecondary">
-                      Failed to load preview.
+                      Could not load the preview.
                     </Typography>
                   )}
                 </Box>

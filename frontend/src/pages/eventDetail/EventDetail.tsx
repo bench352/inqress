@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -17,30 +17,33 @@ import {
 } from "@mui/material";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ClearIcon from "@mui/icons-material/Clear";
-import EditIcon from "@mui/icons-material/Edit";
-import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import GroupIcon from "@mui/icons-material/Group";
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import PhonelinkIcon from "@mui/icons-material/Phonelink";
 import SearchIcon from "@mui/icons-material/Search";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Outlet,
   useMatches,
   useNavigate,
   useParams,
+  useSearch,
 } from "@tanstack/react-router";
 import { useSnackbar } from "notistack";
 import { useEventDetail, type ParticipantItem } from "./useEventDetail";
-import AddParticipantsSpeedDial from "./components/AddParticipantsSpeedDial";
+import type { EventSearch } from "./types";
+import AddParticipantsButton from "./components/AddParticipantsButton";
 import ActionsSection from "./components/ActionsSection";
 import ParticipantDetailsDialog from "./components/ParticipantDetailsDialog";
 import AttendanceSummary from "./components/AttendanceSummary";
 import CheckinNotificationDialog from "./components/CheckinNotificationDialog";
-import DateDialog from "./components/DateDialog";
 import ImportResultDialog from "./components/ImportResultDialog";
 import ModeDialog from "./components/ModeDialog";
-import ModifyEventsDialog from "./components/ModifyEventsDialog";
 import PairCompanionDialog from "./components/PairCompanionDialog";
 import ParticipantGrid from "@/components/ParticipantGrid";
+import EmptyState from "@/components/EmptyState";
+import SectionHeading from "@/components/SectionHeading";
 import { useApi } from "@/api.ts";
 import DataSourceSyncProvider from "../../providers/DataSourceSyncProvider";
 import { useDebounce } from "@/hooks/useDebounce.ts";
@@ -48,6 +51,7 @@ import { useEventStream } from "../../hooks/useEventStream";
 
 export default function EventDetail() {
   const { eventId } = useParams({ from: "/app-shell/admin/events/$eventId" });
+  const search = useSearch({ from: "/app-shell/admin/events/$eventId" });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const api = useApi();
@@ -58,12 +62,8 @@ export default function EventDetail() {
     participants,
     attended,
     isParticipantsLoading,
-    updateEvent,
-    isUpdating,
     updateMode,
     isUpdatingMode,
-    deleteEvent,
-    isDeleting,
   } = useEventDetail(eventId);
 
   const {
@@ -82,24 +82,77 @@ export default function EventDetail() {
   const matches = useMatches();
   const isChildRouteActive = matches.some((m) => m.staticData?.childPage);
 
-  const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [modeDialogOpen, setModeDialogOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<string | null>(null);
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [pairDialogOpen, setPairDialogOpen] = useState(false);
   const [companionToken, setCompanionToken] = useState<string | null>(null);
-  const [selectedParticipantId, setSelectedParticipantId] = useState<
-    string | null
-  >(null);
   const [participantSearchQuery, setParticipantSearchQuery] = useState("");
   const debouncedParticipantSearchQuery = useDebounce(
     participantSearchQuery,
     100,
   );
 
-  const selectedParticipant = selectedParticipantId
-    ? (participants.find((a) => a.id === selectedParticipantId) ?? null)
+  const selectedParticipant = search.participant
+    ? (participants.find((a) => a.id === search.participant) ?? null)
     : null;
+  const pairOpen = search.pair === true;
+
+  const go = useCallback(
+    (next: EventSearch, replace = false) =>
+      navigate({
+        to: "/admin/events/$eventId",
+        params: { eventId },
+        search: next,
+        replace,
+      }),
+    [navigate, eventId],
+  );
+
+  // One dialog at a time: pair wins over a participant, and a step without a
+  // participant or an unknown id is not worth keeping in the URL.
+  useEffect(() => {
+    if (search.pair) {
+      if (search.participant || search.step) go({ pair: true }, true);
+      return;
+    }
+    if (search.step && !search.participant) {
+      go({}, true);
+      return;
+    }
+    if (
+      search.participant &&
+      !isParticipantsLoading &&
+      participants.length > 0 &&
+      !selectedParticipant
+    ) {
+      go({}, true);
+    }
+  }, [
+    search,
+    isParticipantsLoading,
+    participants.length,
+    selectedParticipant,
+    go,
+  ]);
+
+  useEffect(() => {
+    if (!pairOpen) return;
+    let cancelled = false;
+    api
+      .get<{ token: string }>(`/api/admin/events/${eventId}/companion/token`)
+      .then((t) => {
+        if (!cancelled) setCompanionToken(t.token);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          enqueueSnackbar("Could not load the pairing code. Try again.", {
+            variant: "error",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pairOpen, eventId, api, enqueueSnackbar]);
 
   const handleModeChange = (
     _: React.MouseEvent<HTMLElement>,
@@ -119,49 +172,6 @@ export default function EventDetail() {
     }
   };
 
-  const handleDateSave = (date: string) => {
-    if (!event) return;
-    updateEvent({
-      name: event.name,
-      description: event.description,
-      date,
-    });
-    setDateDialogOpen(false);
-  };
-
-  const handleSettingsSave = (data: {
-    name: string;
-    description: string;
-    date: string;
-    hasBoothImage: boolean;
-  }) => {
-    updateEvent({
-      name: data.name,
-      description: data.description,
-      date: data.date,
-    });
-  };
-
-  const handleDeleteEvent = () => {
-    deleteEvent(undefined, {
-      onSuccess: () => {
-        navigate({ to: "/admin/events" });
-      },
-    });
-  };
-
-  const openPairDialog = async () => {
-    try {
-      const t = await api.get<{ token: string }>(
-        `/api/admin/events/${eventId}/companion/token`,
-      );
-      setCompanionToken(t.token);
-      setPairDialogOpen(true);
-    } catch {
-      enqueueSnackbar("Failed to load pairing token", { variant: "error" });
-    }
-  };
-
   const handleRotateToken = async () => {
     try {
       const t = await api.post<{ token: string }>(
@@ -169,17 +179,19 @@ export default function EventDetail() {
       );
       setCompanionToken(t.token);
       enqueueSnackbar(
-        "Pairing token rotated - all paired devices will disconnect shortly",
+        "New pairing code generated. Existing devices will need to be paired again.",
         { variant: "success" },
       );
     } catch {
-      enqueueSnackbar("Rotate failed", { variant: "error" });
+      enqueueSnackbar("Could not rotate the pairing code. Try again.", {
+        variant: "error",
+      });
     }
   };
 
-  const handleClosePair = () => {
-    setPairDialogOpen(false);
+  const closePair = () => {
     setCompanionToken(null);
+    go({}, true);
   };
 
   const totalCount = participants.length;
@@ -250,16 +262,6 @@ export default function EventDetail() {
     !!sendEmailProgress?.inProgress ||
     !!generateTicketQrProgress?.inProgress;
 
-  const eventData = useMemo(() => {
-    if (!event) return null;
-    return {
-      name: event.name,
-      description: event.description,
-      date: event.date,
-      hasBoothImage: event.hasBoothImage,
-    };
-  }, [event]);
-
   if (isChildRouteActive) {
     return (
       <DataSourceSyncProvider value={dataSourceSync}>
@@ -282,75 +284,89 @@ export default function EventDetail() {
     );
   }
 
-  if (isEventLoading || !event || !eventData) {
+  if (isEventLoading || !event) {
     return <LinearProgress />;
   }
 
+  const actionButtonWidth = { xs: "100%", sm: "auto" };
+
   return (
-    <Stack spacing={1.25}>
-      <Card>
+    <Stack spacing={2} sx={{ pb: 10 }}>
+      <Card variant="outlined">
         <Box sx={{ p: 2 }}>
-          <Stack
-            direction="row"
-            sx={{ justifyContent: "space-between", alignItems: "flex-start" }}
-          >
-            <Typography variant="h4">{event.name}</Typography>
-            <Button
-              variant="contained"
-              startIcon={<QrCodeScannerIcon />}
-              onClick={openPairDialog}
-            >
-              Pair companion device
-            </Button>
-          </Stack>
-          <Typography variant="body1" sx={{ mt: 1, mb: 2 }}>
-            {event.description || "No description."}
-          </Typography>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{ mb: 2, alignItems: "center" }}
-          >
-            <Chip
-              icon={<CalendarTodayIcon />}
-              label={event.date}
-              onClick={() => setDateDialogOpen(true)}
-              variant="outlined"
-            />
-            <Chip
-              icon={<GroupIcon />}
-              label={`${totalCount} participants`}
-              variant="outlined"
-            />
-          </Stack>
-          <Stack
-            direction="row"
-            sx={{ justifyContent: "space-between", alignItems: "flex-end" }}
-          >
-            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-              <ToggleButtonGroup
-                color="primary"
-                exclusive
-                value={event.mode}
-                onChange={handleModeChange}
-                disabled={isUpdatingMode}
-                size="small"
-              >
-                <ToggleButton value="disabled">Disabled</ToggleButton>
-                <ToggleButton value="test">Test</ToggleButton>
-                <ToggleButton value="live">Live</ToggleButton>
-              </ToggleButtonGroup>
-              <Typography variant="body1" color="textSecondary">
-                attendance mode
-              </Typography>
+          <Stack spacing={2}>
+            <Typography variant="h4" component="h1">
+              {event.name}
+            </Typography>
+            <Typography variant="body1">
+              {event.description || "(No description)"}
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+              <Chip
+                icon={<CalendarTodayIcon sx={{ pl: "4px" }} />}
+                label={event.date}
+                // variant="outlined"
+              />
+              <Chip
+                icon={<GroupIcon sx={{ pl: "4px" }} />}
+                label={`${totalCount} participant${totalCount === 1 ? "" : "s"}`}
+                // variant="outlined"
+              />
             </Stack>
-            <Button
-              variant="outlined"
-              startIcon={<EditIcon />}
-              onClick={() => setSettingsDialogOpen(true)}
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
+              sx={{
+                justifyContent: "space-between",
+                alignItems: { xs: "stretch", sm: "center" },
+              }}
             >
-              Modify Events
-            </Button>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ alignItems: "center", flexWrap: "wrap" }}
+              >
+                <ToggleButtonGroup
+                  color="primary"
+                  exclusive
+                  value={event.mode}
+                  onChange={handleModeChange}
+                  disabled={isUpdatingMode}
+                  size="small"
+                >
+                  <ToggleButton value="disabled">Disabled</ToggleButton>
+                  <ToggleButton value="test">Test</ToggleButton>
+                  <ToggleButton value="live">Live</ToggleButton>
+                </ToggleButtonGroup>
+                <Typography variant="body1" color="textSecondary">
+                  Attendance mode
+                </Typography>
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Button
+                  variant="outlined"
+                  startIcon={<PhonelinkIcon />}
+                  onClick={() => go({ pair: true })}
+                  sx={{ width: actionButtonWidth }}
+                >
+                  Link companion
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<SettingsIcon />}
+                  onClick={() =>
+                    navigate({
+                      to: "/admin/events/$eventId/settings",
+                      params: { eventId },
+                      search: {},
+                    })
+                  }
+                  sx={{ width: actionButtonWidth }}
+                >
+                  Settings
+                </Button>
+              </Stack>
+            </Stack>
           </Stack>
         </Box>
         <Collapse in={event.mode !== "disabled"}>
@@ -377,85 +393,130 @@ export default function EventDetail() {
 
       {isParticipantsLoading && <LinearProgress />}
 
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ justifyContent: "space-between", alignItems: "center" }}
-      >
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-          <GroupIcon />
-          <Typography variant="h5">Participants</Typography>
-        </Stack>
-        <TextField
-          size="small"
-          variant="standard"
-          placeholder="Search participants by name..."
-          value={participantSearchQuery}
-          onChange={(e) => setParticipantSearchQuery(e.target.value)}
-          sx={{ minWidth: 280 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-              endAdornment: participantSearchQuery ? (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    aria-label="clear search"
-                    onClick={() => setParticipantSearchQuery("")}
-                    edge="end"
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ) : null,
-            },
+      {totalCount === 0 && !isParticipantsLoading && (
+        <EmptyState
+          icon={<PeopleAltIcon />}
+          actions={
+            <Stack spacing={0} sx={{ alignItems: "center" }}>
+              <Button
+                sx={{ color: "text.secondary" }}
+                onClick={() =>
+                  navigate({
+                    to: "/admin/events/$eventId/addParticipantsManually",
+                    params: { eventId },
+                  })
+                }
+              >
+                Add manually
+              </Button>
+              <Button
+                sx={{ color: "text.secondary" }}
+                onClick={() =>
+                  navigate({
+                    to: "/admin/events/$eventId/addParticipantsBySpreadsheet",
+                    params: { eventId },
+                  })
+                }
+              >
+                Import spreadsheet
+              </Button>
+              <Button
+                sx={{ color: "text.secondary" }}
+                onClick={() =>
+                  navigate({
+                    to: "/admin/events/$eventId/dataSources",
+                    params: { eventId },
+                  })
+                }
+              >
+                Add data source
+              </Button>
+            </Stack>
+          }
+        >
+          No participants yet. Bring your guests in by data sources or by hand.
+        </EmptyState>
+      )}
+
+      {totalCount > 0 && (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          sx={{
+            justifyContent: "space-between",
+            alignItems: { xs: "stretch", sm: "center" },
           }}
-        />
-      </Stack>
+        >
+          <SectionHeading icon={<GroupIcon />}>Participants</SectionHeading>
+          <TextField
+            size="small"
+            placeholder="Search participants by name…"
+            value={participantSearchQuery}
+            onChange={(e) => setParticipantSearchQuery(e.target.value)}
+            sx={{ minWidth: { sm: 280 } }}
+            slotProps={{
+              htmlInput: { "aria-label": "Search participants by name" },
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                endAdornment: participantSearchQuery ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="Clear search"
+                      onClick={() => setParticipantSearchQuery("")}
+                      edge="end"
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              },
+            }}
+          />
+        </Stack>
+      )}
 
       {filteredPending.length > 0 && (
-        <Box id="pending-participants">
-          <ParticipantGrid
-            participants={filteredPending}
-            title="To be admitted"
-            onClick={(id) => setSelectedParticipantId(id)}
-          />
-        </Box>
+        <ParticipantGrid
+          id="pending-participants"
+          participants={filteredPending}
+          title="To be admitted"
+          onClick={(id) => go({ participant: id })}
+        />
       )}
 
       {filteredAttended.length > 0 && (
         <ParticipantGrid
           participants={filteredAttended}
           title="Attended"
-          onClick={(id) => setSelectedParticipantId(id)}
+          onClick={(id) => go({ participant: id })}
         />
       )}
 
       {filteredNotAttended.length > 0 && (
         <ParticipantGrid
           participants={filteredNotAttended}
-          title="Not Attended"
-          onClick={(id) => setSelectedParticipantId(id)}
+          title="Not attended"
+          onClick={(id) => go({ participant: id })}
         />
       )}
 
       {filteredNotDelivered.length > 0 && (
         <ParticipantGrid
           participants={filteredNotDelivered}
-          title="Not Delivered"
-          onClick={(id) => setSelectedParticipantId(id)}
+          title="Ticket not delivered"
+          onClick={(id) => go({ participant: id })}
         />
       )}
 
       {filteredTicketUndelivered.length > 0 && (
         <ParticipantGrid
           participants={filteredTicketUndelivered}
-          title="Ticket Undelivered"
-          onClick={(id) => setSelectedParticipantId(id)}
+          title="Ticket not ready"
+          onClick={(id) => go({ participant: id })}
         />
       )}
 
@@ -463,17 +524,11 @@ export default function EventDetail() {
         <ParticipantGrid
           participants={filteredDeactivated}
           title="Deactivated"
-          onClick={(id) => setSelectedParticipantId(id)}
+          onClick={(id) => go({ participant: id })}
         />
       )}
 
-      {participants.length === 0 && (
-        <Typography color="textSecondary">
-          No participants yet. Add some using the + button.
-        </Typography>
-      )}
-
-      {participants.length > 0 &&
+      {totalCount > 0 &&
         filteredPending.length === 0 &&
         filteredAttended.length === 0 &&
         filteredNotAttended.length === 0 &&
@@ -483,7 +538,7 @@ export default function EventDetail() {
           <Typography color="textSecondary">No matches found.</Typography>
         )}
 
-      <AddParticipantsSpeedDial eventId={eventId} />
+      <AddParticipantsButton eventId={eventId} />
 
       {resultDialog && (
         <ImportResultDialog
@@ -501,14 +556,6 @@ export default function EventDetail() {
         />
       )}
 
-      <DateDialog
-        open={dateDialogOpen}
-        currentDate={event.date}
-        loading={isUpdating}
-        onClose={() => setDateDialogOpen(false)}
-        onSave={handleDateSave}
-      />
-
       <ModeDialog
         open={modeDialogOpen}
         currentMode={event.mode}
@@ -518,33 +565,30 @@ export default function EventDetail() {
         onConfirm={handleModeConfirm}
       />
 
-      <ModifyEventsDialog
-        open={settingsDialogOpen}
-        event={eventData}
-        eventId={eventId}
-        isUpdating={isUpdating}
-        isDeleting={isDeleting}
-        onClose={() => setSettingsDialogOpen(false)}
-        onUpdate={handleSettingsSave}
-        onDelete={handleDeleteEvent}
-      />
-
       <PairCompanionDialog
-        open={pairDialogOpen}
+        open={pairOpen}
         eventId={eventId}
         companionToken={companionToken}
         onRotate={handleRotateToken}
-        onClose={handleClosePair}
+        onClose={closePair}
       />
 
       {selectedParticipant && (
         <ParticipantDetailsDialog
-          open
           participant={selectedParticipant}
           eventId={eventId}
           eventName={event.name}
           eventMode={event.mode}
-          onClose={() => setSelectedParticipantId(null)}
+          step={search.step ?? null}
+          onStep={(step) =>
+            go(
+              step
+                ? { participant: selectedParticipant.id, step }
+                : { participant: selectedParticipant.id },
+              false,
+            )
+          }
+          onClose={() => go({}, true)}
         />
       )}
     </Stack>

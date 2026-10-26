@@ -20,4 +20,5 @@ def get_info(request: fastapi.Request) -> schema.rest.InfoResponse:
         from_error=from_error,
         email_footer_enabled=cfg.email_smtp.email_footer_enabled,
         app_version=request.app.version,
+        max_upload_mb=cfg.app.max_upload_mb,
     )

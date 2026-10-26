@@ -177,7 +177,8 @@ export default function AppShell() {
           component="main"
           sx={{
             flexGrow: 1,
-            p: fullWidth ? 0 : 3,
+            minWidth: 0,
+            p: fullWidth ? 0 : { xs: 2, sm: 3 },
             width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
           }}
         >
@@ -185,7 +186,7 @@ export default function AppShell() {
           {fullWidth ? (
             <Outlet />
           ) : (
-            <Container fixed>
+            <Container maxWidth="md" disableGutters>
               <Outlet />
             </Container>
           )}

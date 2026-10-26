@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Button, Stack, Typography } from "@mui/material";
-import EmailIcon from "@mui/icons-material/Email";
-import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
-import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
+import { Box, Stack, Typography } from "@mui/material";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import ScienceOutlinedIcon from "@mui/icons-material/ScienceOutlined";
 import CloudOffOutlinedIcon from "@mui/icons-material/CloudOffOutlined";
-import NoMeetingRoomIcon from "@mui/icons-material/NoMeetingRoom";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
+import DoorSlidingOutlinedIcon from "@mui/icons-material/DoorSlidingOutlined";
 import { ApiError, useCompanionApi } from "@/api";
 import { useBootHold } from "@/components/bootHold";
 import { useSystemClock } from "@/providers/useSystemClock";
@@ -15,6 +13,7 @@ import successSound from "@/assets/soundEffects/checkin_success.aac";
 import failSound from "@/assets/soundEffects/checkin_fail.aac";
 import confirmSound from "@/assets/soundEffects/checkin_need_confirmation.aac";
 import lowBatterySound from "@/assets/soundEffects/low_battery_alert.aac";
+import CoverScreen from "./kiosk/CoverScreen";
 import { useSounds } from "./sounds";
 import KioskPhoneDialog from "./kiosk/KioskPhoneDialog";
 import KioskEmailDialog from "./kiosk/KioskEmailDialog";
@@ -63,14 +62,11 @@ function KioskDisabledScreen({
 }) {
   return (
     <Box sx={KIOSK_DISABLED_SX}>
-      <NoMeetingRoomIcon sx={{ fontSize: 200 }} />
+      <DoorSlidingOutlinedIcon sx={{ fontSize: 200 }} />
       <Typography variant="h3" sx={{ fontWeight: 900 }}>
         Check-in will open shortly
       </Typography>
-      <Typography
-        variant="h5"
-        sx={{ fontWeight: 500, opacity: 0.75, maxWidth: 900 }}
-      >
+      <Typography variant="h5" color="textSecondary" sx={{ fontWeight: 500 }}>
         Please wait until the host opens check-in{" "}
         {eventName ? `for ${eventName}` : ""}.
       </Typography>
@@ -131,7 +127,6 @@ function KioskStatusLine({
 export default function CompanionKiosk() {
   const { eventId } = useParams({ strict: false }) as { eventId: string };
   const api = useCompanionApi();
-  const navigate = useNavigate();
   const [display, setDisplay] = useState<Display | null>(null);
   const [unpaired, setUnpaired] = useState(false);
   const [accentColor, setAccentColor] = useState<string | null>(null);
@@ -147,6 +142,7 @@ export default function CompanionKiosk() {
   const [accentReady, setAccentReady] = useState(false);
   const [displayReady, setDisplayReady] = useState(false);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
+  const [phoneCountryCodes, setPhoneCountryCodes] = useState<string[]>([]);
   const [pendingConfirm, setPendingConfirm] = useState<{
     participantId: string;
     title: string | null;
@@ -297,6 +293,27 @@ export default function CompanionKiosk() {
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
+    };
+  }, [eventId, api]);
+
+  // Load available phone country codes so we can decide whether to offer the
+  // "check in with phone number" option (hide it entirely when no participants
+  // have a phone number).
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await api.get<{ options: string[] }>(
+          `/api/events/${eventId}/companion/phones/countryCodes`,
+        );
+        if (!cancelled) setPhoneCountryCodes(res.options ?? []);
+      } catch {
+        if (!cancelled) setPhoneCountryCodes([]);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
     };
   }, [eventId, api]);
 
@@ -495,30 +512,21 @@ export default function CompanionKiosk() {
 
   if (unpaired) {
     return (
-      <Box
-        sx={{
-          height: "100dvh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 2,
-          p: 3,
-          textAlign: "center",
-        }}
-      >
+      // For a potentially unattended device, it's better to keep the error message
+      // stuck without a way to "escape" out of it
+      <Box sx={KIOSK_DISABLED_SX}>
+        <WarningAmberIcon sx={{ fontSize: 200, color: "error.main" }} />
+        <Typography color="error" variant="h3" sx={{ fontWeight: 900 }}>
+          Sorry, this kiosk is out of service
+        </Typography>
         <Typography variant="h5" sx={{ fontWeight: 500 }}>
-          This device is not paired.
+          A technical issue has stopped the kiosk from working.
+          <br />
+          Please reach out to administrator for assistance.
         </Typography>
-        <Typography color="textSecondary" sx={{ fontWeight: 500 }}>
-          The pairing token was rotated or the event was removed.
+        <Typography variant="body1" color="textSecondary">
+          (Detail: The pairing token was rotated or the event was removed)
         </Typography>
-        <Button
-          variant="contained"
-          onClick={() => navigate({ to: "/companion" })}
-        >
-          Back to devices
-        </Button>
       </Box>
     );
   }
@@ -565,115 +573,27 @@ export default function CompanionKiosk() {
     );
   }
 
-  const accentSx = accentColor
-    ? { bgcolor: accentColor, "&:hover": { bgcolor: accentColor } }
-    : undefined;
-
   return (
     <Box sx={{ display: "flex", height: "100dvh" }}>
-      {/* Left: cover, natural aspect, full height, capped at half the width */}
-      {coverUrl && (
-        <Box
-          sx={{
-            maxWidth: "50%",
-            flex: "0 0 auto",
-            alignSelf: "stretch",
-            overflow: "hidden",
-            bgcolor: "#111",
-          }}
-        >
-          <img
-            src={coverUrl}
-            alt=""
-            style={{ height: "100%", width: "auto", display: "block" }}
+      <CoverScreen
+        eventName={display?.eventName}
+        message={display?.kioskMessage}
+        accentColor={accentColor}
+        coverUrl={coverUrl}
+        banner={banner}
+        onPhone={
+          phoneCountryCodes.length > 0 ? () => setDialog("phone") : undefined
+        }
+        onEmail={() => setDialog("email")}
+        footer={
+          <KioskStatusLine
+            status={streamStatus}
+            mode={display?.mode}
+            battery={battery}
+            warn={dialog === null}
           />
-        </Box>
-      )}
-
-      {/* Right */}
-      <Box
-        sx={{
-          flex: 1,
-          minWidth: 0,
-          position: "relative",
-          p: 4,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          gap: 6,
-        }}
-      >
-        {banner && (
-          <Typography sx={{ fontWeight: 500, color: "success.main" }}>
-            {banner}
-          </Typography>
-        )}
-        <Stack spacing={1.5}>
-          <Typography
-            variant="h2"
-            sx={{
-              fontWeight: 900,
-              color: accentColor,
-              display: "-webkit-box",
-              overflow: "hidden",
-              WebkitBoxOrient: "vertical",
-              WebkitLineClamp: 3,
-            }}
-          >
-            {display?.eventName}
-          </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 500 }}>
-            {display?.kioskMessage}
-          </Typography>
-        </Stack>
-
-        <Stack spacing={2} sx={{ width: "100%", maxWidth: 420, mt: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 500 }}>
-            Cannot scan QR code?
-          </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<PhoneAndroidIcon fontSize="inherit" />}
-            onClick={() => setDialog("phone")}
-            sx={{ height: "70px", py: 1, fontSize: "1.5rem", ...accentSx }}
-          >
-            Check in with phone No.
-          </Button>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<EmailIcon fontSize="inherit" />}
-            onClick={() => setDialog("email")}
-            sx={{ height: "70px", py: 1, fontSize: "1.5rem", ...accentSx }}
-          >
-            Check in with email
-          </Button>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{
-              alignItems: "center",
-              justifyContent: "center",
-              color: "text.secondary",
-            }}
-          >
-            <TouchAppOutlinedIcon fontSize="medium" />
-            <Typography variant="h6" sx={{ fontWeight: 500 }}>
-              Tap an option on the screen to continue
-            </Typography>
-          </Stack>
-        </Stack>
-
-        <KioskStatusLine
-          status={streamStatus}
-          mode={display?.mode}
-          battery={battery}
-          warn={dialog === null}
-        />
-      </Box>
+        }
+      />
 
       {dialog === "phone" && (
         <KioskPhoneDialog

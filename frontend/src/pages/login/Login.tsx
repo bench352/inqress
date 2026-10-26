@@ -139,7 +139,9 @@ export default function Login() {
                   autoFocus
                   required
                   error={usernameError}
-                  helperText={usernameError ? "Username is required" : " "}
+                  helperText={
+                    usernameError ? "Enter your username." : undefined
+                  }
                   sx={{ mb: 2 }}
                 />
                 <TextField
@@ -150,7 +152,9 @@ export default function Login() {
                   fullWidth
                   required
                   error={passwordError}
-                  helperText={passwordError ? "Password is required" : " "}
+                  helperText={
+                    passwordError ? "Enter your password." : undefined
+                  }
                   sx={{ mb: 2 }}
                 />
                 {error && (

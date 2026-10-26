@@ -21,9 +21,6 @@ import {
   Divider,
   IconButton,
   Stack,
-  Step,
-  StepLabel,
-  Stepper,
   TextField,
   Toolbar,
   Typography,
@@ -35,6 +32,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { alpha } from "@mui/material/styles";
 import { Scanner as QrScanner } from "@yudiel/react-qr-scanner";
 import { useCompanionApi } from "@/api";
+import ResponsiveStepper from "@/components/ResponsiveStepper";
 
 const STORAGE_KEY = "inqress.companions";
 const STEPS = ["Pair device", "Choose mode"];
@@ -271,13 +269,9 @@ export default function CompanionJoin() {
       </AppBar>
 
       <Container maxWidth="sm" sx={{ py: 3 }}>
-        <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
-          {STEPS.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+        <Box sx={{ mb: 3 }}>
+          <ResponsiveStepper steps={STEPS} activeStep={activeStep} />
+        </Box>
 
         {activeStep === 0 && (
           <Stack spacing={2}>
@@ -336,7 +330,9 @@ export default function CompanionJoin() {
                   onChange={(e) => setManualEventId(e.target.value)}
                   required
                   error={manualEventIdError}
-                  helperText={manualEventIdError ? "Event ID is required" : " "}
+                  helperText={
+                    manualEventIdError ? "Event ID is required" : undefined
+                  }
                 />
                 <TextField
                   label="Pairing token"
@@ -345,7 +341,7 @@ export default function CompanionJoin() {
                   required
                   error={manualTokenError}
                   helperText={
-                    manualTokenError ? "Pairing token is required" : " "
+                    manualTokenError ? "Pairing token is required" : undefined
                   }
                 />
                 <Button type="submit" variant="contained">
@@ -409,7 +405,6 @@ export default function CompanionJoin() {
         <DialogActions>
           <Button onClick={() => setSwitchFrom(null)}>Cancel</Button>
           <Button
-            variant="contained"
             onClick={() => {
               if (selectedMode) savePairing(selectedMode);
             }}

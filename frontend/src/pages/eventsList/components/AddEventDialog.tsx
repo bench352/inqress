@@ -1,21 +1,15 @@
 import { type FormEvent, useState } from "react";
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
-} from "@mui/material";
+import { Alert, Box, Button, Stack, TextField } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
+import { ApiError } from "@/api";
+import AppDialog from "@/components/AppDialog";
 import type { EventCreatePayload } from "../useEvents";
 
 interface AddEventDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (payload: EventCreatePayload) => void;
+  onSubmit: (payload: EventCreatePayload) => Promise<void>;
   loading: boolean;
 }
 
@@ -29,58 +23,81 @@ export default function AddEventDialog({
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<dayjs.Dayjs | null>(dayjs());
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const nameError = submitted && !name.trim();
   const dateError = submitted && !date;
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSubmitted(true);
-    if (!name.trim() || !date) return;
-    onSubmit({
-      name: name.trim(),
-      description: description.trim(),
-      date: date.format("YYYY-MM-DD"),
-    });
+  const reset = () => {
     setSubmitted(false);
+    setError(null);
     setName("");
     setDescription("");
     setDate(dayjs());
-    onClose();
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmitted(true);
+    if (!name.trim() || !date) return;
+    setError(null);
+    try {
+      await onSubmit({
+        name: name.trim(),
+        description: description.trim(),
+        date: date.format("YYYY-MM-DD"),
+      });
+      reset();
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? String(err.detail)
+          : "Could not create the event. Try again.",
+      );
+    }
   };
 
   const handleClose = () => {
     if (!loading) {
-      setSubmitted(false);
-      setName("");
-      setDescription("");
-      setDate(dayjs());
+      reset();
       onClose();
     }
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Add Event</DialogTitle>
-      <DialogContent>
-        <Box
-          component="form"
-          id="add-event-form"
-          onSubmit={handleSubmit}
-          noValidate
-        >
+    <AppDialog
+      open={open}
+      onClose={handleClose}
+      title="New event"
+      actions={
+        <>
+          <Button type="button" onClick={handleClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" form="add-event-form" loading={loading}>
+            Create event
+          </Button>
+        </>
+      }
+    >
+      <Box
+        component="form"
+        id="add-event-form"
+        onSubmit={handleSubmit}
+        noValidate
+      >
+        <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
             autoFocus
-            margin="dense"
-            label="Event Name"
+            label="Event name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             fullWidth
             required
             error={nameError}
-            helperText={nameError ? "Event name is required" : " "}
+            helperText={nameError ? "Enter a name for the event." : undefined}
           />
           <TextField
-            margin="dense"
             label="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -97,26 +114,13 @@ export default function AddEventDialog({
               textField: {
                 required: true,
                 error: dateError,
-                helperText: dateError ? "Date is required" : " ",
+                helperText: dateError ? "Pick a date." : undefined,
               },
             }}
-            sx={{ mt: 1, width: "100%" }}
           />
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button type="button" onClick={handleClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          form="add-event-form"
-          variant="contained"
-          loading={loading}
-        >
-          Create Event
-        </Button>
-      </DialogActions>
-    </Dialog>
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </Box>
+    </AppDialog>
   );
 }

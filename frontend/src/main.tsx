@@ -22,6 +22,9 @@ const theme = createTheme({
       main: "#fdd835",
     },
   },
+  components: {
+    MuiTextField: { defaultProps: { variant: "outlined" } },
+  },
 });
 
 createRoot(document.getElementById("root")!).render(

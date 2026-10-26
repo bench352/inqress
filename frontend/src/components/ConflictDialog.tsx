@@ -29,9 +29,7 @@ export default function ConflictDialog({
         <DialogContentText>{detail ?? "Conflict detected"}</DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} variant="contained">
-          Dismiss
-        </Button>
+        <Button onClick={onClose}>Dismiss</Button>
       </DialogActions>
     </Dialog>
   );

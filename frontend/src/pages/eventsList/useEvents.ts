@@ -37,7 +37,7 @@ export function useEvents() {
     events: eventsQuery.data ?? [],
     isLoading: eventsQuery.isLoading,
     isError: eventsQuery.isError,
-    createEvent: createEventMutation.mutate,
+    createEvent: createEventMutation.mutateAsync,
     isCreating: createEventMutation.isPending,
   };
 }

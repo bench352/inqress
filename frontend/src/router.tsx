@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { RoutePending } from "./components/boot";
 import FullPage from "./layouts/FullPage";
+import { validateEventSearch } from "./pages/eventDetail/types";
 
 // Every page is its own chunk: a kiosk or scanner URL must not download the
 // admin app, and admin pages must not download each other.
@@ -16,6 +17,12 @@ const EventsList = lazyRouteComponent(
 );
 const EventDetail = lazyRouteComponent(
   () => import("./pages/eventDetail/EventDetail"),
+);
+const EventSettings = lazyRouteComponent(
+  () => import("./pages/eventDetail/EventSettings"),
+);
+const TicketDelivery = lazyRouteComponent(
+  () => import("./pages/eventDetail/TicketDelivery"),
 );
 const CompanionDevices = lazyRouteComponent(
   () => import("./pages/companion/CompanionDevices"),
@@ -119,6 +126,21 @@ const eventDetailRoute = createRoute({
   getParentRoute: () => appShellLayout,
   path: "/admin/events/$eventId",
   component: EventDetail,
+  validateSearch: validateEventSearch,
+});
+
+const eventSettingsRoute = createRoute({
+  getParentRoute: () => eventDetailRoute,
+  path: "/settings",
+  component: EventSettings,
+  staticData: { childPage: true },
+});
+
+const ticketDeliveryRoute = createRoute({
+  getParentRoute: () => eventDetailRoute,
+  path: "/ticketDelivery",
+  component: TicketDelivery,
+  staticData: { childPage: true },
 });
 
 const addParticipantsManuallyRoute = createRoute({
@@ -173,8 +195,7 @@ const bulkTicketDeliveryRoute = createRoute({
 const customizeKioskRoute = createRoute({
   getParentRoute: () => appShellLayout,
   path: "/admin/events/$eventId/customizeKiosk",
-  component: CustomizeBooth, // reuse file for now, will rename later
-  staticData: { fullWidth: true },
+  component: CustomizeBooth,
 });
 
 const settingsRoute = createRoute({
@@ -203,6 +224,8 @@ const routeTree = rootRoute.addChildren([
       dataSourcesRoute,
       dataSourceNewRoute,
       dataSourceEditRoute,
+      eventSettingsRoute,
+      ticketDeliveryRoute,
     ]),
     settingsRoute,
   ]),

@@ -137,7 +137,7 @@ def get_companion_display(event_id: uuid.UUID, request: fastapi.Request) -> dict
     if ev is None:
         raise fastapi.HTTPException(404, "Event not found")
     msg = service.events.get_kiosk_message(event_id) or (
-        "Welcome. Check in with your phone number or email if your QR code cannot be scanned."
+        "Please present your QR code to the receptionist."
     )
     return {
         "eventName": ev.name,

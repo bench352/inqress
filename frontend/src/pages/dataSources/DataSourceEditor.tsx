@@ -12,9 +12,6 @@ import {
   Paper,
   Select,
   Stack,
-  Step,
-  StepLabel,
-  Stepper,
   Table,
   TableBody,
   TableCell,
@@ -33,6 +30,9 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useSnackbar } from "notistack";
 import { ApiError, useApi } from "@/api.ts";
 import DataHandlingStep from "@/components/DataHandlingStep";
+import PageHeader from "@/components/PageHeader";
+import ResponsiveStepper from "@/components/ResponsiveStepper";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
   PARTICIPANT_FIELDS,
   type ParticipantField,
@@ -47,6 +47,13 @@ interface PreviewResponse {
   sheets: Record<string, SheetPreview>;
 }
 
+const STEPS = [
+  "Link",
+  "Select sheet",
+  "Map columns to participant details",
+  "Choose how data is handled",
+];
+
 function initialMapping(source?: DataSourceResponse) {
   const mapping: Record<string, ParticipantField> = {};
   if (!source) return mapping;
@@ -55,6 +62,23 @@ function initialMapping(source?: DataSourceResponse) {
   if (source.rawPhoneColumn) mapping[source.rawPhoneColumn] = "Phone";
   if (source.emailColumn) mapping[source.emailColumn] = "Email";
   return mapping;
+}
+
+const GOOGLE_SHEETS_EDIT_PATH = /^\/spreadsheets\/d\/([^/]+)\/edit\/?$/;
+
+function googleSheetsExportUrl(value: string): string | null {
+  try {
+    const candidate = new URL(value.trim());
+    if (candidate.protocol !== "https:" && candidate.protocol !== "http:") {
+      return null;
+    }
+    if (candidate.hostname !== "docs.google.com") return null;
+    const match = GOOGLE_SHEETS_EDIT_PATH.exec(candidate.pathname);
+    if (!match) return null;
+    return `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=xlsx`;
+  } catch {
+    return null;
+  }
 }
 
 function isConflictDetail(
@@ -96,7 +120,7 @@ function DataSourceEditorForm({
   const [columnMapping, setColumnMapping] = useState<
     Record<string, ParticipantField>
   >(initialMapping(source));
-  const [tracking, setTracking] = useState<string>(source?.tracking ?? "match");
+  const [tracking, setTracking] = useState<string>(source?.tracking ?? "row");
   const [strategy, setStrategy] = useState(source?.strategy ?? "smartMerge");
   const [nameMatchMode, setNameMatchMode] = useState(
     source?.nameMatchMode ?? "exact",
@@ -111,6 +135,10 @@ function DataSourceEditorForm({
   const [linkStepSubmitted, setLinkStepSubmitted] = useState(false);
   const nameError = linkStepSubmitted && !name.trim();
   const urlError = linkStepSubmitted && !url.trim();
+
+  const debouncedUrl = useDebounce(url, 400);
+  const convertedUrl =
+    !isEdit && debouncedUrl === url ? googleSheetsExportUrl(url) : null;
 
   const columns = selectedSheet ? (sheets?.[selectedSheet]?.columns ?? []) : [];
 
@@ -260,25 +288,8 @@ function DataSourceEditorForm({
   const canSave = nameMapped && (!!sheets || isEdit);
 
   return (
-    <Stack spacing={3}>
-      <Typography variant="h5">
-        {isEdit ? `Edit data source: ${source?.name}` : "Add data source"}
-      </Typography>
-
-      <Stepper activeStep={activeStep}>
-        <Step>
-          <StepLabel>Link</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Select sheet</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Map columns to participant details</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Choose how data is handled</StepLabel>
-        </Step>
-      </Stepper>
+    <Stack spacing={2}>
+      <ResponsiveStepper steps={STEPS} activeStep={activeStep} />
 
       {activeStep === 0 && (
         <Stack spacing={2}>
@@ -299,7 +310,7 @@ function DataSourceEditorForm({
             required
             error={nameError || !!nameConflictError}
             helperText={
-              nameError ? "Name is required" : (nameConflictError ?? " ")
+              nameError ? "Name is required" : (nameConflictError ?? undefined)
             }
           />
 
@@ -316,16 +327,35 @@ function DataSourceEditorForm({
                 ? "The link cannot be changed after the data source is created."
                 : urlError
                   ? "Link is required"
-                  : " "
+                  : undefined
             }
             placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv"
+            slotProps={{ inputLabel: { shrink: true } }}
           />
+
+          {convertedUrl && (
+            <Alert
+              severity="info"
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => setUrl(convertedUrl)}
+                >
+                  Convert link
+                </Button>
+              }
+            >
+              This looks like a Google Sheets sharing link. Convert it to an
+              XLSX export link?
+            </Alert>
+          )}
 
           <Stack spacing={1}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
               Request headers (optional)
             </Typography>
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body1" color="textSecondary">
               Static headers sent with every fetch, if the file host requires
               one.
             </Typography>
@@ -385,22 +415,11 @@ function DataSourceEditorForm({
             </Alert>
           )}
 
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="outlined"
-              onClick={() =>
-                navigate({
-                  to: "/admin/events/$eventId/dataSources",
-                  params: { eventId },
-                })
-              }
-            >
-              Back
-            </Button>
+          <Box>
             <Button variant="contained" loading={fetching} onClick={handleNext}>
               Next
             </Button>
-          </Stack>
+          </Box>
         </Stack>
       )}
 
@@ -626,7 +645,6 @@ function DataSourceEditorForm({
         <DialogActions>
           <Button onClick={() => setConflictDetail(null)}>Cancel</Button>
           <Button
-            variant="contained"
             color="warning"
             onClick={() => {
               setConflictDetail(null);
@@ -647,6 +665,7 @@ export default function DataSourceEditor() {
     sourceId?: string;
   };
   const api = useApi();
+  const navigate = useNavigate();
 
   const eventQuery = useQuery<{ name: string }>({
     queryKey: ["event", eventId],
@@ -661,8 +680,17 @@ export default function DataSourceEditor() {
   });
 
   return (
-    <Stack spacing={3}>
-      <Typography variant="h4">{eventQuery.data?.name ?? "..."}</Typography>
+    <Stack spacing={2}>
+      <PageHeader
+        title={sourceId ? "Edit data source" : "Add data source"}
+        subtitle={eventQuery.data?.name}
+        onBack={() =>
+          navigate({
+            to: "/admin/events/$eventId/dataSources",
+            params: { eventId },
+          })
+        }
+      />
 
       {sourceId && sourceQuery.isError ? (
         <Alert severity="error">This data source no longer exists.</Alert>

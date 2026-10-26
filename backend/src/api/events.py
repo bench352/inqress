@@ -203,6 +203,24 @@ def upload_booth_image(
     return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
 
+@router.delete("/{event_id}/boothImage", status_code=fastapi.status.HTTP_204_NO_CONTENT)
+def clear_booth_image(event_id: uuid.UUID) -> fastapi.responses.Response:
+    if not service.events.clear_booth_image(event_id):
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
+        )
+    service.companion_stream.companion_stream_manager.send(
+        event_id,
+        schema.sse.SseEvent[schema.sse.ControlCommandData](
+            event_type=schema.sse.SseEventType.CONTROL,
+            type=schema.sse.SseType.COMMAND,
+            data=schema.sse.ControlCommandData(command="REFRESH", params={}),
+        ),
+        modes={"kiosk"},
+    )
+    return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
+
+
 @router.get("/{event_id}/accentColor")
 def get_accent_color(event_id: uuid.UUID) -> schema.rest.AccentColorResponse:
     color = service.events.get_accent_color(event_id)

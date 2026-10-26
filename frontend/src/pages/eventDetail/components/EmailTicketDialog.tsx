@@ -2,10 +2,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   Paper,
   Typography,
@@ -13,6 +9,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
 import { useApi } from "@/api.ts";
+import AppDialog from "@/components/AppDialog";
 import { useAppInfo } from "@/providers/useAppInfo";
 
 interface Props {
@@ -79,65 +76,70 @@ export default function EmailTicketDialog({
   const previewHtml = previewQuery.data ?? null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Email Ticket</DialogTitle>
-      <DialogContent>
-        <Box sx={{ mt: 1 }}>
-          {previewQuery.isLoading && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-              <CircularProgress />
+    <AppDialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      title="Email ticket"
+      actions={
+        <>
+          <Button onClick={onClose} disabled={sendMutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => sendMutation.mutate()}
+            loading={sendMutation.isPending}
+            disabled={!previewHtml}
+          >
+            Send email
+          </Button>
+        </>
+      }
+    >
+      <Box sx={{ mt: 1 }}>
+        {previewQuery.isLoading && (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress />
+          </Box>
+        )}
+        {!previewQuery.isLoading && !previewHtml && (
+          <Typography color="error">
+            Could not load the email preview.
+          </Typography>
+        )}
+        {previewHtml && (
+          <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography
+                variant="body1"
+                color={from.error ? "error" : undefined}
+              >
+                <strong>From: </strong> {from.error ?? from.text}
+              </Typography>
             </Box>
-          )}
-          {!previewQuery.isLoading && !previewHtml && (
-            <Typography color="error">Failed to load email preview.</Typography>
-          )}
-          {previewHtml && (
-            <Paper variant="outlined" sx={{ overflow: "hidden" }}>
-              <Box sx={{ px: 2, py: 1 }}>
-                <Typography
-                  variant="body1"
-                  color={from.error ? "error" : undefined}
-                >
-                  <strong>From: </strong> {from.error ?? from.text}
-                </Typography>
-              </Box>
-              <Divider />
-              <Box sx={{ px: 2, py: 1 }}>
-                <Typography variant="body1">
-                  <strong>To: </strong> {participantEmail}
-                </Typography>
-              </Box>
-              <Divider />
-              <Box sx={{ px: 2, py: 1 }}>
-                <Typography variant="body1">
-                  <strong>Subject:</strong>{" "}
-                  {settingsQuery.data?.subject ?? `[Ticket] ${eventName}`}
-                </Typography>
-              </Box>
-              <Divider />
-              <Box
-                sx={{ p: 2 }}
-                dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(previewHtml),
-                }}
-              />
-            </Paper>
-          )}
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={sendMutation.isPending}>
-          Cancel
-        </Button>
-        <Button
-          onClick={() => sendMutation.mutate()}
-          variant="contained"
-          loading={sendMutation.isPending}
-          disabled={!previewHtml}
-        >
-          Send Email
-        </Button>
-      </DialogActions>
-    </Dialog>
+            <Divider />
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography variant="body1">
+                <strong>To: </strong> {participantEmail}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography variant="body1">
+                <strong>Subject:</strong>{" "}
+                {settingsQuery.data?.subject ?? `[Ticket] ${eventName}`}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box
+              sx={{ p: 2 }}
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(previewHtml),
+              }}
+            />
+          </Paper>
+        )}
+      </Box>
+    </AppDialog>
   );
 }

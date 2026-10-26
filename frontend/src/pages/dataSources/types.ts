@@ -61,7 +61,7 @@ const STRATEGY_LABELS: Record<string, string> = {
 export function modeLabel(
   source: Pick<DataSourceResponse, "tracking" | "strategy" | "nameMatchMode">,
 ): string {
-  if (source.tracking === "row") return "Row tracking";
+  if (source.tracking === "row") return "New record";
   const strategy = STRATEGY_LABELS[source.strategy ?? ""] ?? "Skip";
   const match =
     source.nameMatchMode === "fuzzy" ? "Similar names" : "Exact names";

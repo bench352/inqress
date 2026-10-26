@@ -61,7 +61,22 @@ export const MergeField = Node.create({
     };
   },
   parseHTML() {
-    return [{ tag: "span[data-merge-field]" }];
+    return [
+      {
+        tag: "span[data-merge-field]",
+        getAttrs: (element) => ({
+          name: (element as HTMLElement).getAttribute("data-name"),
+        }),
+      },
+    ];
+  },
+  renderHTML({ node }) {
+    const name = String(node.attrs.name ?? "");
+    return [
+      "span",
+      { "data-merge-field": "true", "data-name": name },
+      FIELD_LABEL[name] ?? name,
+    ];
   },
   addNodeView() {
     return ReactNodeViewRenderer(MergeFieldView);

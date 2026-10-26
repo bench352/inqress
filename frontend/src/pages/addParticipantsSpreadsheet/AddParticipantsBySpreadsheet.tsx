@@ -1,17 +1,13 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   MenuItem,
   Paper,
   Select,
   Stack,
-  Step,
-  StepLabel,
-  Stepper,
   Table,
   TableBody,
   TableCell,
@@ -22,7 +18,9 @@ import {
 } from "@mui/material";
 import ConflictDialog from "@/components/ConflictDialog";
 import DataHandlingStep from "@/components/DataHandlingStep";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import FileUploadField from "@/components/FileUploadField";
+import PageHeader from "@/components/PageHeader";
+import ResponsiveStepper from "@/components/ResponsiveStepper";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { ApiError, useApi } from "@/api.ts";
@@ -50,6 +48,13 @@ interface RowMapping {
   emailColumn?: string | null;
 }
 
+const STEPS = [
+  "Upload the file",
+  "Pick a sheet",
+  "Match columns to person details",
+  "Choose what happens to duplicates",
+];
+
 interface SpreadsheetImportRequest {
   taskId: string;
   sheetName: string;
@@ -66,7 +71,6 @@ export default function AddParticipantsBySpreadsheet() {
   const navigate = useNavigate();
   const api = useApi();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const eventQuery = useQuery<{ name: string }>({
     queryKey: ["event", eventId],
@@ -105,10 +109,8 @@ export default function AddParticipantsBySpreadsheet() {
     },
   });
 
-  const handleFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const handleFileSelect = useCallback(
+    async (file: File) => {
       setColumnMapping({});
       setUploading(true);
       setUploadError(null);
@@ -128,12 +130,9 @@ export default function AddParticipantsBySpreadsheet() {
           setActiveStep(1);
         }
       } catch {
-        setUploadError(
-          "Failed to upload or parse the file. Ensure it is a valid Excel or CSV file.",
-        );
+        setUploadError("The file could not be read. Use an Excel or CSV file.");
       } finally {
         setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
     [eventId, api],
@@ -196,79 +195,28 @@ export default function AddParticipantsBySpreadsheet() {
   const isImportDisabled = !getMappingAssignment("Name");
 
   return (
-    <Stack spacing={3}>
-      <Typography variant="h4">{eventName}</Typography>
+    <Stack spacing={2}>
+      <PageHeader
+        title="Import from a spreadsheet"
+        subtitle={eventName}
+        onBack={() =>
+          navigate({ to: "/admin/events/$eventId", params: { eventId } })
+        }
+      />
 
-      <Typography variant="h5">Add Participants from Spreadsheet</Typography>
+      <ResponsiveStepper steps={STEPS} activeStep={activeStep} />
 
-      <Stepper activeStep={activeStep}>
-        <Step>
-          <StepLabel>Upload spreadsheet</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Select sheet</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Map columns to participant details</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Choose how data is handled</StepLabel>
-        </Step>
-      </Stepper>
-
-      {uploadError && <Typography color="error">{uploadError}</Typography>}
+      {uploadError && <Alert severity="error">{uploadError}</Alert>}
 
       {activeStep === 0 && (
-        <Stack spacing={2}>
-          <Box
-            sx={{
-              p: 6,
-              textAlign: "center",
-              width: "100%",
-              maxWidth: 400,
-              border: "2px dashed",
-              borderColor: "divider",
-              borderRadius: 1,
-              cursor: uploading ? "wait" : "pointer",
-              opacity: uploading ? 0.6 : 1,
-              pointerEvents: uploading ? "none" : "auto",
-              "&:hover": uploading
-                ? {}
-                : { borderColor: "primary.main", bgcolor: "action.hover" },
-            }}
-            onClick={() => !uploading && fileInputRef.current?.click()}
-          >
-            {uploading ? (
-              <>
-                <CircularProgress size={40} sx={{ mb: 1 }} />
-                <Typography variant="body1" sx={{ mb: 1 }}>
-                  Uploading and analysing file...
-                </Typography>
-              </>
-            ) : (
-              <>
-                <CloudUploadIcon color="action" sx={{ fontSize: 40, mb: 1 }} />
-                <Typography variant="body1" sx={{ mb: 1 }}>
-                  Click to select a spreadsheet
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="textSecondary"
-                  sx={{ display: "block" }}
-                >
-                  Supports .xlsx, .csv
-                </Typography>
-              </>
-            )}
-          </Box>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.csv"
-            hidden
-            onChange={handleFileChange}
-          />
-        </Stack>
+        <FileUploadField
+          accept=".xlsx,.csv"
+          formats="Excel (.xlsx) or CSV"
+          prompt="Drop a spreadsheet here, or click to browse"
+          onFileSelect={handleFileSelect}
+          loading={uploading}
+          loadingText="Uploading and analysing file…"
+        />
       )}
 
       {activeStep === 1 && preview && (
@@ -462,7 +410,7 @@ export default function AddParticipantsBySpreadsheet() {
               onClick={handleImport}
               loading={importMutation.isPending}
             >
-              Import Participants
+              Import participants
             </Button>
           </Stack>
         </Stack>
