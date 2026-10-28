@@ -9,12 +9,14 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useSnackbar } from "notistack";
 import { brandFontFamily } from "@/brandFont.ts";
 import { isSafeRedirectPath } from "@/providers/redirectToLogin.ts";
 import { useAuth } from "@/providers/useAuth.ts";
 import PhonelinkIcon from "@mui/icons-material/Phonelink";
 export default function Login() {
   const { login, isAuthenticated, logout } = useAuth();
+  const { enqueueSnackbar } = useSnackbar();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +117,13 @@ export default function Login() {
                 fullWidth
                 sx={{ mt: 1 }}
                 onClick={() => {
-                  void logout();
+                  void logout().then((ok) => {
+                    if (!ok)
+                      enqueueSnackbar(
+                        "Cannot sign out. Please try again.",
+                        { variant: "error" },
+                      );
+                  });
                 }}
               >
                 Logout

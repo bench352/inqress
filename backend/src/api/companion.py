@@ -56,6 +56,32 @@ def create_companion_session(
     return schema.rest.CompanionSessionResponse(event_id=event_id, name=name)
 
 
+@router.get("/companion/session", status_code=fastapi.status.HTTP_200_OK)
+def get_companion_session(
+    request: fastapi.Request,
+) -> schema.rest.CompanionSessionResponse:
+    """Public: validate the companion cookie and return the paired event."""
+    token = request.cookies.get(service.auth.get_companion_cookie_name())
+    if not token:
+        raise fastapi.HTTPException(status_code=401, detail="Invalid pairing token")
+
+    with service.db.get_session() as db:
+        row = (
+            db.query(schema.orm.Event.id, schema.orm.Event.name)
+            .filter(schema.orm.Event.companion_token == token)
+            .first()
+        )
+    if row is None:
+        raise fastapi.HTTPException(status_code=401, detail="Invalid pairing token")
+    return schema.rest.CompanionSessionResponse(event_id=row[0], name=row[1])
+
+
+@router.delete("/companion/session", status_code=fastapi.status.HTTP_204_NO_CONTENT)
+def delete_companion_session(response: fastapi.Response) -> None:
+    """Public: drop the companion cookie. Idempotent — no error when absent."""
+    service.auth._clear_companion_cookie(response)
+
+
 @router.get(
     "/events/{event_id}/companion/streams",
     response_class=fastapi.sse.EventSourceResponse,
@@ -73,6 +99,9 @@ def companion_streams(
         while True:
             try:
                 event = q.get(timeout=15)
+                if event is None:
+                    # Sentinel from close_all (token rotate): end the stream.
+                    break
                 yield fastapi.sse.ServerSentEvent(data=event.model_dump(by_alias=True))
             except queue.Empty:
                 # heartbeat

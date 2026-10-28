@@ -28,7 +28,9 @@ def rotate_companion_token(event_id: uuid.UUID) -> schema.rest.CompanionTokenRes
     new_token = service.events.rotate_companion_token(event_id)
     if new_token is None:
         raise fastapi.HTTPException(404, "Event not found")
-    # Note: connected companions will detect mismatch on next heartbeat (~15s)
+    # Close connected companion streams immediately; the heartbeat re-verify
+    # in the stream loop is the backstop.
+    comp_mgr.close_all(event_id)
     return schema.rest.CompanionTokenResponse(token=new_token)
 
 

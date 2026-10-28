@@ -3,7 +3,7 @@ import logging
 import uuid
 
 import fastapi
-from sqlalchemy import func, insert, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.exc import IntegrityError
 
 import schema.enum
@@ -60,6 +60,18 @@ def _insert_attendance(
             return None
         raise
     return checked_in_at
+
+
+def delete_attendance(event_id: uuid.UUID, participant_id: uuid.UUID) -> bool:
+    """Remove a check-in. True when an attendance row was deleted."""
+    with service.db.get_session() as session:
+        result = session.execute(
+            delete(schema.orm.AttendanceLog).where(
+                schema.orm.AttendanceLog.event_id == event_id,
+                schema.orm.AttendanceLog.participant_id == participant_id,
+            )
+        )
+        return result.rowcount > 0  # type: ignore[attr-defined]
 
 
 def _emit_attendance(

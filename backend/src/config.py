@@ -19,6 +19,8 @@ class AppConfig(pydantic.BaseModel):
     default_country_code: str = "HK"
     max_upload_mb: int = pydantic.Field(default=30, ge=1)
     data_source_poll_minutes: int = pydantic.Field(default=5, ge=1)
+    # Opt-in for data source links on the LAN; link-local stays blocked either way.
+    allow_private_data_sources: bool = False
 
 
 class LoginRateLimitConfig(pydantic.BaseModel):

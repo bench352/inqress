@@ -143,7 +143,10 @@ def set_participant_detached(
     except service.participants.DetachNotAllowed:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_409_CONFLICT,
-            detail="This participant is not tracked by row, so they cannot be detached.",
+            detail=(
+                "No data source manages this participant, or the source has "
+                "lost its link to them, so they cannot be detached."
+            ),
         )
     if result is None:
         raise fastapi.HTTPException(
@@ -304,6 +307,23 @@ def send_email(
     return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
 
+@router.delete(
+    "/{participant_id}/attendance", status_code=fastapi.status.HTTP_204_NO_CONTENT
+)
+def delete_attendance(
+    event_id: uuid.UUID,
+    participant_id: uuid.UUID,
+) -> fastapi.responses.Response:
+    api.utils.check_event_exists(event_id)
+    check_participant_exists(event_id, participant_id)
+    if not service.checkin.delete_attendance(event_id, participant_id):
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail="Participant is not checked in",
+        )
+    return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
+
+
 @router.post(
     "/{participant_id}/ticket/delivery", status_code=fastapi.status.HTTP_204_NO_CONTENT
 )
@@ -314,6 +334,19 @@ def mark_ticket_delivered(
     api.utils.check_event_exists(event_id)
     check_participant_exists(event_id, participant_id)
     service.participants.mark_ticket_delivered(event_id, participant_id)
+    return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/{participant_id}/ticket/delivery", status_code=fastapi.status.HTTP_204_NO_CONTENT
+)
+def unmark_ticket_delivered(
+    event_id: uuid.UUID,
+    participant_id: uuid.UUID,
+) -> fastapi.responses.Response:
+    api.utils.check_event_exists(event_id)
+    check_participant_exists(event_id, participant_id)
+    service.participants.mark_ticket_delivered(event_id, participant_id, False)
     return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
 

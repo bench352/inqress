@@ -55,6 +55,7 @@ function ticketStatus(participant: ParticipantItem): string {
 type Confirm =
   | "deliver"
   | "attend"
+  | "undo-attend"
   | "delete"
   | "deactivate"
   | "attach"
@@ -105,6 +106,38 @@ export default function ParticipantDetailsDialog({
     },
   });
 
+  const unmarkDeliveredMutation = useMutation({
+    mutationFn: async () => {
+      await api.del(
+        `/api/events/${eventId}/participants/${participant.id}/ticket/delivery`,
+      );
+    },
+    onSuccess: () => {
+      refresh();
+    },
+    onError: () => {
+      enqueueSnackbar("Could not mark the ticket as not delivered.", {
+        variant: "error",
+      });
+    },
+  });
+
+  const undoCheckinMutation = useMutation({
+    mutationFn: async () => {
+      await api.del(
+        `/api/events/${eventId}/participants/${participant.id}/attendance`,
+      );
+    },
+    onSuccess: () => {
+      refresh();
+      setConfirm(null);
+    },
+    onError: () => {
+      setConfirm(null);
+      enqueueSnackbar("Could not undo the check-in.", { variant: "error" });
+    },
+  });
+
   const checkinMutation = useMutation({
     mutationFn: async () => {
       const data = await api.post<{
@@ -139,12 +172,15 @@ export default function ParticipantDetailsDialog({
       });
     },
     onSuccess: () => {
+      enqueueSnackbar("Confirmation sent to the kiosk", {
+        variant: "success",
+      });
       onClose();
     },
     onError: (err: Error & { status?: number; detail?: unknown }) => {
       const message =
         (typeof err.detail === "string" ? err.detail : err.message) ||
-        "Could not send the confirmation to the booth.";
+        "Could not send the confirmation to the kiosk.";
       enqueueSnackbar(message, { variant: "error" });
     },
   });
@@ -309,6 +345,17 @@ export default function ParticipantDetailsDialog({
                   </Typography>
                 </Stack>
               ))}
+              {participant.checkedInAt && (
+                <Button
+                  variant="text"
+                  color="error"
+                  sx={{ alignSelf: "flex-start" }}
+                  onClick={() => setConfirm("undo-attend")}
+                  loading={undoCheckinMutation.isPending}
+                >
+                  Undo check-in
+                </Button>
+              )}
             </Stack>
           </Stack>
           {participant.managedBy && (
@@ -368,7 +415,7 @@ export default function ParticipantDetailsDialog({
               disabled={!!participant.checkedInAt}
               fullWidth
             >
-              Confirm at booth
+              Confirm at kiosk
             </Button>
           )}
 
@@ -428,11 +475,16 @@ export default function ParticipantDetailsDialog({
               />
             </ListItemButton>
             <ListItemButton
-              onClick={() => setConfirm("deliver")}
+              onClick={() =>
+                participant.isTicketDelivered
+                  ? unmarkDeliveredMutation.mutate()
+                  : setConfirm("deliver")
+              }
               disabled={
                 !participant.isTicketReady ||
-                participant.isTicketDelivered ||
-                deliverMutation.isPending
+                (participant.isTicketDelivered
+                  ? unmarkDeliveredMutation.isPending
+                  : deliverMutation.isPending)
               }
               disableGutters
             >
@@ -440,12 +492,16 @@ export default function ParticipantDetailsDialog({
                 <LocalOfferIcon />
               </ListItemIcon>
               <ListItemText
-                primary="Mark delivered"
+                primary={
+                  participant.isTicketDelivered
+                    ? "Mark not delivered"
+                    : "Mark delivered"
+                }
                 secondary={
                   !participant.isTicketReady
                     ? "The ticket is still being made."
                     : participant.isTicketDelivered
-                      ? "Already marked as delivered."
+                      ? "Undoes the delivered status."
                       : "For when you handed the ticket over yourself."
                 }
               />
@@ -550,6 +606,20 @@ export default function ParticipantDetailsDialog({
           Check in
         </Button>,
         checkinMutation.isPending,
+      )}
+
+      {confirmDialog(
+        confirm === "undo-attend",
+        "Undo this check-in?",
+        `${name} will be marked as not checked in.`,
+        <Button
+          onClick={() => undoCheckinMutation.mutate()}
+          color="error"
+          loading={undoCheckinMutation.isPending}
+        >
+          Undo check-in
+        </Button>,
+        undoCheckinMutation.isPending,
       )}
 
       {confirmDialog(

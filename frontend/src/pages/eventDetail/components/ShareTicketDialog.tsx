@@ -76,6 +76,25 @@ export default function ShareTicketDialog({
     },
   });
 
+  const unmarkDeliveredMutation = useMutation({
+    mutationFn: async () => {
+      await api.del(
+        `/api/events/${eventId}/participants/${participant.id}/ticket/delivery`,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
+      enqueueSnackbar("Ticket marked as not delivered.", {
+        variant: "success",
+      });
+    },
+    onError: () => {
+      enqueueSnackbar("Could not mark the ticket as not delivered.", {
+        variant: "error",
+      });
+    },
+  });
+
   const message = messageQuery.data ?? "";
   const fileName = ticketFileName(participant.name);
   const blob = ticket.blob;
@@ -249,18 +268,23 @@ export default function ShareTicketDialog({
                   Share
                 </Button>
                 <Button
-                  onClick={() => deliverMutation.mutate()}
+                  onClick={() =>
+                    participant.isTicketDelivered
+                      ? unmarkDeliveredMutation.mutate()
+                      : deliverMutation.mutate()
+                  }
                   disabled={
-                    participant.isTicketDelivered || deliverMutation.isPending
+                    deliverMutation.isPending ||
+                    unmarkDeliveredMutation.isPending
                   }
                   variant="outlined"
                   size="large"
-                  color="success"
+                  color={participant.isTicketDelivered ? "warning" : "success"}
                   startIcon={<HowToRegIcon />}
                   sx={{ gridColumn: { xs: "1 / -1" } }}
                 >
                   {participant.isTicketDelivered
-                    ? "Ticket delivered"
+                    ? "Mark not delivered"
                     : "Mark delivered"}
                 </Button>
               </Box>

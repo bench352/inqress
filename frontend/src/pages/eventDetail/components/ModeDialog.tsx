@@ -34,19 +34,19 @@ export default function ModeDialog({
       <DialogContent>
         {pendingMode === "test" && (
           <Typography variant="body1">
-            Attendance is recorded for trying the flow out. When you switch to
-            Disabled, everything recorded in Test mode is removed.
+            Attendance is recorded for trying the flow out. Everything recorded
+            in Test mode is removed when you leave Test mode.
           </Typography>
         )}
         {pendingMode === "disabled" && (
           <Typography variant="body1">
-            Nobody can check in until you choose Test or Live again. Real
-            attendance stays; anything from Test mode is removed.
+            Nobody can check in until you choose Test or Live again. Live
+            attendance is kept.
           </Typography>
         )}
         {pendingMode === "live" && (
           <Typography variant="body1">
-            Attendance is kept for good, even if you switch to Disabled later.
+            Attendance will be recorded permanently, even if you disable the check-in later.
           </Typography>
         )}
       </DialogContent>

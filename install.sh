@@ -23,6 +23,7 @@ smtp_username=""
 smtp_password=""
 smtp_from_address=""
 smtp_wait="5"
+trusted_proxies=""
 exposed_port="8000"
 
 info()  { printf "${CYAN}%s${NC}\n" "$*"; }
@@ -166,6 +167,40 @@ prompt_smtp_config() {
   prompt_optional "  Wait between deliveries (seconds)" smtp_wait "5"
 }
 
+prompt_trusted_proxies() {
+  echo ""
+  bold "Reverse proxy (login rate limiting)"
+  echo "  Is InQRess behind a reverse proxy (nginx, Caddy, Traefik...) that"
+  echo "  terminates TLS? If yes, enter the proxy's IP address or CIDR (e.g."
+  echo "  172.17.0.1 or 10.0.0.0/24) so login rate limiting can identify real"
+  echo "  clients. Comma- or space-separate multiple entries."
+  echo "  Leave empty if clients connect directly."
+  local raw="" entry="" valid=true
+  local parts=()
+  while true; do
+    read -r -p "  Trusted proxy addresses/CIDRs: " raw
+    valid=true
+    trusted_proxies=""
+    read -ra parts <<< "${raw//,/ }"
+    for entry in "${parts[@]}"; do
+      if [ "${entry%/0}" != "$entry" ]; then
+        error "A /0 network (any spelling of 0.0.0.0/0 or ::/0) would trust every client and defeat the login rate limit. Enter the proxy's own address instead."
+        valid=false
+        break
+      fi
+      if ! [[ "$entry" =~ ^[0-9A-Fa-f./:]+$ ]]; then
+        error "'$entry' does not look like an IP address or CIDR."
+        valid=false
+        break
+      fi
+      trusted_proxies+="${trusted_proxies:+ }$entry"
+    done
+    if [ "$valid" = true ]; then
+      break
+    fi
+  done
+}
+
 prompt_container_name() {
   echo ""
   bold "Exposed port"
@@ -201,6 +236,8 @@ generate_config() {
     echo "  max_upload_mb: 30"
     echo "  # Minutes between background syncs of the event data sources."
     echo "  data_source_poll_minutes: 5"
+    echo "  # Allow data source links to point at LAN/internal addresses."
+    echo "  allow_private_data_sources: false"
     echo ""
     echo "auth:"
     echo '  admin_username: "'"$(yaml_quote "$admin_username")"'"'
@@ -215,7 +252,21 @@ generate_config() {
     echo "    window_seconds: 900"
     echo "    # Address or CIDR of the reverse proxy only. Never 0.0.0.0/0."
     echo "    # Leave empty when clients connect to this process directly."
-    echo "    trusted_proxies: []"
+    if [ -n "$trusted_proxies" ]; then
+      tp="    trusted_proxies: ["
+      first=true
+      for entry in $trusted_proxies; do
+        if [ "$first" = true ]; then
+          first=false
+        else
+          tp+=","
+        fi
+        tp+=" \"$(yaml_quote "$entry")\""
+      done
+      echo "$tp ]"
+    else
+      echo "    trusted_proxies: []"
+    fi
     echo ""
     echo "email_smtp:"
     if [ -n "$smtp_host" ]; then
@@ -295,6 +346,7 @@ main() {
     prompt_country_code
     prompt_admin_credentials
     prompt_smtp_config
+    prompt_trusted_proxies
     prompt_exposed_port
     prompt_container_name
     generate_config

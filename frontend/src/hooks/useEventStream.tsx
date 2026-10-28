@@ -68,22 +68,12 @@ interface SseRawEvent {
     | SseDataSourceSyncData;
 }
 
-export interface AttendanceDialogEntry {
-  participantId: string;
-  title: string | null;
-  name: string;
-  checkInMethod: string;
-  checkInAt: string;
-}
-
 export interface UseEventStreamReturn {
   createParticipantProgress: ProgressState | null;
   sendEmailProgress: ProgressState | null;
   generateTicketQrProgress: ProgressState | null;
   resultDialog: { resultId: string } | null;
   dismissResultDialog: () => void;
-  attendanceDialog: AttendanceDialogEntry | null;
-  dismissAttendanceDialog: () => void;
   dataSourceSync: DataSourceSyncState | null;
 }
 
@@ -128,17 +118,11 @@ export function useEventStream(
   const [resultDialog, setResultDialog] = useState<{
     resultId: string;
   } | null>(null);
-  const [attendanceDialog, setAttendanceDialog] =
-    useState<AttendanceDialogEntry | null>(null);
   const [dataSourceSync, setDataSourceSync] =
     useState<DataSourceSyncState | null>(null);
 
   const dismissResultDialog = useCallback(() => {
     setResultDialog(null);
-  }, []);
-
-  const dismissAttendanceDialog = useCallback(() => {
-    setAttendanceDialog(null);
   }, []);
 
   useEffect(() => {
@@ -377,13 +361,10 @@ export function useEventStream(
               );
             },
           );
-          setAttendanceDialog({
-            participantId: data.participantId,
-            title: data.title,
-            name: data.name,
-            checkInMethod: data.checkInMethod,
-            checkInAt: data.checkInAt,
-          });
+          enqueueSnackbarRef.current(
+            `${data.title ? data.title + " " : ""}${data.name} checked in`,
+            { variant: "success" },
+          );
         }
       }
     }
@@ -407,8 +388,6 @@ export function useEventStream(
     generateTicketQrProgress,
     resultDialog,
     dismissResultDialog,
-    attendanceDialog,
-    dismissAttendanceDialog,
     dataSourceSync,
   };
 }

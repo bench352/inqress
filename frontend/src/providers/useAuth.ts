@@ -4,7 +4,8 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   username: string | null;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
+  /** Returns false when the server did not confirm the logout; state is kept. */
+  logout: () => Promise<boolean>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

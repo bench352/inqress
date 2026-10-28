@@ -137,7 +137,7 @@ class ParticipantResponse(RestModel):
     is_ticket_ready: bool
     checked_in_at: str | None = None
     activated: bool | None
-    # None when the source does not track rows, so there is no link to detach.
+    # None when the participant is not managed by a data source.
     detached: bool | None = None
     managed_by: ManagedBy | None = None
 

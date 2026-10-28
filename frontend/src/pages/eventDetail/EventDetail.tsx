@@ -37,7 +37,6 @@ import AddParticipantsButton from "./components/AddParticipantsButton";
 import ActionsSection from "./components/ActionsSection";
 import ParticipantDetailsDialog from "./components/ParticipantDetailsDialog";
 import AttendanceSummary from "./components/AttendanceSummary";
-import CheckinNotificationDialog from "./components/CheckinNotificationDialog";
 import ImportResultDialog from "./components/ImportResultDialog";
 import ModeDialog from "./components/ModeDialog";
 import PairCompanionDialog from "./components/PairCompanionDialog";
@@ -72,8 +71,6 @@ export default function EventDetail() {
     generateTicketQrProgress,
     resultDialog,
     dismissResultDialog,
-    attendanceDialog,
-    dismissAttendanceDialog,
     dataSourceSync,
   } = useEventStream(eventId, queryClient);
 
@@ -271,13 +268,6 @@ export default function EventDetail() {
             eventId={eventId}
             resultId={resultDialog.resultId}
             onClose={dismissResultDialog}
-          />
-        )}
-        {attendanceDialog && (
-          <CheckinNotificationDialog
-            key={attendanceDialog.participantId}
-            dialog={attendanceDialog}
-            onDismiss={dismissAttendanceDialog}
           />
         )}
       </DataSourceSyncProvider>
@@ -545,14 +535,6 @@ export default function EventDetail() {
           eventId={eventId}
           resultId={resultDialog.resultId}
           onClose={dismissResultDialog}
-        />
-      )}
-
-      {attendanceDialog && (
-        <CheckinNotificationDialog
-          key={attendanceDialog.participantId}
-          dialog={attendanceDialog}
-          onDismiss={dismissAttendanceDialog}
         />
       )}
 
