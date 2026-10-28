@@ -25,8 +25,8 @@ export default function ResponsiveStepper({ steps, activeStep }: Props) {
           </Step>
         ))}
       </Stepper>
-      <Stack spacing={1} sx={{ display: { xs: "flex", sm: "none" } }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+      <Stack spacing={0} sx={{ display: { xs: "flex", sm: "none" } }}>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
           {steps[activeStep]}
         </Typography>
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>

@@ -6,8 +6,7 @@ import {
   Box,
   Button,
   Card,
-  CardActions,
-  CardHeader,
+  CardContent,
   Chip,
   Container,
   Dialog,
@@ -15,18 +14,17 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Fab,
   IconButton,
+  Stack,
   Toolbar,
   Tooltip,
   Typography,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
+import LinkOffIcon from "@mui/icons-material/LinkOff";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CameraswitchIcon from "@mui/icons-material/Cameraswitch";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteIcon from "@mui/icons-material/Delete";
-import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
+import VideoLabelIcon from "@mui/icons-material/VideoLabel";
 import DeviceUnknownIcon from "@mui/icons-material/DeviceUnknown";
 import LaunchIcon from "@mui/icons-material/Launch";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
@@ -160,7 +158,7 @@ export default function CompanionDevices() {
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Companion Devices
+            Companion device
           </Typography>
           <Tooltip title="Switch camera">
             <IconButton
@@ -197,66 +195,64 @@ export default function CompanionDevices() {
       <Container maxWidth="sm" sx={{ py: 3 }}>
         {/* While the local session check is in flight, render just the shell. */}
         {pairing && session && (
-          <Card variant="outlined" sx={{ mb: 2 }}>
-            <CardHeader
-              avatar={
-                <Avatar sx={{ bgcolor: "primary.main" }}>
+          <Card variant="outlined">
+            <CardContent sx={{ p: 2 }}>
+              <Stack
+                spacing={2}
+                sx={{ alignItems: "center", textAlign: "center" }}
+              >
+                <Avatar sx={{ bgcolor: "primary.main", width: 56, height: 56 }}>
                   {pairing.mode === "scanner" ? (
                     <PhoneAndroidIcon />
                   ) : (
-                    <DesktopWindowsIcon />
+                    <VideoLabelIcon />
                   )}
                 </Avatar>
-              }
-              title={session.name}
-              slotProps={{
-                title: { variant: "subtitle1", fontWeight: 600 },
-                subheader: { component: "div" },
-              }}
-              subheader={
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={modeLabel(pairing.mode)}
-                  sx={{ mt: 0.5 }}
-                />
-              }
-            />
-            <CardActions
-              disableSpacing
-              sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
-            >
-              <Button
-                size="small"
-                startIcon={
-                  copied ? (
-                    <CheckIcon fontSize="small" color="success" />
-                  ) : (
-                    <ContentCopyIcon fontSize="small" />
-                  )
-                }
-                onClick={() => void copyLink()}
-              >
-                Copy link
-              </Button>
-              <Box>
-                <Tooltip title="Unpair this device">
-                  <IconButton
-                    aria-label="Unpair this device"
+                <Stack
+                  spacing={0.5}
+                  sx={{ alignItems: "center", textAlign: "center" }}
+                >
+                  <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                    {session.name}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={modeLabel(pairing.mode)}
+                  />
+                </Stack>
+                <Stack spacing={1.5} sx={{ width: "100%", pt: 1 }}>
+                  <Button
+                    fullWidth
+                    size="large"
+                    variant="contained"
+                    startIcon={<LaunchIcon />}
+                    onClick={openDevice}
+                  >
+                    Open
+                  </Button>
+                  <Button
+                    fullWidth
+                    size="large"
+                    variant="outlined"
+                    startIcon={copied ? <CheckIcon /> : <ContentCopyIcon />}
+                    onClick={() => void copyLink()}
+                  >
+                    Copy link
+                  </Button>
+                  <Button
+                    fullWidth
+                    size="large"
+                    variant="outlined"
+                    startIcon={<LinkOffIcon />}
+                    color="error"
                     onClick={() => setConfirmUnpair(true)}
                   >
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
-                <Button
-                  variant="contained"
-                  endIcon={<LaunchIcon />}
-                  onClick={openDevice}
-                >
-                  Open
-                </Button>
-              </Box>
-            </CardActions>
+                    Unpair
+                  </Button>
+                </Stack>
+              </Stack>
+            </CardContent>
           </Card>
         )}
 
@@ -273,17 +269,6 @@ export default function CompanionDevices() {
           </EmptyState>
         )}
       </Container>
-
-      {pairing && (
-        <Fab
-          color="primary"
-          aria-label="Pair a new device"
-          onClick={goJoin}
-          sx={{ position: "fixed", bottom: 24, right: 24 }}
-        >
-          <AddIcon />
-        </Fab>
-      )}
 
       <Dialog
         open={confirmUnpair}

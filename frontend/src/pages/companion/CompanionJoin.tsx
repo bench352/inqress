@@ -26,7 +26,7 @@ import {
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
+import VideoLabelIcon from "@mui/icons-material/VideoLabel";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import { useNavigate } from "@tanstack/react-router";
 import { alpha } from "@mui/material/styles";
@@ -57,17 +57,17 @@ function readPairHash(hash: string): {
 const MODE_OPTIONS = [
   {
     value: "kiosk" as const,
-    label: "Kiosk (guest-facing screen)",
-    icon: DesktopWindowsIcon,
+    label: "Kiosk",
+    icon: VideoLabelIcon,
     description:
-      "A screen facing the guest. Shows check-in status and lets guests check in with phone or email.",
+      "A touchscreen facing the guest. Shows check-in status and lets guests check in with alternative methods (e.g. phone number or email).",
   },
   {
     value: "scanner" as const,
-    label: "Scanner (staff handheld)",
+    label: "Scanner",
     icon: PhoneAndroidIcon,
     description:
-      "A phone held by staff to scan guests' QR tickets at the door.",
+      "A phone held by staff to scan QR tickets. Ticket scanning results are also shown on the kiosk.",
   },
 ];
 
@@ -272,7 +272,7 @@ export default function CompanionJoin() {
         <Toolbar>
           <IconButton
             edge="start"
-            aria-label="back to devices"
+            aria-label="back to companion device"
             onClick={() => navigate({ to: "/companion" })}
           >
             <ArrowBackIcon />

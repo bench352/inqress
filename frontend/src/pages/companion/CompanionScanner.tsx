@@ -467,7 +467,8 @@ export default function CompanionScanner() {
             }}
           >
             <Typography color="warning">
-              Camera unavailable. Check camera settings on the devices page.
+              Camera unavailable. Check camera settings on the Companion device
+              page.
             </Typography>
           </Box>
         ) : null}

@@ -41,10 +41,10 @@ export default function PairCompanionDialog({
           {window.location.origin}
         </Typography>
         <Typography>
-          Open <strong>use as companion device</strong>, tap{" "}
-          <strong>(+)</strong>, then scan the QR code below. After successful
-          pairing, choose a mode matching how your companion device will be
-          used.
+          Open <strong>use as companion device</strong>. If this browser is
+          already paired, unpair it first. Tap <strong>Pair this device</strong>
+          , then scan the QR code below. After successful pairing, choose a mode
+          matching how your companion device will be used.
         </Typography>
       </Stack>
       {companionToken && (
