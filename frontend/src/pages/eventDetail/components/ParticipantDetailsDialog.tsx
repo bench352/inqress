@@ -31,6 +31,7 @@ import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import PhoneIcon from "@mui/icons-material/Phone";
 import QrCodeIcon from "@mui/icons-material/QrCode";
 import ShareIcon from "@mui/icons-material/Share";
+import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import dayjs from "dayjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -254,6 +255,7 @@ export default function ParticipantDetailsDialog({
     icon: React.ReactNode;
     key: string;
     value: string;
+    valueColor?: string;
   }[] = [
     {
       icon: <EmailIcon color="action" />,
@@ -279,6 +281,7 @@ export default function ParticipantDetailsDialog({
             icon: <CheckCircleIcon color="success" />,
             key: "Checked in at",
             value: dayjs(participant.checkedInAt).format("MMM D, YYYY h:mm A"),
+            valueColor: "success",
           },
         ]
       : []),
@@ -338,24 +341,16 @@ export default function ParticipantDetailsDialog({
                   <Typography
                     variant="body1"
                     color={
-                      row.value.startsWith("No ") ? "text.secondary" : "inherit"
+                      row.valueColor ??
+                      (row.value.startsWith("No ")
+                        ? "text.secondary"
+                        : "inherit")
                     }
                   >
                     {row.value}
                   </Typography>
                 </Stack>
               ))}
-              {participant.checkedInAt && (
-                <Button
-                  variant="text"
-                  color="error"
-                  sx={{ alignSelf: "flex-start" }}
-                  onClick={() => setConfirm("undo-attend")}
-                  loading={undoCheckinMutation.isPending}
-                >
-                  Undo check-in
-                </Button>
-              )}
             </Stack>
           </Stack>
           {participant.managedBy && (
@@ -507,22 +502,30 @@ export default function ParticipantDetailsDialog({
               />
             </ListItemButton>
             <ListItemButton
-              onClick={() => setConfirm("attend")}
+              onClick={() =>
+                setConfirm(participant.checkedInAt ? "undo-attend" : "attend")
+              }
               disabled={
-                participant.checkedInAt != null ||
-                participant.activated !== true ||
-                checkinMutation.isPending
+                participant.checkedInAt
+                  ? undoCheckinMutation.isPending
+                  : participant.activated !== true || checkinMutation.isPending
               }
               disableGutters
             >
               <ListItemIcon>
-                <CheckCircleIcon />
+                {participant.checkedInAt ? (
+                  <PersonRemoveIcon />
+                ) : (
+                  <CheckCircleIcon />
+                )}
               </ListItemIcon>
               <ListItemText
-                primary="Mark attended"
+                primary={
+                  participant.checkedInAt ? "Undo check-in" : "Mark attended"
+                }
                 secondary={
-                  participant.checkedInAt != null
-                    ? "Already checked in."
+                  participant.checkedInAt
+                    ? "Removes the check-in status of the participant."
                     : participant.activated === false
                       ? "This ticket is deactivated."
                       : participant.activated == null
@@ -610,7 +613,7 @@ export default function ParticipantDetailsDialog({
 
       {confirmDialog(
         confirm === "undo-attend",
-        "Undo this check-in?",
+        "Undo check-in?",
         `${name} will be marked as not checked in.`,
         <Button
           onClick={() => undoCheckinMutation.mutate()}
