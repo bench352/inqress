@@ -46,7 +46,8 @@ export default function ModeDialog({
         )}
         {pendingMode === "live" && (
           <Typography variant="body1">
-            Attendance will be recorded permanently, even if you disable the check-in later.
+            Attendance will be recorded permanently, even if you disable the
+            check-in later.
           </Typography>
         )}
       </DialogContent>

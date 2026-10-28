@@ -97,10 +97,9 @@ export default function CompanionDevices() {
   const handleLogout = async () => {
     const signedOut = await logout();
     if (!signedOut) {
-      enqueueSnackbar(
-        "Cannot sign out. Please try again.",
-        { variant: "error" },
-      );
+      enqueueSnackbar("Cannot sign out. Please try again.", {
+        variant: "error",
+      });
     }
   };
 

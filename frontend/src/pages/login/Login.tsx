@@ -119,10 +119,9 @@ export default function Login() {
                 onClick={() => {
                   void logout().then((ok) => {
                     if (!ok)
-                      enqueueSnackbar(
-                        "Cannot sign out. Please try again.",
-                        { variant: "error" },
-                      );
+                      enqueueSnackbar("Cannot sign out. Please try again.", {
+                        variant: "error",
+                      });
                   });
                 }}
               >

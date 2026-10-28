@@ -438,8 +438,9 @@ export default function CompanionJoin() {
         <DialogTitle>Replace existing pairing?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This browser is already paired with {replacePrompt?.oldName}. Pairing a new
-            event means the current device will no longer work for that event.
+            This browser is already paired with {replacePrompt?.oldName}.
+            Pairing a new event means the current device will no longer work for
+            that event.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
