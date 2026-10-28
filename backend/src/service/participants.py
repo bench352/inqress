@@ -6,6 +6,7 @@ import typing
 import uuid
 from dataclasses import dataclass
 
+import fastapi
 import phonenumbers
 import rapidfuzz
 from sqlalchemy import delete, insert, select, update
@@ -62,7 +63,7 @@ ExistingParticipant = schema.orm.Participant | schema.rest.ParticipantResponse
 
 
 class DetachNotAllowed(Exception):
-    """The participant's source does not track rows, so there is no row link."""
+    """No managed source, or a row-tracking source without a row link."""
 
 
 @dataclass
@@ -109,6 +110,21 @@ def _find_match(
         new_email, existing_email, new_phone, existing_phone = _contact_keys(
             new_p, existing, default_region
         )
+        emails_match = (
+            new_email is not None
+            and existing_email is not None
+            and new_email == existing_email
+        )
+        phones_match = (
+            new_phone is not None
+            and existing_phone is not None
+            and new_phone == existing_phone
+        )
+        # A shared contact confirms the match even when the other contact
+        # differs: the row is correcting it, not describing someone else.
+        if emails_match or phones_match:
+            sure.append(existing)
+            continue
         emails_differ = (
             new_email is not None
             and existing_email is not None
@@ -120,20 +136,6 @@ def _find_match(
             and new_phone != existing_phone
         )
         if emails_differ or phones_differ:
-            continue
-
-        emails_match = (
-            new_email is not None
-            and existing_email is not None
-            and new_email == existing_email
-        )
-        phones_match = (
-            new_phone is not None
-            and existing_phone is not None
-            and new_phone == existing_phone
-        )
-        if emails_match or phones_match:
-            sure.append(existing)
             continue
         if relation != "exact":
             continue
@@ -303,12 +305,14 @@ def _to_response(
     row: schema.orm.Participant, source: schema.orm.DataSource | None = None
 ) -> schema.rest.ParticipantResponse:
     response = schema.rest.ParticipantResponse.model_validate(row)
-    # Detach only means something when the source remembers the row.
-    response.detached = None
     if source is not None:
         response.managed_by = _managed_by(source)
-        if source.tracking == schema.enum.DataSourceTracking.ROW:
-            response.detached = row.detached
+        # Every managed participant carries its real flag: the sync skips a
+        # detached one, whatever the tracking mode.
+        response.detached = row.detached
+    else:
+        # Unmanaged participants are never detached.
+        response.detached = None
     return response
 
 
@@ -363,9 +367,36 @@ def update_participant(
     cfg = config.get_config()
     default_region = cfg.app.default_country_code
 
+    if payload.raw_phone and _parse_phone(payload.raw_phone, default_region) is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid phone number",
+        )
+
     phone_values = _compute_phone_values(payload.raw_phone, default_region)
 
     with service.db.get_session() as session:
+        current = session.execute(
+            select(schema.orm.Participant).where(
+                schema.orm.Participant.id == participant_id,
+                schema.orm.Participant.event_id == event_id,
+            )
+        ).scalar_one_or_none()
+        if current is None:
+            return None
+        source = _managed_source(session, current)
+        if (
+            source is not None
+            and _managed_by(source).overwrites_details
+            and not current.detached
+        ):
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Managed by data source {source.name}. "
+                    "Detach the participant to edit it."
+                ),
+            )
         result = session.execute(
             update(schema.orm.Participant)
             .where(
@@ -385,7 +416,9 @@ def update_participant(
         return _to_response(row, _managed_source(session, row)) if row else None
 
 
-def mark_ticket_delivered(event_id: uuid.UUID, participant_id: uuid.UUID) -> bool:
+def mark_ticket_delivered(
+    event_id: uuid.UUID, participant_id: uuid.UUID, delivered: bool = True
+) -> bool:
     with service.db.get_session() as session:
         result = session.execute(
             update(schema.orm.Participant)
@@ -393,7 +426,7 @@ def mark_ticket_delivered(event_id: uuid.UUID, participant_id: uuid.UUID) -> boo
                 schema.orm.Participant.id == participant_id,
                 schema.orm.Participant.event_id == event_id,
             )
-            .values(is_ticket_delivered=True)
+            .values(is_ticket_delivered=delivered)
         )
         return result.rowcount > 0  # type: ignore[attr-defined]
 
@@ -429,17 +462,18 @@ def set_participant_detached(
         if row is None:
             return None
         source = _managed_source(session, row)
-        if source is None or source.tracking != schema.enum.DataSourceTracking.ROW:
+        if source is None:
             raise DetachNotAllowed
-        # The sync can only skip a row it still remembers.
-        link = session.execute(
-            select(schema.orm.DataSourceRow.participant_id).where(
-                schema.orm.DataSourceRow.data_source_id == source.id,
-                schema.orm.DataSourceRow.participant_id == participant_id,
-            )
-        ).first()
-        if link is None:
-            raise DetachNotAllowed
+        if source.tracking == schema.enum.DataSourceTracking.ROW:
+            # A row-tracking sync can only skip a row it still remembers.
+            link = session.execute(
+                select(schema.orm.DataSourceRow.participant_id).where(
+                    schema.orm.DataSourceRow.data_source_id == source.id,
+                    schema.orm.DataSourceRow.participant_id == participant_id,
+                )
+            ).first()
+            if link is None:
+                raise DetachNotAllowed
         row.detached = detached
         return _to_response(row, source)
 
@@ -450,6 +484,21 @@ def bulk_delete(
     if not ids:
         return schema.rest.BulkDeleteResponse(num_deleted=0)
     with service.db.get_session() as session:
+        managed = session.execute(
+            select(schema.orm.Participant.id).where(
+                schema.orm.Participant.event_id == event_id,
+                schema.orm.Participant.id.in_(ids),
+                schema.orm.Participant.managed_by_data_source_id.is_not(None),
+            )
+        ).first()
+        if managed is not None:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_409_CONFLICT,
+                detail=(
+                    "Some participants are managed by a data source and cannot "
+                    "be deleted."
+                ),
+            )
         result = session.execute(
             delete(schema.orm.Participant).where(
                 schema.orm.Participant.event_id == event_id,
@@ -509,6 +558,15 @@ def apply_participant_rows(
                         )
                     ).scalars()
                 )
+            existing_db = (
+                session.execute(
+                    select(schema.orm.Participant).where(
+                        schema.orm.Participant.event_id == event_id
+                    )
+                )
+                .scalars()
+                .all()
+            )
             for p in payload:
                 if not p.name or not p.name.strip():
                     err = schema.rest.BulkCreateError(
@@ -518,15 +576,8 @@ def apply_participant_rows(
                     _report("error")
                     continue
 
-                existing_db = (
-                    session.execute(
-                        select(schema.orm.Participant).where(
-                            schema.orm.Participant.event_id == event_id
-                        )
-                    )
-                    .scalars()
-                    .all()
-                )
+                # The base is loaded once; the overlay adds what earlier rows
+                # wrote so later rows match against the freshest values.
                 by_id: dict[uuid.UUID, ExistingParticipant] = {
                     row.id: row for row in existing_db
                 }
@@ -549,6 +600,24 @@ def apply_participant_rows(
                 if found is not None:
                     assert isinstance(found, _Match)
                     dup = found.participant
+                    if dup.detached:
+                        # The admin took this person over: write nothing, not
+                        # even the claim.
+                        skipped.append(p)
+                        _report("skipped")
+                        continue
+                    if (
+                        strategy is not schema.enum.DuplicateStrategy.SKIP
+                        and p.raw_phone
+                        and _parse_phone(p.raw_phone, default_region) is None
+                    ):
+                        errors.append(
+                            schema.rest.BulkCreateError(
+                                participant=p, reason="Invalid phone number"
+                            )
+                        )
+                        _report("error")
+                        continue
                     if strategy is schema.enum.DuplicateStrategy.SKIP:
                         # A skip source owns nobody's details, but it still protects
                         # the people it matches from deletion (and being re-added).

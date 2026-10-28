@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   Box,
   Card,
@@ -18,17 +19,20 @@ import { maskEmail, maskPhone } from "@/utils/masking";
 
 interface Props {
   participant: ParticipantItem;
-  onClick: () => void;
+  onOpen: (participantId: string) => void;
 }
 
-export function ParticipantCard({ participant, onClick }: Props) {
+export const ParticipantCard = memo(function ParticipantCard({
+  participant,
+  onOpen,
+}: Props) {
   return (
     <Card
       variant="outlined"
       sx={{ height: "100%", display: "flex", flexDirection: "column" }}
     >
       <CardActionArea
-        onClick={onClick}
+        onClick={() => onOpen(participant.id)}
         sx={{
           height: "100%",
           display: "flex",
@@ -114,4 +118,4 @@ export function ParticipantCard({ participant, onClick }: Props) {
       </CardActionArea>
     </Card>
   );
-}
+});

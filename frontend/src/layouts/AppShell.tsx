@@ -28,42 +28,40 @@ import {
 } from "@tanstack/react-router";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { SnackbarProvider } from "notistack";
+import { useSnackbar } from "notistack";
 import { useAuth } from "../providers/useAuth";
 import { redirectToLogin } from "../providers/redirectToLogin";
 import QueryClientProvider from "../providers/QueryClientProvider";
 import AppInfoProvider from "../providers/AppInfoProvider";
-import SnackbarAlert from "../components/SnackbarAlert";
 
 const DRAWER_WIDTH = 240;
 
 /** Admin-only app context. Lives here so companion pages never download it. */
 function AdminProviders({ children }: PropsWithChildren) {
   return (
-    <SnackbarProvider
-      maxSnack={6}
-      autoHideDuration={10000}
-      Components={{
-        default: SnackbarAlert,
-        success: SnackbarAlert,
-        error: SnackbarAlert,
-        warning: SnackbarAlert,
-        info: SnackbarAlert,
-      }}
-    >
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <QueryClientProvider>
-          <AppInfoProvider>{children}</AppInfoProvider>
-        </QueryClientProvider>
-      </LocalizationProvider>
-    </SnackbarProvider>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <QueryClientProvider>
+        <AppInfoProvider>{children}</AppInfoProvider>
+      </QueryClientProvider>
+    </LocalizationProvider>
   );
 }
 
 function DrawerContent() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { enqueueSnackbar } = useSnackbar();
   const pathname = useLocation({ select: (l) => l.pathname });
+
+  const handleLogout = async () => {
+    const signedOut = await logout();
+    if (!signedOut) {
+      enqueueSnackbar(
+        "Could not sign out — the server did not confirm. Try again.",
+        { variant: "error" },
+      );
+    }
+  };
 
   return (
     <Box>
@@ -93,7 +91,7 @@ function DrawerContent() {
           </ListItemIcon>
           <ListItemText primary="Settings" />
         </ListItemButton>
-        <ListItemButton onClick={logout}>
+        <ListItemButton onClick={handleLogout}>
           <ListItemIcon>
             <LogoutIcon />
           </ListItemIcon>

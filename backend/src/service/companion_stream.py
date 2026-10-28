@@ -58,6 +58,19 @@ class CompanionStreamManager:
                         pass
         return sent
 
+    def close_all(self, event_id: uuid.UUID) -> None:
+        """Terminate every subscriber for the event (e.g. on token rotate).
+
+        Pushes a None sentinel into each queue; the SSE generator in the API
+        layer breaks on it and unsubscribes itself.
+        """
+        with self._lock:
+            for q, _mode in self._connections.get(event_id, []):
+                try:
+                    q.put_nowait(None)
+                except queue.Full:
+                    pass
+
     def count(self, event_id: uuid.UUID, mode: str | None = None) -> int:
         with self._lock:
             conns = self._connections.get(event_id, [])

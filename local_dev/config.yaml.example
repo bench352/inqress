@@ -9,6 +9,8 @@ app:
   default_country_code: "HK"
   max_upload_mb: 30
   data_source_poll_minutes: 1
+  # Allow data source links to point at LAN/internal addresses (link-local stays blocked).
+  allow_private_data_sources: false
 
 auth:
   admin_username: "NeverGonnaGiveYouUp"
@@ -20,8 +22,9 @@ auth:
     enabled: true
     max_failures: 10
     window_seconds: 900
-    # CIDR of the Docker "dev" network used by the HTTPS reverse proxy (Caddy).
-    # Only the proxy container receives addresses from this range.
+    # IP or CIDR of a reverse proxy that terminates TLS (nginx, Caddy, Traefik...)
+    # so login rate limiting can identify real clients. Never 0.0.0.0/0.
+    # This dev setup runs Caddy on the Docker "dev" network (172.31.210.0/24).
     trusted_proxies: ["172.31.210.0/24"]
 
 # Email sending functionalities are not available in hot-reload dev server

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   AppBar,
@@ -32,60 +32,100 @@ import LaunchIcon from "@mui/icons-material/Launch";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import CheckIcon from "@mui/icons-material/Check";
 import { useNavigate } from "@tanstack/react-router";
+import { useSnackbar } from "notistack";
 import { useAuth } from "@/providers/useAuth";
+import { useCompanionApi } from "@/api";
 import EmptyState from "@/components/EmptyState";
 import CameraSettingsDialog from "./CameraSettingsDialog";
+import { clearPairing, readPairing, type StoredPairing } from "./pairing";
 
-interface StoredCompanion {
+interface CompanionSession {
   eventId: string;
   name: string;
-  mode: "kiosk" | "scanner";
-  token: string;
 }
 
-const STORAGE_KEY = "inqress.companions";
-
-function modeLabel(mode: StoredCompanion["mode"]): string {
+function modeLabel(mode: StoredPairing["mode"]): string {
   if (mode === "kiosk") return "Kiosk";
   return "Scanner";
 }
 
-function deviceUrl(d: StoredCompanion): string {
-  return `${window.location.origin}/companion/events/${d.eventId}/${d.mode}`;
-}
-
 export default function CompanionDevices() {
-  const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuth();
+  const { enqueueSnackbar } = useSnackbar();
+  const navigate = useNavigate();
+  const companionApi = useCompanionApi();
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(true);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
-  const [devices, setDevices] = useState<StoredCompanion[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [confirmUnpair, setConfirmUnpair] = useState(false);
+  const [copied, setCopied] = useState(false);
+  // Paired = live companion session AND local pairing for the same event.
+  const [session, setSession] = useState<CompanionSession | null>(null);
+  const [pairing, setPairing] = useState<StoredPairing | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
-  const removeDevice = (eventId: string) => {
-    const next = devices.filter((d) => d.eventId !== eventId);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    setDevices(next);
+  useEffect(() => {
+    void (async () => {
+      const stored = readPairing();
+      let sess: CompanionSession | null;
+      try {
+        sess = await companionApi.get<CompanionSession>(
+          "/api/companion/session",
+        );
+      } catch {
+        sess = null; // 401 or unreachable — no live pairing
+      }
+      if (sess && stored && stored.eventId === sess.eventId) {
+        setSession(sess);
+        setPairing(stored);
+      } else {
+        // Any mismatch (session without storage, storage without session,
+        // or two different events) means unpaired; drop the stale storage and
+        // the live cookie, so no credential is left the UI cannot manage.
+        try {
+          await companionApi.del("/api/companion/session");
+        } catch {
+          // Already gone — nothing to clear.
+        }
+        clearPairing();
+        setSession(null);
+        setPairing(null);
+      }
+      setLoaded(true);
+    })();
+  }, [companionApi]);
+
+  const handleLogout = async () => {
+    const signedOut = await logout();
+    if (!signedOut) {
+      enqueueSnackbar("Cannot sign out. Please try again.", {
+        variant: "error",
+      });
+    }
   };
 
-  const openDevice = (d: StoredCompanion) => {
-    if (d.mode === "kiosk") {
+  const handleUnpair = async () => {
+    setConfirmUnpair(false);
+    try {
+      await companionApi.del("/api/companion/session");
+    } catch {
+      // Idempotent — any outcome (401, network) leaves this browser unpaired.
+    }
+    clearPairing();
+    setSession(null);
+    setPairing(null);
+  };
+
+  const openDevice = () => {
+    if (!pairing) return;
+    if (pairing.mode === "kiosk") {
       navigate({
         to: "/companion/events/$eventId/kiosk",
-        params: { eventId: d.eventId },
+        params: { eventId: pairing.eventId },
       });
     } else {
       navigate({
         to: "/companion/events/$eventId/scanner",
-        params: { eventId: d.eventId },
+        params: { eventId: pairing.eventId },
       });
     }
   };
@@ -94,11 +134,13 @@ export default function CompanionDevices() {
     navigate({ to: "/companion/join" });
   };
 
-  const copyLink = async (d: StoredCompanion) => {
+  const copyLink = async () => {
+    if (!pairing) return;
+    const url = `${window.location.origin}/companion/events/${pairing.eventId}/${pairing.mode}`;
     try {
-      await navigator.clipboard.writeText(deviceUrl(d));
-      setCopiedEventId(d.eventId);
-      setTimeout(() => setCopiedEventId(null), 1500);
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     } catch {
       // clipboard unavailable (insecure context); ignore
     }
@@ -138,7 +180,11 @@ export default function CompanionDevices() {
           onClose={() => setAlertOpen(false)}
           sx={{ borderRadius: 0 }}
           action={
-            <Button color="inherit" size="small" onClick={() => logout()}>
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => void handleLogout()}
+            >
               Log out
             </Button>
           }
@@ -149,26 +195,20 @@ export default function CompanionDevices() {
       )}
 
       <Container maxWidth="sm" sx={{ py: 3 }}>
-        {devices.length === 0 && (
-          <EmptyState icon={<DeviceUnknownIcon />}>
-            Nothing is paired on this device yet. Try adding one using the (+)
-            button.
-          </EmptyState>
-        )}
-
-        {devices.map((d) => (
-          <Card key={d.eventId} variant="outlined" sx={{ mb: 2 }}>
+        {/* While the local session check is in flight, render just the shell. */}
+        {pairing && session && (
+          <Card variant="outlined" sx={{ mb: 2 }}>
             <CardHeader
               avatar={
                 <Avatar sx={{ bgcolor: "primary.main" }}>
-                  {d.mode === "scanner" ? (
+                  {pairing.mode === "scanner" ? (
                     <PhoneAndroidIcon />
                   ) : (
                     <DesktopWindowsIcon />
                   )}
                 </Avatar>
               }
-              title={d.name || d.eventId}
+              title={session.name}
               slotProps={{
                 title: { variant: "subtitle1", fontWeight: 600 },
                 subheader: { component: "div" },
@@ -177,7 +217,7 @@ export default function CompanionDevices() {
                 <Chip
                   size="small"
                   variant="outlined"
-                  label={modeLabel(d.mode)}
+                  label={modeLabel(pairing.mode)}
                   sx={{ mt: 0.5 }}
                 />
               }
@@ -189,21 +229,21 @@ export default function CompanionDevices() {
               <Button
                 size="small"
                 startIcon={
-                  copiedEventId === d.eventId ? (
+                  copied ? (
                     <CheckIcon fontSize="small" color="success" />
                   ) : (
                     <ContentCopyIcon fontSize="small" />
                   )
                 }
-                onClick={() => copyLink(d)}
+                onClick={() => void copyLink()}
               >
                 Copy link
               </Button>
               <Box>
-                <Tooltip title="Remove from this browser">
+                <Tooltip title="Unpair this device">
                   <IconButton
-                    aria-label="remove this device"
-                    onClick={() => setConfirmDelete(d.eventId)}
+                    aria-label="Unpair this device"
+                    onClick={() => setConfirmUnpair(true)}
                   >
                     <DeleteIcon />
                   </IconButton>
@@ -211,48 +251,57 @@ export default function CompanionDevices() {
                 <Button
                   variant="contained"
                   endIcon={<LaunchIcon />}
-                  onClick={() => openDevice(d)}
+                  onClick={openDevice}
                 >
                   Open
                 </Button>
               </Box>
             </CardActions>
           </Card>
-        ))}
+        )}
+
+        {loaded && !pairing && (
+          <EmptyState
+            icon={<DeviceUnknownIcon />}
+            actions={
+              <Button variant="contained" onClick={goJoin}>
+                Pair this device
+              </Button>
+            }
+          >
+            This device is not paired with any event.
+          </EmptyState>
+        )}
       </Container>
 
-      <Fab
-        color="primary"
-        aria-label="pair a new device"
-        onClick={goJoin}
-        sx={{ position: "fixed", bottom: 24, right: 24 }}
-      >
-        <AddIcon />
-      </Fab>
+      {pairing && (
+        <Fab
+          color="primary"
+          aria-label="Pair a new device"
+          onClick={goJoin}
+          sx={{ position: "fixed", bottom: 24, right: 24 }}
+        >
+          <AddIcon />
+        </Fab>
+      )}
 
       <Dialog
-        open={confirmDelete !== null}
-        onClose={() => setConfirmDelete(null)}
+        open={confirmUnpair}
+        onClose={() => setConfirmUnpair(false)}
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Remove this device?</DialogTitle>
+        <DialogTitle>Unpair this device?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This unlinks the event from this browser only. You can pair it again
-            with the pairing screen on the admin page.
+            The kiosk/scanner session on this browser stops working until you
+            pair again. Camera settings are kept.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDelete(null)}>Cancel</Button>
-          <Button
-            color="error"
-            onClick={() => {
-              if (confirmDelete) removeDevice(confirmDelete);
-              setConfirmDelete(null);
-            }}
-          >
-            Remove
+          <Button onClick={() => setConfirmUnpair(false)}>Cancel</Button>
+          <Button color="error" onClick={() => void handleUnpair()}>
+            Unpair
           </Button>
         </DialogActions>
       </Dialog>

@@ -33,14 +33,13 @@ import { alpha } from "@mui/material/styles";
 import { Scanner as QrScanner } from "@yudiel/react-qr-scanner";
 import { useCompanionApi } from "@/api";
 import ResponsiveStepper from "@/components/ResponsiveStepper";
+import { readPairing, writePairing } from "./pairing";
 
-const STORAGE_KEY = "inqress.companions";
 const STEPS = ["Pair device", "Choose mode"];
 
 interface PairInfo {
   eventId: string;
   name: string;
-  token: string;
 }
 
 function readPairHash(hash: string): {
@@ -53,13 +52,6 @@ function readPairHash(hash: string): {
   const [, eventId, token] = parts;
   if (!eventId || !token) return null;
   return { eventId, token };
-}
-
-interface StoredCompanion {
-  eventId: string;
-  name: string;
-  mode: "kiosk" | "scanner" | null;
-  token: string;
 }
 
 const MODE_OPTIONS = [
@@ -160,19 +152,23 @@ export default function CompanionJoin() {
   const manualEventIdError = manualSubmitted && !manualEventId.trim();
   const manualTokenError = manualSubmitted && !manualToken.trim();
   const [pendingPair] = useState(() => readPairHash(window.location.hash));
+  const [replacePrompt, setReplacePrompt] = useState<{
+    eventId: string;
+    token: string;
+    oldName: string;
+  } | null>(null);
   const exchangingRef = useRef(false);
 
-  const handleExchange = useCallback(
+  // The destructive step: exchanges the token, replacing the session cookie.
+  const doExchange = useCallback(
     async (eventId: string, token: string) => {
-      if (exchangingRef.current) return;
-      exchangingRef.current = true;
       setError(null);
       try {
         const res = await companionApi.postNoAuth<{
           eventId: string;
           name: string;
         }>("/api/companion/session", { event_id: eventId, token });
-        setPairInfo({ eventId: res.eventId, name: res.name, token });
+        setPairInfo({ eventId: res.eventId, name: res.name });
         setSelectedMode(null);
         setActiveStep(1);
       } catch (e: unknown) {
@@ -185,12 +181,43 @@ export default function CompanionJoin() {
             ? detail
             : "Pairing failed — check the pairing token and event ID",
         );
-      } finally {
-        exchangingRef.current = false;
       }
     },
     [companionApi],
   );
+
+  // Guard for every exchange path (QR, manual, hash): if this browser already
+  // holds a live pairing for a DIFFERENT event, confirm before replacing it.
+  const handleExchange = useCallback(
+    async (eventId: string, token: string) => {
+      if (exchangingRef.current) return;
+      exchangingRef.current = true;
+      try {
+        let current: { eventId: string; name: string } | null = null;
+        try {
+          current = await companionApi.get<{ eventId: string; name: string }>(
+            "/api/companion/session",
+          );
+        } catch {
+          current = null; // 401 or unreachable — nothing to replace
+        }
+        if (current && current.eventId !== eventId) {
+          setReplacePrompt({ eventId, token, oldName: current.name });
+          return;
+        }
+        await doExchange(eventId, token);
+      } finally {
+        exchangingRef.current = false;
+      }
+    },
+    [companionApi, doExchange],
+  );
+
+  function confirmReplace() {
+    const pending = replacePrompt;
+    setReplacePrompt(null);
+    if (pending) void doExchange(pending.eventId, pending.token);
+  }
 
   // Auto-exchange when the URL hash carries the pairing payload
   // (scanned from another device's camera, or Open on a mode-less device).
@@ -219,32 +246,20 @@ export default function CompanionJoin() {
     void handleExchange(ev, tok);
   }
 
-  function readStored(): StoredCompanion[] {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as StoredCompanion[]) : [];
-    } catch {
-      return [];
-    }
-  }
-
   function savePairing(mode: "kiosk" | "scanner") {
     if (!pairInfo) return;
-    const list = readStored().filter((d) => d.eventId !== pairInfo.eventId);
-    list.push({
-      eventId: pairInfo.eventId,
-      name: pairInfo.name,
-      mode,
-      token: pairInfo.token,
-    });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    writePairing({ eventId: pairInfo.eventId, mode });
     navigate({ to: "/companion" });
   }
 
   function confirmMode() {
     if (!pairInfo || !selectedMode) return;
-    const existing = readStored().find((d) => d.eventId === pairInfo.eventId);
-    if (existing?.mode && existing.mode !== selectedMode) {
+    const existing = readPairing();
+    if (
+      existing &&
+      existing.eventId === pairInfo.eventId &&
+      existing.mode !== selectedMode
+    ) {
       setSwitchFrom(existing.mode);
       return;
     }
@@ -411,6 +426,26 @@ export default function CompanionJoin() {
           >
             Switch
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={replacePrompt !== null}
+        onClose={() => setReplacePrompt(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Replace existing pairing?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This browser is already paired with {replacePrompt?.oldName}.
+            Pairing a new event means the current device will no longer work for
+            that event.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReplacePrompt(null)}>Cancel</Button>
+          <Button onClick={confirmReplace}>Replace</Button>
         </DialogActions>
       </Dialog>
     </Box>

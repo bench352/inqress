@@ -69,7 +69,14 @@ def _parse_xlsx(file_bytes: bytes) -> dict[str, tuple[list[str], list[list[str]]
 
 
 def _parse_csv(file_bytes: bytes) -> dict[str, tuple[list[str], list[list[str]], int]]:
-    text = file_bytes.decode("utf-8-sig")
+    try:
+        text = file_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        # Excel-on-Windows CSVs are usually cp1252, not UTF-8.
+        try:
+            text = file_bytes.decode("cp1252")
+        except UnicodeDecodeError:
+            raise ValueError("Unsupported file encoding") from None
     reader = csv.reader(io.StringIO(text))
     rows = list(reader)
     if not rows:

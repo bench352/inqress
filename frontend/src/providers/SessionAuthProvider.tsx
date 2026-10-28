@@ -66,17 +66,25 @@ export default function SessionAuthProvider({ children }: PropsWithChildren) {
     [checkSession],
   );
 
-  const logout = useCallback(async () => {
-    await fetch(
-      `${import.meta.env.VITE_BACKEND_API_URL ?? ""}/api/auth/logout`,
-      {
-        method: "POST",
-        credentials: "include",
-      },
-    );
+  const logout = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_API_URL ?? ""}/api/auth/logout`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      if (!res.ok) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
     localStorage.removeItem(STORAGE_KEY);
     setUsername(null);
     setIsAuthenticated(false);
+    return true;
   }, []);
 
   useEffect(() => {

@@ -98,18 +98,8 @@ def update_event_mode(
     event_id: uuid.UUID, mode: schema.enum.EventMode
 ) -> schema.rest.EventResponse | None:
     with service.db.get_session() as session:
-        current = (
-            session.execute(
-                select(schema.orm.Event.mode).where(schema.orm.Event.id == event_id)
-            )
-            .scalars()
-            .first()
-        )
-
-        if (
-            current == schema.enum.EventMode.TEST
-            and mode == schema.enum.EventMode.DISABLED
-        ):
+        # Leaving Test mode (to any other mode) drops the trial attendance.
+        if mode is not schema.enum.EventMode.TEST:
             session.execute(
                 delete(schema.orm.AttendanceLog).where(
                     schema.orm.AttendanceLog.event_id == event_id,

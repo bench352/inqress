@@ -1,6 +1,8 @@
 import dataclasses
 import datetime
+import ipaddress
 import logging
+import socket
 import threading
 import time
 import urllib.parse
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 _FORBIDDEN_HEADERS = {"host", "content-length", "transfer-encoding"}
 _TIMEOUT_SECONDS = 60.0
+_MAX_REDIRECTS = 5
 # The poll loop wakes this often at most, so an edited interval applies promptly.
 _WAIT_SLICE_SECONDS = 10.0
 
@@ -124,6 +127,35 @@ def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+def _assert_host_allowed(host: str) -> None:
+    """Resolve `host` and refuse internal addresses before any connection.
+
+    Residual risk: a hostile DNS server could answer this check with a public
+    IP and the actual connection with a private one (DNS rebinding). Pinning
+    connections to the checked IP is not worth the complexity — these links
+    are saved by the admin themselves.
+    """
+    allow_private = config.get_config().app.allow_private_data_sources
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as e:
+        raise ValueError("The link's host could not be resolved") from e
+    for info in infos:
+        ip = ipaddress.ip_address(str(info[4][0]).split("%")[0])
+        # Link-local covers the cloud metadata address (169.254.169.254) and
+        # stays blocked even with the private-range opt-in.
+        if ip.is_link_local or ip.is_multicast or ip.is_unspecified:
+            raise ValueError(
+                "The link points to a private or internal address, which is blocked"
+            )
+        if not ip.is_global and not allow_private:
+            raise ValueError(
+                "The link points to a private or internal address, which is "
+                "blocked. Set app.allow_private_data_sources to true for "
+                "LAN-hosted sheets."
+            )
+
+
 def fetch_bytes(
     url: str, headers: list[schema.rest.DataSourceHeader]
 ) -> tuple[bytes, str]:
@@ -131,6 +163,9 @@ def fetch_bytes(
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError("The link must start with http:// or https://")
+    original_host = parsed.hostname
+    if not original_host:
+        raise ValueError("The link has no host")
     request_headers: dict[str, str] = {}
     for header in headers:
         name = header.name.strip()
@@ -141,30 +176,48 @@ def fetch_bytes(
         request_headers[name] = header.value
 
     max_bytes = service.uploads.max_upload_bytes()
+    current_url = url
     try:
-        with httpx.Client(timeout=_TIMEOUT_SECONDS, follow_redirects=True) as client:
-            with client.stream("GET", url, headers=request_headers) as response:
-                if response.status_code >= 400:
-                    raise ValueError(f"The link returned HTTP {response.status_code}")
-                content_type = response.headers.get("content-type", "")
-                chunks: list[bytes] = []
-                size = 0
-                for chunk in response.iter_bytes():
-                    size += len(chunk)
-                    if size > max_bytes:
-                        raise ValueError(
-                            "The file is larger than the configured upload limit"
+        # Redirects are followed by hand so every hop's host is checked before
+        # connecting; custom headers only travel to the original host.
+        with httpx.Client(timeout=_TIMEOUT_SECONDS, follow_redirects=False) as client:
+            for _ in range(_MAX_REDIRECTS + 1):
+                hop = urllib.parse.urlsplit(current_url)
+                _assert_host_allowed(hop.hostname or "")
+                hop_headers = request_headers if hop.hostname == original_host else {}
+                with client.stream("GET", current_url, headers=hop_headers) as response:
+                    if (
+                        response.status_code in (301, 302, 303, 307, 308)
+                        and "location" in response.headers
+                    ):
+                        current_url = urllib.parse.urljoin(
+                            current_url, response.headers["location"]
                         )
-                    chunks.append(chunk)
+                        continue
+                    if response.status_code >= 400:
+                        raise ValueError(
+                            f"The link returned HTTP {response.status_code}"
+                        )
+                    content_type = response.headers.get("content-type", "")
+                    chunks: list[bytes] = []
+                    size = 0
+                    for chunk in response.iter_bytes():
+                        size += len(chunk)
+                        if size > max_bytes:
+                            raise ValueError(
+                                "The file is larger than the configured upload limit"
+                            )
+                        chunks.append(chunk)
+                    return b"".join(chunks), content_type
+        raise ValueError("The link has too many redirects")
     except httpx.HTTPError as e:
         # The link can carry a token in its query string. Keep it out of the message
         # the admin sees and out of the log.
         detail = str(e)
-        for secret in (url, urllib.parse.urlsplit(url).query):
+        for secret in (url, parsed.query):
             if secret:
                 detail = detail.replace(secret, "...")
         raise ValueError(f"Could not download the link: {detail}") from e
-    return b"".join(chunks), content_type
 
 
 def _download_filename(url: str, content_type: str, data: bytes) -> str:
@@ -287,7 +340,7 @@ def plan_row_tracking(
             continue
         phone_info = service.participants._parse_phone(row.raw_phone, default_region)
         if row.raw_phone and phone_info is None:
-            errors.append(f"Row {row.row_number}: invalid phone number")
+            errors.append(f"Row {row.row_number}: Invalid phone number")
             continue
         country_code, phone = phone_info if phone_info else (None, None)
         values = RowValues(
@@ -412,7 +465,8 @@ def _apply_row_tracking(
                 .where(schema.orm.Participant.id == row_update.participant_id)
                 .values(**_update_values(row_update.values))
             )
-        # Rows whose values matched still belong to this source.
+        # Rows whose values matched still belong to this source — unless the
+        # admin detached them; a detached participant is never (re-)claimed.
         session.execute(
             update(schema.orm.Participant)
             .where(
@@ -423,6 +477,7 @@ def _apply_row_tracking(
                 ),
                 schema.orm.Participant.managed_by_data_source_id.is_(None)
                 | (schema.orm.Participant.managed_by_data_source_id != spec.id),
+                schema.orm.Participant.detached.is_(False),
             )
             .values(managed_by_data_source_id=spec.id)
         )
