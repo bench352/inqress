@@ -525,7 +525,7 @@ export default function ParticipantDetailsDialog({
                 }
                 secondary={
                   participant.checkedInAt
-                    ? "Removes the check-in status of the participant."
+                    ? "Remove the check-in status of the participant."
                     : participant.activated === false
                       ? "This ticket is deactivated."
                       : participant.activated == null
@@ -614,7 +614,7 @@ export default function ParticipantDetailsDialog({
       {confirmDialog(
         confirm === "undo-attend",
         "Undo check-in?",
-        `${name} will be marked as not checked in.`,
+        `The check-in status of ${name} will be removed.`,
         <Button
           onClick={() => undoCheckinMutation.mutate()}
           color="error"
