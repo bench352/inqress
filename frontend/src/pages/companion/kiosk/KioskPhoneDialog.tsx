@@ -1,29 +1,7 @@
 import { useCallback, useState } from "react";
-import {
-  accentOnSurface,
-  KIOSK_MARKS_SURFACE,
-  kioskInputSx,
-  kioskOutlinedSx,
-} from "./kioskStyles";
-import {
-  Box,
-  Button,
-  Dialog,
-  FormControl,
-  MenuItem,
-  Select,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
-import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
-import CloseIcon from "@mui/icons-material/Close";
+import { Dialog } from "@mui/material";
 import { ApiError, useCompanionApi } from "@/api";
-import PhoneDialPad, {
-  DIAL_ACTION_FONT_SIZE,
-  DIAL_BUTTON_HEIGHT,
-  DIAL_PAD_MAX_WIDTH,
-} from "./PhoneDialPad";
+import PhoneCheckinPanel from "./PhoneCheckinPanel";
 import CheckinResultDisplay from "./CheckinResultDisplay";
 import ConflictPickerDialog from "./ConflictPickerDialog";
 import useIdleDismiss from "./useIdleDismiss";
@@ -46,10 +24,6 @@ interface Props {
   onOwnCheckin?: (name: string) => void;
   onUnpaired?: () => void;
 }
-
-const PHONE_ICON_SIZE = 96;
-const PHONE_NO_FONT_SIZE = 22;
-const FIELD_MAX_WIDTH = DIAL_PAD_MAX_WIDTH;
 
 export default function KioskPhoneDialog({
   open,
@@ -145,119 +119,22 @@ export default function KioskPhoneDialog({
           onDismiss={onClose}
         />
       ) : (
-        <Box sx={{ display: "flex", height: "100%" }}>
-          <Box
-            sx={{
-              width: "50%",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 4,
-              p: 6,
-              bgcolor: "grey.100",
-            }}
-          >
-            <PhoneAndroidIcon
-              sx={{
-                fontSize: PHONE_ICON_SIZE,
-                color: accentOnSurface(accentColor, KIOSK_MARKS_SURFACE),
-              }}
-            />
-            <Typography
-              variant="kioskInstruction"
-              sx={{ textAlign: "center", pt: 4 }}
-            >
-              Enter the phone number you registered for this event
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              width: "50%",
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 2,
-              p: 4,
-            }}
-          >
-            <Stack
-              direction="row"
-              spacing={3}
-              sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
-            >
-              <FormControl
-                sx={{
-                  flex: "0 0 auto",
-                  minWidth: 120,
-                  ...kioskInputSx(accentColor),
-                }}
-              >
-                <Select
-                  value={selectedCountryCode}
-                  variant="standard"
-                  onChange={(e) => {
-                    setUserSelectedCode(e.target.value);
-                    bumpIdle();
-                  }}
-                  sx={{
-                    fontSize: PHONE_NO_FONT_SIZE,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {countryCodes.map((code) => (
-                    <MenuItem
-                      key={code}
-                      value={code}
-                      sx={{
-                        fontSize: PHONE_NO_FONT_SIZE,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {code}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                fullWidth
-                variant="standard"
-                value={phoneNo}
-                sx={kioskInputSx(accentColor)}
-                slotProps={{
-                  input: {
-                    readOnly: true,
-                    sx: { fontSize: PHONE_NO_FONT_SIZE },
-                  },
-                }}
-              />
-            </Stack>
-            <PhoneDialPad
-              onDigit={handleDigit}
-              onBackspace={handleBackspace}
-              onSubmit={handleSubmit}
-              disabled={false}
-              submitDisabled={!phoneNo}
-              accentColor={accentColor}
-            />
-            <Button
-              variant="outlined"
-              startIcon={<CloseIcon />}
-              onClick={onClose}
-              sx={{
-                width: DIAL_PAD_MAX_WIDTH,
-                height: DIAL_BUTTON_HEIGHT,
-                fontSize: DIAL_ACTION_FONT_SIZE,
-                ...kioskOutlinedSx(),
-              }}
-            >
-              Cancel
-            </Button>
-          </Box>
-        </Box>
+        <PhoneCheckinPanel
+          accentColor={accentColor}
+          countryCodes={countryCodes}
+          selectedCountryCode={selectedCountryCode}
+          phoneNo={phoneNo}
+          onCountryCodeChange={(code) => {
+            setUserSelectedCode(code);
+            bumpIdle();
+          }}
+          onDigit={handleDigit}
+          onBackspace={handleBackspace}
+          onSubmit={handleSubmit}
+          onCancel={onClose}
+          disabled={false}
+          submitDisabled={!phoneNo}
+        />
       )}
     </Dialog>
   );

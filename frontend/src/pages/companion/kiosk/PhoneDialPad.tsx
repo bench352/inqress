@@ -5,9 +5,9 @@ import BackspaceIcon from "@mui/icons-material/Backspace";
 import { kioskContainedSx, kioskOutlinedSx } from "./kioskStyles";
 
 interface Props {
-  onDigit: (digit: string) => void;
-  onBackspace: () => void;
-  onSubmit: () => void;
+  onDigit?: (digit: string) => void;
+  onBackspace?: () => void;
+  onSubmit?: () => void;
   disabled: boolean;
   submitDisabled: boolean;
   accentColor: string;
@@ -42,7 +42,7 @@ export default function PhoneDialPad({
               fullWidth
               variant="contained"
               disabled={disabled}
-              onClick={() => onDigit(digit)}
+              onClick={() => onDigit?.(digit)}
               sx={{
                 height: DIAL_BUTTON_HEIGHT,
                 fontSize: DIAL_DIGIT_FONT_SIZE,
@@ -59,7 +59,7 @@ export default function PhoneDialPad({
           fullWidth
           variant="outlined"
           disabled={disabled}
-          onClick={onBackspace}
+          onClick={() => onBackspace?.()}
           sx={{
             height: DIAL_BUTTON_HEIGHT,
             fontSize: DIAL_ACTION_FONT_SIZE,
@@ -75,7 +75,7 @@ export default function PhoneDialPad({
           variant="contained"
           color="success"
           disabled={submitDisabled}
-          onClick={onSubmit}
+          onClick={() => onSubmit?.()}
           sx={{
             height: DIAL_BUTTON_HEIGHT,
             fontSize: DIAL_ACTION_FONT_SIZE,
