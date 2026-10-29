@@ -2,6 +2,7 @@ import Grid from "@mui/material/Grid";
 import { Button } from "@mui/material";
 import CheckIcon from "@mui/icons-material/Check";
 import BackspaceIcon from "@mui/icons-material/Backspace";
+import { kioskContainedSx, kioskOutlinedSx } from "./kioskStyles";
 
 interface Props {
   onDigit: (digit: string) => void;
@@ -45,8 +46,7 @@ export default function PhoneDialPad({
               sx={{
                 height: DIAL_BUTTON_HEIGHT,
                 fontSize: DIAL_DIGIT_FONT_SIZE,
-                bgcolor: accentColor,
-                "&:hover": { bgcolor: accentColor },
+                ...kioskContainedSx(accentColor),
               }}
             >
               {digit}
@@ -63,8 +63,7 @@ export default function PhoneDialPad({
           sx={{
             height: DIAL_BUTTON_HEIGHT,
             fontSize: DIAL_ACTION_FONT_SIZE,
-            borderColor: accentColor,
-            color: accentColor,
+            ...kioskOutlinedSx(),
           }}
         >
           <BackspaceIcon />
@@ -77,7 +76,11 @@ export default function PhoneDialPad({
           color="success"
           disabled={submitDisabled}
           onClick={onSubmit}
-          sx={{ height: DIAL_BUTTON_HEIGHT, fontSize: DIAL_ACTION_FONT_SIZE }}
+          sx={{
+            height: DIAL_BUTTON_HEIGHT,
+            fontSize: DIAL_ACTION_FONT_SIZE,
+            ...kioskContainedSx("#2e7d32"),
+          }}
         >
           <CheckIcon sx={{ mr: 1 }} />
           Check In

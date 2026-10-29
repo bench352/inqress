@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
+import { kioskContainedSx } from "./kioskStyles";
 import EmailIcon from "@mui/icons-material/Email";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
@@ -20,7 +21,8 @@ interface Props {
 
 /**
  * The kiosk's idle screen, shared with the admin preview so both stay in step.
- * Give it a box of the kiosk's size; it fills whatever it is placed in.
+ * Fill it with a box of the kiosk's size; it fills whatever it is placed in.
+ * Both callers mount the kiosk theme, so the variants and button styles apply.
  */
 export default function CoverScreen({
   eventName,
@@ -32,10 +34,6 @@ export default function CoverScreen({
   onEmail,
   footer,
 }: Props) {
-  const accentSx = accentColor
-    ? { bgcolor: accentColor, "&:hover": { bgcolor: accentColor } }
-    : undefined;
-
   return (
     <Box
       sx={{
@@ -82,15 +80,14 @@ export default function CoverScreen({
         }}
       >
         {banner && (
-          <Typography sx={{ fontWeight: 500, color: "success.main" }}>
+          <Typography variant="kioskBanner" sx={{ color: "success.main" }}>
             {banner}
           </Typography>
         )}
         <Stack spacing={1.5}>
           <Typography
-            variant="h2"
+            variant="kioskEventName"
             sx={{
-              fontWeight: 900,
               color: accentColor,
               display: "-webkit-box",
               overflow: "hidden",
@@ -100,13 +97,13 @@ export default function CoverScreen({
           >
             {eventName}
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 500 }}>
+          <Typography variant="kioskBody">
             {message?.trim() || DEFAULT_KIOSK_MESSAGE}
           </Typography>
         </Stack>
 
         <Stack spacing={2} sx={{ width: "100%", maxWidth: 420, mt: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 500 }}>
+          <Typography variant="kioskSectionHeading">
             Cannot scan QR code?
           </Typography>
           {onPhone && (
@@ -115,7 +112,12 @@ export default function CoverScreen({
               size="large"
               startIcon={<PhoneAndroidIcon fontSize="inherit" />}
               onClick={onPhone}
-              sx={{ height: "70px", py: 1, fontSize: "1.5rem", ...accentSx }}
+              sx={{
+                height: "70px",
+                py: 1,
+                fontSize: "1.5rem",
+                ...kioskContainedSx(accentColor ?? "#000000"),
+              }}
             >
               Check in with phone No.
             </Button>
@@ -126,7 +128,12 @@ export default function CoverScreen({
             startIcon={<EmailIcon fontSize="inherit" />}
             onClick={onEmail}
             tabIndex={onEmail ? undefined : -1}
-            sx={{ height: "70px", py: 1, fontSize: "1.5rem", ...accentSx }}
+            sx={{
+              height: "70px",
+              py: 1,
+              fontSize: "1.5rem",
+              ...kioskContainedSx(accentColor ?? "#000000"),
+            }}
           >
             Check in with email
           </Button>
@@ -140,7 +147,7 @@ export default function CoverScreen({
             }}
           >
             <TouchAppOutlinedIcon fontSize="medium" />
-            <Typography variant="h6" sx={{ fontWeight: 500 }}>
+            <Typography variant="kioskHint">
               Tap an option on the screen to continue
             </Typography>
           </Stack>

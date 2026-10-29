@@ -12,6 +12,7 @@ import { useCompanionApi } from "@/api";
 import { playSound } from "../sounds";
 import CheckinResultDisplay from "./CheckinResultDisplay";
 import type { CheckinResponse } from "./types";
+import { kioskSemanticSx } from "./kioskStyles";
 
 type ConfirmPhase = "input" | "loading" | "success" | "error";
 
@@ -98,10 +99,11 @@ export default function AssistedConfirmationDialog({
   };
   if (phase !== "input") {
     return (
-      <Dialog open fullScreen>
+      <Dialog open fullScreen transitionDuration={0}>
         <CheckinResultDisplay
           phase={phase}
           result={result}
+          accentColor={accentColor}
           onDismiss={onClose}
         />
       </Dialog>
@@ -109,7 +111,7 @@ export default function AssistedConfirmationDialog({
   }
 
   return (
-    <Dialog open fullScreen>
+    <Dialog open fullScreen transitionDuration={0}>
       <Box
         sx={{
           height: "100%",
@@ -122,25 +124,23 @@ export default function AssistedConfirmationDialog({
         }}
       >
         <PersonSearchIcon sx={{ fontSize: 120, color: accentColor }} />
-        <Typography variant="h2" sx={{ fontWeight: 500 }}>
-          Confirm this is you
-        </Typography>
-        <Typography variant="h1" sx={{ fontWeight: 900 }}>
+        <Typography variant="kioskResultTitle">Confirm this is you</Typography>
+        <Typography variant="kioskName">
           {title ? `${title} ` : ""}
           {name}
         </Typography>
-        <Stack spacing={1.5}>
+        <Stack spacing={1}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <PhoneIcon fontSize="large" color="action" />
-            <Typography variant="h4" sx={{ fontWeight: 500 }}>
+            <PhoneIcon fontSize="large" />
+            <Typography variant="kioskDetail" sx={{ fontSize: "2.125rem" }}>
               {countryCode && phone
                 ? `${countryCode} ${maskPhone(phone)}`
                 : "(No phone number)"}
             </Typography>
           </Stack>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <EmailIcon fontSize="large" color="action" />
-            <Typography variant="h4" sx={{ fontWeight: 500 }}>
+            <EmailIcon fontSize="large" />
+            <Typography variant="kioskDetail" sx={{ fontSize: "2.125rem" }}>
               {email ? maskEmail(email) : "(No email address)"}
             </Typography>
           </Stack>
@@ -152,7 +152,13 @@ export default function AssistedConfirmationDialog({
             color="error"
             onClick={onClose}
             startIcon={<CancelIcon />}
-            sx={{ py: 2, px: 4, fontSize: "2rem", width: "300px" }}
+            sx={{
+              py: 2,
+              px: 4,
+              fontSize: "2rem",
+              width: "300px",
+              ...kioskSemanticSx(),
+            }}
           >
             No ({countdown}s)
           </Button>
@@ -162,7 +168,13 @@ export default function AssistedConfirmationDialog({
             color="success"
             onClick={handleYes}
             startIcon={<CheckCircleIcon />}
-            sx={{ py: 2, px: 4, fontSize: "2rem", width: "300px" }}
+            sx={{
+              py: 2,
+              px: 4,
+              fontSize: "2rem",
+              width: "300px",
+              ...kioskSemanticSx(),
+            }}
           >
             Yes
           </Button>
@@ -178,7 +190,7 @@ export default function AssistedConfirmationDialog({
           }}
         >
           <TouchAppOutlinedIcon fontSize="medium" />
-          <Typography variant="h6" sx={{ fontWeight: 500 }}>
+          <Typography variant="kioskHint">
             Tap an option on the screen to select
           </Typography>
         </Stack>

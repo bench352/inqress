@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { kioskInputSx, kioskOutlinedSx } from "./kioskStyles";
 import {
   Box,
   Button,
   Dialog,
   FormControl,
-  InputLabel,
   MenuItem,
   Select,
   Stack,
@@ -23,25 +23,23 @@ import CheckinResultDisplay from "./CheckinResultDisplay";
 import ConflictPickerDialog from "./ConflictPickerDialog";
 import useIdleDismiss from "./useIdleDismiss";
 import {
-  isConflictDetail,
-  isSuccessDetail,
   type CheckinPhase,
   type CheckinResponse,
   type ConflictParticipant,
+  isConflictDetail,
+  isSuccessDetail,
 } from "./types";
 
 interface Props {
   open: boolean;
   eventId: string;
   accentColor: string;
+  countryCodes: string[];
+  /** The server's default country code for the event. */
+  defaultCountryCode: string;
   onClose: () => void;
   onOwnCheckin?: (name: string) => void;
   onUnpaired?: () => void;
-}
-
-interface CountryCodesResponse {
-  default: string;
-  options: string[];
 }
 
 const PHONE_ICON_SIZE = 96;
@@ -52,15 +50,14 @@ export default function KioskPhoneDialog({
   open,
   eventId,
   accentColor,
+  countryCodes,
+  defaultCountryCode,
   onClose,
   onOwnCheckin,
   onUnpaired,
 }: Props) {
   const api = useCompanionApi();
   const [userSelectedCode, setUserSelectedCode] = useState<string | null>(null);
-  const [countryCodes, setCountryCodes] = useState<string[]>([]);
-  const [defaultCountryCode, setDefaultCountryCode] = useState("");
-  const [countryCodesLoaded, setCountryCodesLoaded] = useState(false);
   const [phoneNo, setPhoneNo] = useState("");
   const [phase, setPhase] = useState<CheckinPhase>("input");
   const [result, setResult] = useState<CheckinResponse | null>(null);
@@ -68,33 +65,11 @@ export default function KioskPhoneDialog({
   const [conflicting, setConflicting] = useState<ConflictParticipant[]>([]);
   const bumpIdle = useIdleDismiss(onClose, phase === "input");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get<CountryCodesResponse>(
-          `/api/events/${eventId}/companion/phones/countryCodes`,
-        );
-        setCountryCodes(res.options);
-        setDefaultCountryCode(res.default);
-      } catch {
-        // leave empty; submit will report the failure
-      } finally {
-        setCountryCodesLoaded(true);
-      }
-    })();
-  }, [eventId, api]);
-
   const effectiveDefault =
     countryCodes.includes(defaultCountryCode) && defaultCountryCode
       ? defaultCountryCode
       : (countryCodes[0] ?? "");
   const selectedCountryCode = userSelectedCode ?? effectiveDefault;
-
-  useEffect(() => {
-    if (countryCodesLoaded && countryCodes.length === 0 && phase === "input") {
-      onClose();
-    }
-  }, [countryCodesLoaded, countryCodes.length, phase, onClose]);
 
   const handleDigit = useCallback(
     (digit: string) => {
@@ -144,7 +119,7 @@ export default function KioskPhoneDialog({
   };
 
   return (
-    <Dialog open={open} fullScreen>
+    <Dialog open={open} fullScreen transitionDuration={0}>
       {phase === "multiple" ? (
         <ConflictPickerDialog
           open
@@ -158,6 +133,7 @@ export default function KioskPhoneDialog({
           phase={phase}
           result={result}
           errorMessage={errorMessage}
+          accentColor={accentColor}
           onDismiss={onClose}
         />
       ) : (
@@ -179,8 +155,8 @@ export default function KioskPhoneDialog({
               sx={{ fontSize: PHONE_ICON_SIZE, color: accentColor }}
             />
             <Typography
-              variant="h3"
-              sx={{ textAlign: "center", pt: 4, fontWeight: 500 }}
+              variant="kioskInstruction"
+              sx={{ textAlign: "center", pt: 4 }}
             >
               Enter the phone number you registered for this event
             </Typography>
@@ -202,11 +178,16 @@ export default function KioskPhoneDialog({
               spacing={3}
               sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
             >
-              <FormControl sx={{ flex: "0 0 auto", minWidth: 120 }}>
-                <InputLabel>Code</InputLabel>
+              <FormControl
+                sx={{
+                  flex: "0 0 auto",
+                  minWidth: 120,
+                  ...kioskInputSx(accentColor),
+                }}
+              >
                 <Select
                   value={selectedCountryCode}
-                  label="Code"
+                  variant="standard"
                   onChange={(e) => {
                     setUserSelectedCode(e.target.value);
                     bumpIdle();
@@ -232,7 +213,9 @@ export default function KioskPhoneDialog({
               </FormControl>
               <TextField
                 fullWidth
+                variant="standard"
                 value={phoneNo}
+                sx={kioskInputSx(accentColor)}
                 slotProps={{
                   input: {
                     readOnly: true,
@@ -257,8 +240,7 @@ export default function KioskPhoneDialog({
                 width: DIAL_PAD_MAX_WIDTH,
                 height: DIAL_BUTTON_HEIGHT,
                 fontSize: DIAL_ACTION_FONT_SIZE,
-                borderColor: accentColor,
-                color: accentColor,
+                ...kioskOutlinedSx(),
               }}
             >
               Cancel

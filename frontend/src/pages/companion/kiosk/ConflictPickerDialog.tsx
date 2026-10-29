@@ -13,6 +13,7 @@ import { maskEmail, maskPhone } from "@/utils/masking";
 import { useConfetti } from "@/hooks/useConfetti";
 import { playSound } from "../sounds";
 import type { ConflictParticipant } from "./types";
+import { kioskContainedSx, kioskOutlinedSx } from "./kioskStyles";
 
 const INITIAL_TIMEOUT_S = 60;
 const ALL_DONE_TIMEOUT_S = 5;
@@ -124,7 +125,7 @@ export default function ConflictPickerDialog({
   );
 
   return (
-    <Dialog open={open} scroll="body" fullScreen>
+    <Dialog open={open} scroll="body" fullScreen transitionDuration={0}>
       <Stack
         direction="column"
         spacing={3}
@@ -136,7 +137,7 @@ export default function ConflictPickerDialog({
         }}
       >
         <GroupsIcon sx={{ fontSize: 96, color: accentColor }} />
-        <Typography variant="h3" sx={{ fontWeight: 500 }}>
+        <Typography variant="kioskHeadline">
           Multiple participants found
         </Typography>
         <Stack
@@ -145,7 +146,7 @@ export default function ConflictPickerDialog({
           sx={{ alignItems: "center", justifyContent: "center" }}
         >
           <TouchAppOutlinedIcon fontSize="medium" />
-          <Typography variant="h5" sx={{ fontWeight: 500 }}>
+          <Typography variant="kioskSubtitle">
             Tap &quot;Check in&quot; for the correct participants on the screen
           </Typography>
         </Stack>
@@ -164,7 +165,7 @@ export default function ConflictPickerDialog({
                 sx={{ alignItems: "center", justifyContent: "space-between" }}
               >
                 <Stack spacing={1}>
-                  <Typography variant="h5" sx={{ fontWeight: 900 }}>
+                  <Typography variant="kioskNameSmall">
                     {p.title ? `${p.title} ` : ""}
                     {p.name}
                   </Typography>
@@ -173,8 +174,8 @@ export default function ConflictPickerDialog({
                     spacing={1}
                     sx={{ alignItems: "center" }}
                   >
-                    <PhoneIcon sx={{ fontSize: 28 }} color="action" />
-                    <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                    <PhoneIcon sx={{ fontSize: 28 }} />
+                    <Typography variant="kioskDetail">
                       {p.countryCode && p.phone
                         ? `${p.countryCode} ${maskPhone(p.phone)}`
                         : "(No phone number)"}
@@ -185,14 +186,18 @@ export default function ConflictPickerDialog({
                     spacing={1}
                     sx={{ alignItems: "center" }}
                   >
-                    <EmailIcon sx={{ fontSize: 28 }} color="action" />
-                    <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                    <EmailIcon sx={{ fontSize: 28 }} />
+                    <Typography variant="kioskDetail">
                       {p.email ? maskEmail(p.email) : "(No email address)"}
                     </Typography>
                   </Stack>
                 </Stack>
                 {errorById[p.id] && (
-                  <Typography color="error" sx={{ mt: 1, fontWeight: 500 }}>
+                  <Typography
+                    variant="kioskSubtitle"
+                    color="error"
+                    sx={{ mt: 1 }}
+                  >
                     {errorById[p.id]}
                   </Typography>
                 )}
@@ -203,7 +208,13 @@ export default function ConflictPickerDialog({
                   onClick={() => handleCheckin(p.id)}
                   disabled={isCheckedIn || pendingId !== null}
                   loading={pendingId === p.id}
-                  sx={{ py: 1, px: 2, fontSize: "1.3rem", width: 220 }}
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    fontSize: "1.3rem",
+                    width: 220,
+                    ...kioskContainedSx("#2e7d32"), // success green keeps its semantic color
+                  }}
                 >
                   {isCheckedIn ? "Checked in" : "Check in"}
                 </Button>
@@ -217,9 +228,7 @@ export default function ConflictPickerDialog({
             variant="outlined"
             sx={{
               fontSize: "1.2rem",
-              borderColor: accentColor,
-              color: accentColor,
-              "&:hover": { borderColor: accentColor, color: accentColor },
+              ...kioskOutlinedSx(),
             }}
           >
             Close ({countdown}s)

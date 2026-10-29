@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { kioskContainedSx, kioskInputSx, kioskOutlinedSx } from "./kioskStyles";
 import {
   Box,
   Button,
@@ -103,7 +104,7 @@ export default function KioskEmailDialog({
   };
 
   return (
-    <Dialog open={open} fullScreen>
+    <Dialog open={open} fullScreen transitionDuration={0}>
       {phase === "multiple" ? (
         <ConflictPickerDialog
           open
@@ -117,6 +118,7 @@ export default function KioskEmailDialog({
           phase={phase}
           result={result}
           errorMessage={errorMessage}
+          accentColor={accentColor}
           onDismiss={onClose}
         />
       ) : (
@@ -138,10 +140,7 @@ export default function KioskEmailDialog({
             }}
           >
             <EmailIcon sx={{ fontSize: EMAIL_ICON_SIZE, color: accentColor }} />
-            <Typography
-              variant="h3"
-              sx={{ textAlign: "center", fontWeight: 500 }}
-            >
+            <Typography variant="kioskInstruction" sx={{ textAlign: "center" }}>
               Enter the email you registered for this event
             </Typography>
             <Stack
@@ -155,13 +154,18 @@ export default function KioskEmailDialog({
               <TextField
                 value={email}
                 placeholder="name@example.com"
+                variant="standard"
+                sx={{
+                  width: "100%",
+                  maxWidth: FIELD_MAX_WIDTH,
+                  ...kioskInputSx(accentColor),
+                }}
                 slotProps={{
                   input: {
                     readOnly: true,
                     sx: { fontSize: 28, textAlign: "center" },
                   },
                 }}
-                sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
               />
               <Stack
                 direction="row"
@@ -177,8 +181,7 @@ export default function KioskEmailDialog({
                     flex: 1,
                     py: 1.5,
                     fontSize: "1.2rem",
-                    borderColor: accentColor,
-                    color: accentColor,
+                    ...kioskOutlinedSx(),
                   }}
                 >
                   Cancel
@@ -193,8 +196,7 @@ export default function KioskEmailDialog({
                     flex: 1,
                     py: 1.5,
                     fontSize: "1.2rem",
-                    bgcolor: accentColor,
-                    "&:hover": { bgcolor: accentColor },
+                    ...kioskContainedSx(accentColor),
                   }}
                 >
                   Check In

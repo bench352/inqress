@@ -6,6 +6,7 @@ import {
   LinearProgress,
   Stack,
   TextField,
+  ThemeProvider,
   Typography,
 } from "@mui/material";
 import ChatOutlinedIcon from "@mui/icons-material/ChatOutlined";
@@ -25,6 +26,7 @@ import SectionHeading from "@/components/SectionHeading";
 import CoverScreen, {
   DEFAULT_KIOSK_MESSAGE,
 } from "../companion/kiosk/CoverScreen";
+import { useKioskTheme } from "../companion/kiosk/kioskStyles";
 
 /** The kiosk at its design size, scaled down to whatever width it gets. */
 function KioskCoverPreview({
@@ -40,6 +42,7 @@ function KioskCoverPreview({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
+  const kioskTheme = useKioskTheme();
 
   useEffect(() => {
     const el = ref.current;
@@ -79,14 +82,16 @@ function KioskCoverPreview({
             pointerEvents: "none",
           }}
         >
-          <CoverScreen
-            eventName={eventName}
-            message={message}
-            accentColor={accentColor}
-            coverUrl={coverUrl}
-            onPhone={() => {}}
-            onEmail={() => {}}
-          />
+          <ThemeProvider theme={kioskTheme}>
+            <CoverScreen
+              eventName={eventName}
+              message={message}
+              accentColor={accentColor}
+              coverUrl={coverUrl}
+              onPhone={() => {}}
+              onEmail={() => {}}
+            />
+          </ThemeProvider>
         </Box>
       )}
     </Box>
