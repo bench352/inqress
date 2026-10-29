@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
-import { kioskContainedSx } from "./kioskStyles";
+import {
+  accentOnSurface,
+  KIOSK_MARKS_SURFACE,
+  kioskContainedSx,
+} from "./kioskStyles";
 import EmailIcon from "@mui/icons-material/Email";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
@@ -88,7 +92,10 @@ export default function CoverScreen({
           <Typography
             variant="kioskEventName"
             sx={{
-              color: accentColor,
+              color: accentOnSurface(
+                accentColor ?? "#000000",
+                KIOSK_MARKS_SURFACE,
+              ),
               display: "-webkit-box",
               overflow: "hidden",
               WebkitBoxOrient: "vertical",

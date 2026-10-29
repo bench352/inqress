@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { kioskContainedSx, kioskInputSx, kioskOutlinedSx } from "./kioskStyles";
+import {
+  accentOnSurface,
+  KIOSK_MARKS_SURFACE,
+  kioskContainedSx,
+  kioskInputSx,
+  kioskOutlinedSx,
+} from "./kioskStyles";
 import {
   Box,
   Button,
@@ -139,7 +145,12 @@ export default function KioskEmailDialog({
               p: 4,
             }}
           >
-            <EmailIcon sx={{ fontSize: EMAIL_ICON_SIZE, color: accentColor }} />
+            <EmailIcon
+              sx={{
+                fontSize: EMAIL_ICON_SIZE,
+                color: accentOnSurface(accentColor, KIOSK_MARKS_SURFACE),
+              }}
+            />
             <Typography variant="kioskInstruction" sx={{ textAlign: "center" }}>
               Enter the email you registered for this event
             </Typography>

@@ -12,7 +12,11 @@ import { useCompanionApi } from "@/api";
 import { playSound } from "../sounds";
 import CheckinResultDisplay from "./CheckinResultDisplay";
 import type { CheckinResponse } from "./types";
-import { kioskSemanticSx } from "./kioskStyles";
+import {
+  accentOnSurface,
+  KIOSK_MARKS_SURFACE,
+  kioskSemanticSx,
+} from "./kioskStyles";
 
 type ConfirmPhase = "input" | "loading" | "success" | "error";
 
@@ -123,7 +127,12 @@ export default function AssistedConfirmationDialog({
           p: 8,
         }}
       >
-        <PersonSearchIcon sx={{ fontSize: 120, color: accentColor }} />
+        <PersonSearchIcon
+          sx={{
+            fontSize: 120,
+            color: accentOnSurface(accentColor, KIOSK_MARKS_SURFACE),
+          }}
+        />
         <Typography variant="kioskResultTitle">Confirm this is you</Typography>
         <Typography variant="kioskName">
           {title ? `${title} ` : ""}

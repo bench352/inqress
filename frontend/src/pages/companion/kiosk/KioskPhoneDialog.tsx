@@ -1,5 +1,10 @@
 import { useCallback, useState } from "react";
-import { kioskInputSx, kioskOutlinedSx } from "./kioskStyles";
+import {
+  accentOnSurface,
+  KIOSK_MARKS_SURFACE,
+  kioskInputSx,
+  kioskOutlinedSx,
+} from "./kioskStyles";
 import {
   Box,
   Button,
@@ -69,7 +74,10 @@ export default function KioskPhoneDialog({
     countryCodes.includes(defaultCountryCode) && defaultCountryCode
       ? defaultCountryCode
       : (countryCodes[0] ?? "");
-  const selectedCountryCode = userSelectedCode ?? effectiveDefault;
+  const selectedCountryCode =
+    userSelectedCode && countryCodes.includes(userSelectedCode)
+      ? userSelectedCode
+      : effectiveDefault;
 
   const handleDigit = useCallback(
     (digit: string) => {
@@ -152,7 +160,10 @@ export default function KioskPhoneDialog({
             }}
           >
             <PhoneAndroidIcon
-              sx={{ fontSize: PHONE_ICON_SIZE, color: accentColor }}
+              sx={{
+                fontSize: PHONE_ICON_SIZE,
+                color: accentOnSurface(accentColor, KIOSK_MARKS_SURFACE),
+              }}
             />
             <Typography
               variant="kioskInstruction"

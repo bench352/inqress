@@ -13,7 +13,12 @@ import { maskEmail, maskPhone } from "@/utils/masking";
 import { useConfetti } from "@/hooks/useConfetti";
 import { playSound } from "../sounds";
 import type { ConflictParticipant } from "./types";
-import { kioskContainedSx, kioskOutlinedSx } from "./kioskStyles";
+import {
+  accentOnSurface,
+  KIOSK_MARKS_SURFACE,
+  kioskContainedSx,
+  kioskOutlinedSx,
+} from "./kioskStyles";
 
 const INITIAL_TIMEOUT_S = 60;
 const ALL_DONE_TIMEOUT_S = 5;
@@ -136,7 +141,12 @@ export default function ConflictPickerDialog({
           p: 4,
         }}
       >
-        <GroupsIcon sx={{ fontSize: 96, color: accentColor }} />
+        <GroupsIcon
+          sx={{
+            fontSize: 96,
+            color: accentOnSurface(accentColor, KIOSK_MARKS_SURFACE),
+          }}
+        />
         <Typography variant="kioskHeadline">
           Multiple participants found
         </Typography>

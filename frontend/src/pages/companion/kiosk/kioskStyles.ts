@@ -170,30 +170,53 @@ export function useKioskTheme() {
   );
 }
 
+function luminance(hex: string): number | null {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return null;
+  const lin = (c: number) =>
+    c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  const [r, g, b] = [0, 2, 4].map((i) =>
+    lin(parseInt(h.slice(i, i + 2), 16) / 255),
+  );
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
 // Relative luminance per WCAG, returns black or white label for the given accent hex.
 export function getOnColor(hex: string): string {
-  const h = hex.replace("#", "");
-  if (h.length !== 6) return "#000000";
-  let [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-  r = r <= 0.03928 ? r / 12.92 : ((r + 0.055) / 1.055) ** 2.4;
-  g = g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055) ** 2.4;
-  b = b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055) ** 2.4;
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const lum = luminance(hex);
+  if (lum === null) return "#000000";
   return lum > 0.179 ? "#000000" : "#FFFFFF";
 }
 
-// Pill shape. The accent never draws the boundary: a 2px ink edge does, so a
+const KIOSK_EDGE = "#000000";
+
+// The grey.100 panel behind the phone icon in KioskPhoneDialog: the darkest
+// surface an accent mark sits on, so clearing 3:1 here clears it everywhere.
+export const KIOSK_MARKS_SURFACE = "#f5f5f5";
+
+// Accent when it clears 3:1 on the given surface, else the black edge, so a pale
+// accent cannot disappear.
+export function accentOnSurface(hex: string, surface = "#ffffff"): string {
+  const accent = luminance(hex);
+  const behind = luminance(surface);
+  if (accent === null || behind === null) return KIOSK_EDGE;
+  const ratio =
+    (Math.max(accent, behind) + 0.05) / (Math.min(accent, behind) + 0.05);
+  return ratio >= 3 ? hex : KIOSK_EDGE;
+}
+
+// Pill shape. The accent never draws the boundary: a 2px black edge does, so a
 // pale or white accent still reads as a button. The hard shadow sits under the
 // button (no offset sideways) so a row of keys stays aligned.
 const KIOSK_RADIUS = "9999px";
-const KIOSK_SHADOW = "0 3px 0 0 #111";
+const KIOSK_SHADOW = `0 3px 0 0 ${KIOSK_EDGE}`;
 
 // One shadow and one shape for every variant, so filled and outlined controls
 // read as the same family.
 const KIOSK_BUTTON_BASE = {
   borderRadius: KIOSK_RADIUS,
   border: "2px solid",
-  borderColor: "text.primary",
+  borderColor: KIOSK_EDGE,
   boxShadow: KIOSK_SHADOW,
   "&:hover": { boxShadow: KIOSK_SHADOW },
   "&:active": { boxShadow: KIOSK_SHADOW },
@@ -233,14 +256,13 @@ export function kioskSemanticSx(): SxProps<Theme> {
 }
 
 /**
- * Standard-variant input: paint the focus bar in the accent, with an ink
- * fallback when the accent is too pale to clear 3:1. The placeholder uses the
+ * Standard-variant input: paint the focus bar in the accent when it clears
+ * 3:1 on the white dialog, otherwise black. The placeholder uses the
  * instruction face so it matches the heading above the field.
  * `.MuiInputBase-root::after` outranks MUI's own `&::after` rule.
  */
 export function kioskInputSx(accent: string): SxProps<Theme> {
-  // Pale accents cannot reach 3:1 against the white dialog, so fall back to ink.
-  const bar = getOnColor(accent) === "#000000" ? accent : "#212121";
+  const bar = accentOnSurface(accent);
   return {
     "& .MuiInputBase-root::after": {
       borderBottomColor: bar,

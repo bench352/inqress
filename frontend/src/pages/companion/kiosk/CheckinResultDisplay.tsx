@@ -7,6 +7,7 @@ import failSound from "@/assets/soundEffects/checkin_fail.aac";
 import { useConfetti } from "@/hooks/useConfetti";
 import { playSound } from "../sounds";
 import { type CheckinResponse, isErrorDetail, isSuccessDetail } from "./types";
+import { accentOnSurface } from "./kioskStyles";
 
 interface Props {
   phase: "loading" | "success" | "error";
@@ -71,7 +72,12 @@ export default function CheckinResultDisplay({
     >
       {phase === "loading" && (
         <>
-          <CircularProgress size={LOADING_SIZE} sx={{ color: accentColor }} />
+          <CircularProgress
+            size={LOADING_SIZE}
+            sx={{
+              color: accentColor ? accentOnSurface(accentColor) : undefined,
+            }}
+          />
           <Typography variant="kioskResultTitle">Just a moment...</Typography>
         </>
       )}

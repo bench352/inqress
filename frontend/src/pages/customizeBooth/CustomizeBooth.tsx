@@ -17,7 +17,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import { MuiColorInput } from "mui-color-input";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, useApi } from "../../api";
+import { ApiError, useApi } from "@/api.ts";
 import { useSnackbar } from "notistack";
 import type { EventItem } from "../eventsList/useEvents";
 import FileUploadField from "@/components/FileUploadField";
@@ -26,7 +26,11 @@ import SectionHeading from "@/components/SectionHeading";
 import CoverScreen, {
   DEFAULT_KIOSK_MESSAGE,
 } from "../companion/kiosk/CoverScreen";
-import { useKioskTheme } from "../companion/kiosk/kioskStyles";
+import {
+  accentOnSurface,
+  KIOSK_MARKS_SURFACE,
+  useKioskTheme,
+} from "../companion/kiosk/kioskStyles";
 
 /** The kiosk at its design size, scaled down to whatever width it gets. */
 function KioskCoverPreview({
@@ -143,6 +147,12 @@ export default function CustomizeBooth() {
 
   const currentAccentColor =
     accentDraft ?? accentColorQuery.data?.colorCode ?? "#000000";
+  const appliedAccent = accentOnSurface(
+    currentAccentColor,
+    KIOSK_MARKS_SURFACE,
+  );
+  const accentTooLight =
+    appliedAccent.toLowerCase() !== currentAccentColor.toLowerCase();
   const currentMessage = messageDraft ?? kioskMessageQuery.data?.message ?? "";
 
   useEffect(() => {
@@ -352,7 +362,9 @@ export default function CustomizeBooth() {
           Accent color
         </SectionHeading>
         <Typography variant="body1" color="textSecondary">
-          Used for icons and buttons on the kiosk screen.
+          {accentTooLight
+            ? "Used for the buttons only."
+            : "Used for the buttons, the event name, and the icons."}
         </Typography>
         <MuiColorInput
           format="hex"
@@ -360,6 +372,12 @@ export default function CustomizeBooth() {
           onChange={setAccentDraft}
           disabled={saving}
         />
+        {accentTooLight && (
+          <Alert severity="warning">
+            The chosen color is too light to be read on the kiosk screen. Event
+            name and icons will be shown in black for readability.
+          </Alert>
+        )}
       </Stack>
 
       <Stack spacing={2}>

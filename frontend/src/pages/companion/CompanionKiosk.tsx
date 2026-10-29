@@ -380,6 +380,31 @@ export default function CompanionKiosk() {
     };
   }, [eventId, api]);
 
+  // Boot load only decides the button. Refresh on open so a code added after
+  // the kiosk started is in the list. A failure keeps the list already shown.
+  useEffect(() => {
+    if (dialog !== "phone") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await api.get<{ default: string; options: string[] }>(
+          `/api/events/${eventId}/companion/phones/countryCodes`,
+        );
+        if (cancelled) return;
+        const options = res.options ?? [];
+        setPhoneCountryCodes(options);
+        setPhoneCountryDefaultCode(res.default);
+        if (options.length === 0) closeDialog();
+      } catch (e: unknown) {
+        if (cancelled) return;
+        if (e instanceof ApiError && e.status === 401) setUnpaired(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dialog, eventId, api, closeDialog]);
+
   useEffect(() => {
     // connect companion stream (mode=kiosk)
     const url = `${import.meta.env.VITE_BACKEND_API_URL ?? ""}/api/events/${eventId}/companion/streams?mode=kiosk`;
