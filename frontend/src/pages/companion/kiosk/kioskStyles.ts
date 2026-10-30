@@ -195,74 +195,71 @@ const KIOSK_BUTTON_BASE = {
 /** The app theme plus the booth's type roles and button shape. Guest kiosk and preview both use it. */
 export function useKioskTheme() {
   const parent = useTheme();
-  return useMemo(
-    () => {
-      const kiosk = createTheme(parent, {
-        typography: KIOSK_TYPOGRAPHY,
-        components: {
-          MuiButton: {
-            styleOverrides: { root: KIOSK_BUTTON_BASE },
-            variants: [
-              {
-                props: { variant: "outlined" },
-                // Outlined buttons carry no accent: ink label on the ink edge.
-                // The outlined variant paints its label from this variable (a plain
-                // `color` loses to the variant rule), so set the variable itself.
-                // The callback receives the base theme, so read the palette off
-                // the extended one.
-                style: () => ({
-                  "--variant-outlinedColor": kiosk.palette.text.primary,
-                  // MUI's hover rule tints the background and solidifies the
-                  // border; pin both to their resting values. Scoped to the
-                  // outlined class so it never touches contained buttons.
-                  [`&.${buttonClasses.outlined}`]: {
-                    "@media (hover: hover)": {
-                      "&:hover": {
-                        "--variant-outlinedBg": "transparent",
-                        "--variant-outlinedBorder": kiosk.alpha(
-                          kiosk.palette.text.primary,
-                          0.5,
-                        ),
-                      },
+  return useMemo(() => {
+    const kiosk = createTheme(parent, {
+      typography: KIOSK_TYPOGRAPHY,
+      components: {
+        MuiButton: {
+          styleOverrides: { root: KIOSK_BUTTON_BASE },
+          variants: [
+            {
+              props: { variant: "outlined" },
+              // Outlined buttons carry no accent: ink label on the ink edge.
+              // The outlined variant paints its label from this variable (a plain
+              // `color` loses to the variant rule), so set the variable itself.
+              // The callback receives the base theme, so read the palette off
+              // the extended one.
+              style: () => ({
+                "--variant-outlinedColor": kiosk.palette.text.primary,
+                // MUI's hover rule tints the background and solidifies the
+                // border; pin both to their resting values. Scoped to the
+                // outlined class so it never touches contained buttons.
+                [`&.${buttonClasses.outlined}`]: {
+                  "@media (hover: hover)": {
+                    "&:hover": {
+                      "--variant-outlinedBg": "transparent",
+                      "--variant-outlinedBorder": kiosk.alpha(
+                        kiosk.palette.text.primary,
+                        0.5,
+                      ),
                     },
                   },
-                }),
-              },
-              // Palette-colored contained buttons darken on hover; pin the fill
-              // back to the color they rest at.
-              ...(["success", "error"] as const).map((color) => ({
-                props: { variant: "contained" as const, color },
-                style: () => ({
-                  [`&.${buttonClasses.contained}`]: {
-                    "@media (hover: hover)": {
-                      "&:hover": {
-                        "--variant-containedBg": kiosk.palette[color].main,
-                      },
+                },
+              }),
+            },
+            // Palette-colored contained buttons darken on hover; pin the fill
+            // back to the color they rest at.
+            ...(["success", "error"] as const).map((color) => ({
+              props: { variant: "contained" as const, color },
+              style: () => ({
+                [`&.${buttonClasses.contained}`]: {
+                  "@media (hover: hover)": {
+                    "&:hover": {
+                      "--variant-containedBg": kiosk.palette[color].main,
                     },
                   },
-                }),
-              })),
-              {
-                props: { variant: "contained" as const },
-                style: () => ({
-                  [`&.${kioskAccentClass}`]: {
-                    "@media (hover: hover)": {
-                      "&:hover": {
-                        "--variant-containedBg": "var(--kiosk-accent)",
-                        "--variant-containedColor": "var(--kiosk-accent-ink)",
-                      },
+                },
+              }),
+            })),
+            {
+              props: { variant: "contained" as const },
+              style: () => ({
+                [`&.${kioskAccentClass}`]: {
+                  "@media (hover: hover)": {
+                    "&:hover": {
+                      "--variant-containedBg": "var(--kiosk-accent)",
+                      "--variant-containedColor": "var(--kiosk-accent-ink)",
                     },
                   },
-                }),
-              },
-            ],
-          },
+                },
+              }),
+            },
+          ],
         },
-      });
-      return kiosk;
-    },
-    [parent],
-  );
+      },
+    });
+    return kiosk;
+  }, [parent]);
 }
 
 function luminance(hex: string): number | null {
