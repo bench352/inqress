@@ -181,6 +181,9 @@ export default function CompanionKiosk() {
     phone: string | null;
     email: string | null;
   } | null>(null);
+  // Remounts the confirm dialog so its clock, screen, and chime start over for
+  // each request, even for the same guest.
+  const [confirmSeq, setConfirmSeq] = useState(0);
   const esRef = useRef<EventSource | null>(null);
   const watchdogRef = useRef<number | null>(null);
   const dialogRef = useRef<DialogKind>(null);
@@ -556,6 +559,7 @@ export default function CompanionKiosk() {
               // was doing so it cannot re-appear behind the result.
               setDialog(null);
               setScanResult(null);
+              setConfirmSeq((n) => n + 1);
               setPendingConfirm({
                 participantId: String(p.participantId ?? ""),
                 title: p.title ?? null,
@@ -651,6 +655,7 @@ export default function CompanionKiosk() {
     if (pendingConfirm) {
       return (
         <AssistedConfirmationDialog
+          key={confirmSeq}
           eventId={eventId}
           participantId={pendingConfirm.participantId}
           title={pendingConfirm.title}
