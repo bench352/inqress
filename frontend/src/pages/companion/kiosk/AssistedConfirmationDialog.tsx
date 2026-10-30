@@ -56,8 +56,12 @@ export default function AssistedConfirmationDialog({
 
   useEffect(() => {
     countdownRef.current = INITIAL_TIMEOUT_S;
+    // clearInterval cannot cancel a tick the browser already queued; without
+    // this, that tick closes the confirm that replaced this dialog.
+    let cancelled = false;
 
     timerRef.current = setInterval(() => {
+      if (cancelled) return;
       countdownRef.current -= 1;
       setCountdown(countdownRef.current);
       if (countdownRef.current <= 0) {
@@ -67,6 +71,7 @@ export default function AssistedConfirmationDialog({
     }, 1000);
 
     return () => {
+      cancelled = true;
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [onClose]);
