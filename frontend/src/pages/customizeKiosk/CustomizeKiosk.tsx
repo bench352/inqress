@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
   Box,
@@ -6,6 +6,7 @@ import {
   LinearProgress,
   Stack,
   TextField,
+  ThemeProvider,
   Typography,
 } from "@mui/material";
 import ChatOutlinedIcon from "@mui/icons-material/ChatOutlined";
@@ -16,8 +17,9 @@ import SaveIcon from "@mui/icons-material/Save";
 import { MuiColorInput } from "mui-color-input";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, useApi } from "../../api";
+import { ApiError, useApi } from "@/api.ts";
 import { useSnackbar } from "notistack";
+import { useDebounce } from "@/hooks/useDebounce";
 import type { EventItem } from "../eventsList/useEvents";
 import FileUploadField from "@/components/FileUploadField";
 import PageHeader from "@/components/PageHeader";
@@ -25,18 +27,20 @@ import SectionHeading from "@/components/SectionHeading";
 import CoverScreen, {
   DEFAULT_KIOSK_MESSAGE,
 } from "../companion/kiosk/CoverScreen";
+import PhoneCheckinPanel from "../companion/kiosk/PhoneCheckinPanel";
+import {
+  accentReadable,
+  KIOSK_MARKS_SURFACE,
+  useKioskTheme,
+} from "../companion/kiosk/kioskStyles";
 
-/** The kiosk at its design size, scaled down to whatever width it gets. */
-function KioskCoverPreview({
-  eventName,
-  message,
-  accentColor,
-  coverUrl,
+/** A booth screen at its design size, scaled down to whatever width it gets. */
+function ScaledKioskPreview({
+  label,
+  children,
 }: {
-  eventName?: string;
-  message: string;
-  accentColor: string;
-  coverUrl: string | null;
+  label: string;
+  children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -55,7 +59,7 @@ function KioskCoverPreview({
     <Box
       ref={ref}
       role="img"
-      aria-label="Preview of the kiosk screen"
+      aria-label={label}
       sx={{
         aspectRatio: "16 / 9",
         position: "relative",
@@ -79,17 +83,57 @@ function KioskCoverPreview({
             pointerEvents: "none",
           }}
         >
-          <CoverScreen
-            eventName={eventName}
-            message={message}
-            accentColor={accentColor}
-            coverUrl={coverUrl}
-            onPhone={() => {}}
-            onEmail={() => {}}
-          />
+          {children}
         </Box>
       )}
     </Box>
+  );
+}
+
+function KioskCoverPreview({
+  eventName,
+  message,
+  accentColor,
+  coverUrl,
+}: {
+  eventName?: string;
+  message: string;
+  accentColor: string;
+  coverUrl: string | null;
+}) {
+  const kioskTheme = useKioskTheme();
+
+  return (
+    <ScaledKioskPreview label="Preview of the kiosk screen">
+      <ThemeProvider theme={kioskTheme}>
+        <CoverScreen
+          eventName={eventName}
+          message={message}
+          accentColor={accentColor}
+          coverUrl={coverUrl}
+          onPhone={() => {}}
+          onEmail={() => {}}
+        />
+      </ThemeProvider>
+    </ScaledKioskPreview>
+  );
+}
+
+/** Static rendering of the phone check-in dialog; never interactive. */
+function KioskPhonePreview({ accentColor }: { accentColor: string }) {
+  const kioskTheme = useKioskTheme();
+
+  return (
+    <ScaledKioskPreview label="Preview of the phone check-in screen">
+      <ThemeProvider theme={kioskTheme}>
+        <PhoneCheckinPanel
+          accentColor={accentColor}
+          countryCodes={["+1"]}
+          selectedCountryCode="+1"
+          phoneNo=""
+        />
+      </ThemeProvider>
+    </ScaledKioskPreview>
   );
 }
 
@@ -101,7 +145,7 @@ function errorDetail(error: unknown): string {
   return detail.replace(/\.$/, "") + ".";
 }
 
-export default function CustomizeBooth() {
+export default function CustomizeKiosk() {
   const { eventId } = useParams({
     from: "/app-shell/admin/events/$eventId/customizeKiosk",
   });
@@ -138,6 +182,8 @@ export default function CustomizeBooth() {
 
   const currentAccentColor =
     accentDraft ?? accentColorQuery.data?.colorCode ?? "#000000";
+  const previewAccent = useDebounce(currentAccentColor, 150);
+  const accentTooLight = !accentReadable(previewAccent, KIOSK_MARKS_SURFACE);
   const currentMessage = messageDraft ?? kioskMessageQuery.data?.message ?? "";
 
   useEffect(() => {
@@ -310,12 +356,28 @@ export default function CustomizeBooth() {
         </Alert>
       )}
 
-      <KioskCoverPreview
-        eventName={eventQuery.data?.name}
-        message={currentMessage}
-        accentColor={currentAccentColor}
-        coverUrl={displayUrl}
-      />
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          gap: 2,
+        }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <KioskCoverPreview
+            eventName={eventQuery.data?.name}
+            message={currentMessage}
+            accentColor={previewAccent}
+            coverUrl={displayUrl}
+          />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <KioskPhonePreview accentColor={previewAccent} />
+        </Box>
+      </Box>
+      <Typography variant="body2" color="textSecondary" align="center">
+        Preview only. The booth differs with screen size and aspect ratio.
+      </Typography>
 
       <Stack spacing={2}>
         <SectionHeading icon={<CloudUploadIcon />}>Cover image</SectionHeading>
@@ -347,7 +409,9 @@ export default function CustomizeBooth() {
           Accent color
         </SectionHeading>
         <Typography variant="body1" color="textSecondary">
-          Used for icons and buttons on the kiosk screen.
+          {accentTooLight
+            ? "Used for the buttons only."
+            : "Used for the buttons, the event name, and the icons."}
         </Typography>
         <MuiColorInput
           format="hex"
@@ -355,6 +419,12 @@ export default function CustomizeBooth() {
           onChange={setAccentDraft}
           disabled={saving}
         />
+        {accentTooLight && (
+          <Alert severity="warning">
+            The chosen color is too light to be read on the kiosk screen. Event
+            name and icons will be shown in black for readability.
+          </Alert>
+        )}
       </Stack>
 
       <Stack spacing={2}>

@@ -47,8 +47,8 @@ const AddParticipantsBySpreadsheet = lazyRouteComponent(
 const BulkTicketDelivery = lazyRouteComponent(
   () => import("./pages/bulkTicketDelivery/BulkTicketDelivery"),
 );
-const CustomizeBooth = lazyRouteComponent(
-  () => import("./pages/customizeBooth/CustomizeBooth"),
+const CustomizeKiosk = lazyRouteComponent(
+  () => import("./pages/customizeKiosk/CustomizeKiosk"),
 );
 const DataSources = lazyRouteComponent(
   () => import("./pages/dataSources/DataSources"),
@@ -195,7 +195,7 @@ const bulkTicketDeliveryRoute = createRoute({
 const customizeKioskRoute = createRoute({
   getParentRoute: () => appShellLayout,
   path: "/admin/events/$eventId/customizeKiosk",
-  component: CustomizeBooth,
+  component: CustomizeKiosk,
 });
 
 const settingsRoute = createRoute({

@@ -1,5 +1,10 @@
 import { useState } from "react";
 import {
+  accentOnSurface,
+  KIOSK_MARKS_SURFACE,
+  kioskInputSx,
+} from "./kioskStyles";
+import {
   Box,
   Button,
   Dialog,
@@ -103,7 +108,7 @@ export default function KioskEmailDialog({
   };
 
   return (
-    <Dialog open={open} fullScreen>
+    <Dialog open={open} fullScreen transitionDuration={0}>
       {phase === "multiple" ? (
         <ConflictPickerDialog
           open
@@ -117,6 +122,7 @@ export default function KioskEmailDialog({
           phase={phase}
           result={result}
           errorMessage={errorMessage}
+          accentColor={accentColor}
           onDismiss={onClose}
         />
       ) : (
@@ -137,11 +143,13 @@ export default function KioskEmailDialog({
               p: 4,
             }}
           >
-            <EmailIcon sx={{ fontSize: EMAIL_ICON_SIZE, color: accentColor }} />
-            <Typography
-              variant="h3"
-              sx={{ textAlign: "center", fontWeight: 500 }}
-            >
+            <EmailIcon
+              sx={{
+                fontSize: EMAIL_ICON_SIZE,
+                color: accentOnSurface(accentColor, KIOSK_MARKS_SURFACE),
+              }}
+            />
+            <Typography variant="kioskInstruction" sx={{ textAlign: "center" }}>
               Enter the email you registered for this event
             </Typography>
             <Stack
@@ -155,13 +163,18 @@ export default function KioskEmailDialog({
               <TextField
                 value={email}
                 placeholder="name@example.com"
+                variant="standard"
+                sx={{
+                  width: "100%",
+                  maxWidth: FIELD_MAX_WIDTH,
+                  ...kioskInputSx(accentColor),
+                }}
                 slotProps={{
                   input: {
                     readOnly: true,
                     sx: { fontSize: 28, textAlign: "center" },
                   },
                 }}
-                sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
               />
               <Stack
                 direction="row"
@@ -177,14 +190,13 @@ export default function KioskEmailDialog({
                     flex: 1,
                     py: 1.5,
                     fontSize: "1.2rem",
-                    borderColor: accentColor,
-                    color: accentColor,
                   }}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="contained"
+                  color="success"
                   size="large"
                   startIcon={<CheckIcon />}
                   disabled={!email}
@@ -193,8 +205,6 @@ export default function KioskEmailDialog({
                     flex: 1,
                     py: 1.5,
                     fontSize: "1.2rem",
-                    bgcolor: accentColor,
-                    "&:hover": { bgcolor: accentColor },
                   }}
                 >
                   Check In

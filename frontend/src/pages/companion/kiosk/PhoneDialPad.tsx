@@ -2,11 +2,12 @@ import Grid from "@mui/material/Grid";
 import { Button } from "@mui/material";
 import CheckIcon from "@mui/icons-material/Check";
 import BackspaceIcon from "@mui/icons-material/Backspace";
+import { kioskAccentClass, kioskContainedSx } from "./kioskStyles";
 
 interface Props {
-  onDigit: (digit: string) => void;
-  onBackspace: () => void;
-  onSubmit: () => void;
+  onDigit?: (digit: string) => void;
+  onBackspace?: () => void;
+  onSubmit?: () => void;
   disabled: boolean;
   submitDisabled: boolean;
   accentColor: string;
@@ -40,13 +41,13 @@ export default function PhoneDialPad({
             <Button
               fullWidth
               variant="contained"
+              className={kioskAccentClass}
               disabled={disabled}
-              onClick={() => onDigit(digit)}
+              onClick={() => onDigit?.(digit)}
               sx={{
                 height: DIAL_BUTTON_HEIGHT,
                 fontSize: DIAL_DIGIT_FONT_SIZE,
-                bgcolor: accentColor,
-                "&:hover": { bgcolor: accentColor },
+                ...kioskContainedSx(accentColor),
               }}
             >
               {digit}
@@ -59,12 +60,10 @@ export default function PhoneDialPad({
           fullWidth
           variant="outlined"
           disabled={disabled}
-          onClick={onBackspace}
+          onClick={() => onBackspace?.()}
           sx={{
             height: DIAL_BUTTON_HEIGHT,
             fontSize: DIAL_ACTION_FONT_SIZE,
-            borderColor: accentColor,
-            color: accentColor,
           }}
         >
           <BackspaceIcon />
@@ -76,8 +75,11 @@ export default function PhoneDialPad({
           variant="contained"
           color="success"
           disabled={submitDisabled}
-          onClick={onSubmit}
-          sx={{ height: DIAL_BUTTON_HEIGHT, fontSize: DIAL_ACTION_FONT_SIZE }}
+          onClick={() => onSubmit?.()}
+          sx={{
+            height: DIAL_BUTTON_HEIGHT,
+            fontSize: DIAL_ACTION_FONT_SIZE,
+          }}
         >
           <CheckIcon sx={{ mr: 1 }} />
           Check In

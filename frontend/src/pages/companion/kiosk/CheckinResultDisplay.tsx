@@ -7,11 +7,13 @@ import failSound from "@/assets/soundEffects/checkin_fail.aac";
 import { useConfetti } from "@/hooks/useConfetti";
 import { playSound } from "../sounds";
 import { type CheckinResponse, isErrorDetail, isSuccessDetail } from "./types";
+import { accentOnSurface } from "./kioskStyles";
 
 interface Props {
   phase: "loading" | "success" | "error";
   result: CheckinResponse | null;
   errorMessage?: string;
+  accentColor?: string;
   onDismiss: () => void;
 }
 
@@ -33,6 +35,7 @@ export default function CheckinResultDisplay({
   phase,
   result,
   errorMessage = "",
+  accentColor,
   onDismiss,
 }: Props) {
   const { fire: fireConfetti } = useConfetti();
@@ -69,10 +72,13 @@ export default function CheckinResultDisplay({
     >
       {phase === "loading" && (
         <>
-          <CircularProgress size={LOADING_SIZE} />
-          <Typography variant="h2" sx={{ fontWeight: 500 }}>
-            Just a moment...
-          </Typography>
+          <CircularProgress
+            size={LOADING_SIZE}
+            sx={{
+              color: accentColor ? accentOnSurface(accentColor) : undefined,
+            }}
+          />
+          <Typography variant="kioskResultTitle">Just a moment...</Typography>
         </>
       )}
       {phase === "success" &&
@@ -82,10 +88,8 @@ export default function CheckinResultDisplay({
             <CheckCircleIcon
               sx={{ fontSize: RESULT_ICON_SIZE, color: "success.main" }}
             />
-            <Typography variant="h2" sx={{ fontWeight: 500 }}>
-              Welcome
-            </Typography>
-            <Typography variant="h1" sx={{ fontWeight: 900 }}>
+            <Typography variant="kioskResultTitle">Welcome</Typography>
+            <Typography variant="kioskName">
               {result.detail.title ? `${result.detail.title} ` : ""}
               {result.detail.name}
             </Typography>
@@ -94,11 +98,11 @@ export default function CheckinResultDisplay({
       {phase === "error" && (
         <>
           <ErrorIcon sx={{ fontSize: RESULT_ICON_SIZE, color: "error.main" }} />
-          <Typography variant="h2" sx={{ fontWeight: 500 }}>
+          <Typography variant="kioskResultHeading">
             {errorDetail?.reason ?? (errorMessage || "Unknown error")}
           </Typography>
           {errorDetail?.name && (
-            <Typography variant="h1" sx={{ fontWeight: 900 }}>
+            <Typography variant="kioskName">
               {errorDetail.title ? `${errorDetail.title} ` : ""}
               {errorDetail.name}
             </Typography>

@@ -1,66 +1,42 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  Box,
-  Button,
-  Dialog,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
-import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
-import CloseIcon from "@mui/icons-material/Close";
+import { useCallback, useState } from "react";
+import { Dialog } from "@mui/material";
 import { ApiError, useCompanionApi } from "@/api";
-import PhoneDialPad, {
-  DIAL_ACTION_FONT_SIZE,
-  DIAL_BUTTON_HEIGHT,
-  DIAL_PAD_MAX_WIDTH,
-} from "./PhoneDialPad";
+import PhoneCheckinPanel from "./PhoneCheckinPanel";
 import CheckinResultDisplay from "./CheckinResultDisplay";
 import ConflictPickerDialog from "./ConflictPickerDialog";
 import useIdleDismiss from "./useIdleDismiss";
 import {
-  isConflictDetail,
-  isSuccessDetail,
   type CheckinPhase,
   type CheckinResponse,
   type ConflictParticipant,
+  isConflictDetail,
+  isSuccessDetail,
 } from "./types";
 
 interface Props {
   open: boolean;
   eventId: string;
   accentColor: string;
+  countryCodes: string[];
+  /** The server's default country code for the event. */
+  defaultCountryCode: string;
   onClose: () => void;
   onOwnCheckin?: (name: string) => void;
   onUnpaired?: () => void;
 }
 
-interface CountryCodesResponse {
-  default: string;
-  options: string[];
-}
-
-const PHONE_ICON_SIZE = 96;
-const PHONE_NO_FONT_SIZE = 22;
-const FIELD_MAX_WIDTH = DIAL_PAD_MAX_WIDTH;
-
 export default function KioskPhoneDialog({
   open,
   eventId,
   accentColor,
+  countryCodes,
+  defaultCountryCode,
   onClose,
   onOwnCheckin,
   onUnpaired,
 }: Props) {
   const api = useCompanionApi();
   const [userSelectedCode, setUserSelectedCode] = useState<string | null>(null);
-  const [countryCodes, setCountryCodes] = useState<string[]>([]);
-  const [defaultCountryCode, setDefaultCountryCode] = useState("");
-  const [countryCodesLoaded, setCountryCodesLoaded] = useState(false);
   const [phoneNo, setPhoneNo] = useState("");
   const [phase, setPhase] = useState<CheckinPhase>("input");
   const [result, setResult] = useState<CheckinResponse | null>(null);
@@ -68,33 +44,14 @@ export default function KioskPhoneDialog({
   const [conflicting, setConflicting] = useState<ConflictParticipant[]>([]);
   const bumpIdle = useIdleDismiss(onClose, phase === "input");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get<CountryCodesResponse>(
-          `/api/events/${eventId}/companion/phones/countryCodes`,
-        );
-        setCountryCodes(res.options);
-        setDefaultCountryCode(res.default);
-      } catch {
-        // leave empty; submit will report the failure
-      } finally {
-        setCountryCodesLoaded(true);
-      }
-    })();
-  }, [eventId, api]);
-
   const effectiveDefault =
     countryCodes.includes(defaultCountryCode) && defaultCountryCode
       ? defaultCountryCode
       : (countryCodes[0] ?? "");
-  const selectedCountryCode = userSelectedCode ?? effectiveDefault;
-
-  useEffect(() => {
-    if (countryCodesLoaded && countryCodes.length === 0 && phase === "input") {
-      onClose();
-    }
-  }, [countryCodesLoaded, countryCodes.length, phase, onClose]);
+  const selectedCountryCode =
+    userSelectedCode && countryCodes.includes(userSelectedCode)
+      ? userSelectedCode
+      : effectiveDefault;
 
   const handleDigit = useCallback(
     (digit: string) => {
@@ -144,7 +101,7 @@ export default function KioskPhoneDialog({
   };
 
   return (
-    <Dialog open={open} fullScreen>
+    <Dialog open={open} fullScreen transitionDuration={0}>
       {phase === "multiple" ? (
         <ConflictPickerDialog
           open
@@ -158,113 +115,26 @@ export default function KioskPhoneDialog({
           phase={phase}
           result={result}
           errorMessage={errorMessage}
+          accentColor={accentColor}
           onDismiss={onClose}
         />
       ) : (
-        <Box sx={{ display: "flex", height: "100%" }}>
-          <Box
-            sx={{
-              width: "50%",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 4,
-              p: 6,
-              bgcolor: "grey.100",
-            }}
-          >
-            <PhoneAndroidIcon
-              sx={{ fontSize: PHONE_ICON_SIZE, color: accentColor }}
-            />
-            <Typography
-              variant="h3"
-              sx={{ textAlign: "center", pt: 4, fontWeight: 500 }}
-            >
-              Enter the phone number you registered for this event
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              width: "50%",
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 2,
-              p: 4,
-            }}
-          >
-            <Stack
-              direction="row"
-              spacing={3}
-              sx={{ width: "100%", maxWidth: FIELD_MAX_WIDTH }}
-            >
-              <FormControl sx={{ flex: "0 0 auto", minWidth: 120 }}>
-                <InputLabel>Code</InputLabel>
-                <Select
-                  value={selectedCountryCode}
-                  label="Code"
-                  onChange={(e) => {
-                    setUserSelectedCode(e.target.value);
-                    bumpIdle();
-                  }}
-                  sx={{
-                    fontSize: PHONE_NO_FONT_SIZE,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {countryCodes.map((code) => (
-                    <MenuItem
-                      key={code}
-                      value={code}
-                      sx={{
-                        fontSize: PHONE_NO_FONT_SIZE,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {code}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                fullWidth
-                value={phoneNo}
-                slotProps={{
-                  input: {
-                    readOnly: true,
-                    sx: { fontSize: PHONE_NO_FONT_SIZE },
-                  },
-                }}
-              />
-            </Stack>
-            <PhoneDialPad
-              onDigit={handleDigit}
-              onBackspace={handleBackspace}
-              onSubmit={handleSubmit}
-              disabled={false}
-              submitDisabled={!phoneNo}
-              accentColor={accentColor}
-            />
-            <Button
-              variant="outlined"
-              startIcon={<CloseIcon />}
-              onClick={onClose}
-              sx={{
-                width: DIAL_PAD_MAX_WIDTH,
-                height: DIAL_BUTTON_HEIGHT,
-                fontSize: DIAL_ACTION_FONT_SIZE,
-                borderColor: accentColor,
-                color: accentColor,
-              }}
-            >
-              Cancel
-            </Button>
-          </Box>
-        </Box>
+        <PhoneCheckinPanel
+          accentColor={accentColor}
+          countryCodes={countryCodes}
+          selectedCountryCode={selectedCountryCode}
+          phoneNo={phoneNo}
+          onCountryCodeChange={(code) => {
+            setUserSelectedCode(code);
+            bumpIdle();
+          }}
+          onDigit={handleDigit}
+          onBackspace={handleBackspace}
+          onSubmit={handleSubmit}
+          onCancel={onClose}
+          disabled={false}
+          submitDisabled={!phoneNo}
+        />
       )}
     </Dialog>
   );

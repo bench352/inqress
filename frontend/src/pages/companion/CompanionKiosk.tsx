@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Stack, Typography } from "@mui/material";
+import { Box, Stack, ThemeProvider, Typography } from "@mui/material";
+
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import ScienceOutlinedIcon from "@mui/icons-material/ScienceOutlined";
@@ -24,6 +25,7 @@ import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
 import BatteryIndicator from "./BatteryIndicator";
 import useBattery, { type BatteryState } from "./useBattery";
+import { useKioskTheme } from "./kiosk/kioskStyles";
 
 interface Display {
   eventName: string;
@@ -38,6 +40,14 @@ type StreamStatus = "connecting" | "connected" | "lost";
 
 const KIOSK_SOUNDS = [successSound, failSound, confirmSound, lowBatterySound];
 const RETRY_MS = 5000;
+// Weights must match the @font-face rules imported by the app, or the face is
+// not loaded.
+const KIOSK_FONTS = [
+  '400 16px "Roboto Condensed"',
+  '700 16px "Roboto Condensed"',
+  '500 16px "Roboto"',
+  '700 16px "Roboto"',
+] as const;
 
 const KIOSK_DISABLED_SX = {
   height: "100dvh",
@@ -60,15 +70,14 @@ function KioskDisabledScreen({
   status: StreamStatus;
   battery: BatteryState | null;
 }) {
+  const headline = "Check-in will open shortly";
+  const subtitle = `Please wait until the host opens check-in${eventName ? ` for ${eventName}` : ""}.`;
   return (
     <Box sx={KIOSK_DISABLED_SX}>
       <DoorSlidingOutlinedIcon sx={{ fontSize: 200 }} />
-      <Typography variant="h3" sx={{ fontWeight: 900 }}>
-        Check-in will open shortly
-      </Typography>
-      <Typography variant="h5" color="textSecondary" sx={{ fontWeight: 500 }}>
-        Please wait until the host opens check-in{" "}
-        {eventName ? `for ${eventName}` : ""}.
+      <Typography variant="kioskHeadline">{headline}</Typography>
+      <Typography variant="kioskSubtitle" color="textSecondary">
+        {subtitle}
       </Typography>
       <KioskStatusLine status={status} battery={battery} />
     </Box>
@@ -113,13 +122,7 @@ function KioskStatusLine({
       ) : (
         <CloudOffOutlinedIcon fontSize="medium" color="error" />
       )}
-      <Typography
-        variant="body1"
-        component="span"
-        sx={{ fontSize: "35px", fontWeight: 500 }}
-      >
-        {time}
-      </Typography>
+      <Typography variant="kioskClock">{time}</Typography>
     </Stack>
   );
 }
@@ -142,7 +145,34 @@ export default function CompanionKiosk() {
   const [accentReady, setAccentReady] = useState(false);
   const [displayReady, setDisplayReady] = useState(false);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
+  const [fontsReady, setFontsReady] = useState(false);
   const [phoneCountryCodes, setPhoneCountryCodes] = useState<string[]>([]);
+  const [phoneCountryDefaultCode, setPhoneCountryDefaultCode] = useState("");
+  const [codesReady, setCodesReady] = useState(false);
+
+  const kioskTheme = useKioskTheme();
+
+  // Casual selection lock while kiosk is mounted (polish only; kiosk mode + staff are the real boundary)
+  useEffect(() => {
+    const style = document.body.style as CSSStyleDeclaration & {
+      WebkitUserSelect?: string;
+    };
+    const prev = style.userSelect;
+    const prevWebkit = style.WebkitUserSelect;
+    style.userSelect = "none";
+    style.WebkitUserSelect = "none";
+    // Chrome won't paint a ::before resolving to user-select: none, and MUI
+    // draws the standard input underline with ::before.
+    const underline = document.createElement("style");
+    underline.textContent =
+      ".MuiInputBase-root::before { -webkit-user-select: text; user-select: text; }";
+    document.head.appendChild(underline);
+    return () => {
+      style.userSelect = prev;
+      style.WebkitUserSelect = prevWebkit;
+      underline.remove();
+    };
+  }, []);
   const [pendingConfirm, setPendingConfirm] = useState<{
     participantId: string;
     title: string | null;
@@ -184,7 +214,27 @@ export default function CompanionKiosk() {
 
   const battery = useBattery();
   const soundsReady = useSounds(KIOSK_SOUNDS);
-  const boothReady = displayReady && accentReady && coverReady && soundsReady;
+
+  // Preload the faces the booth paints so the first frame cannot flash a
+  // fallback font; finally (not then) so a failed face cannot pin the boot
+  // screen forever.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(KIOSK_FONTS.map((f) => document.fonts.load(f))).finally(() => {
+      if (!cancelled) setFontsReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const boothReady =
+    displayReady &&
+    accentReady &&
+    coverReady &&
+    soundsReady &&
+    fontsReady &&
+    codesReady;
   useBootHold(!unpaired && !boothReady, "Getting kiosk ready...");
 
   useEffect(() => {
@@ -296,26 +346,66 @@ export default function CompanionKiosk() {
     };
   }, [eventId, api]);
 
+  // One fetch, two callers: the boot retry loop and the refresh-on-open.
+  const fetchCodes = useCallback(async (): Promise<string[]> => {
+    const res = await api.get<{ default: string; options: string[] }>(
+      `/api/events/${eventId}/companion/phones/countryCodes`,
+    );
+    const options = res.options ?? [];
+    setPhoneCountryCodes(options);
+    setPhoneCountryDefaultCode(res.default);
+    return options;
+  }, [api, eventId]);
+
   // Load available phone country codes so we can decide whether to offer the
   // "check in with phone number" option (hide it entirely when no participants
-  // have a phone number).
+  // have a phone number). An empty options list is a success: the event simply
+  // has no phone numbers.
   useEffect(() => {
     let cancelled = false;
+    let timer: number | null = null;
+
     const load = async () => {
       try {
-        const res = await api.get<{ options: string[] }>(
-          `/api/events/${eventId}/companion/phones/countryCodes`,
-        );
-        if (!cancelled) setPhoneCountryCodes(res.options ?? []);
-      } catch {
-        if (!cancelled) setPhoneCountryCodes([]);
+        await fetchCodes();
+        if (cancelled) return;
+        setCodesReady(true);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        if (e instanceof ApiError && e.status === 401) {
+          setUnpaired(true);
+          return;
+        }
+        timer = window.setTimeout(() => void load(), RETRY_MS);
       }
     };
+
     void load();
     return () => {
       cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
     };
-  }, [eventId, api]);
+  }, [fetchCodes]);
+
+  // Boot load only decides the button. Refresh on open so a code added after
+  // the kiosk started is in the list. A failure keeps the list already shown.
+  useEffect(() => {
+    if (dialog !== "phone") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const options = await fetchCodes();
+        if (cancelled) return;
+        if (options.length === 0) closeDialog();
+      } catch (e: unknown) {
+        if (cancelled) return;
+        if (e instanceof ApiError && e.status === 401) setUnpaired(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dialog, fetchCodes, closeDialog]);
 
   useEffect(() => {
     // connect companion stream (mode=kiosk)
@@ -510,113 +600,120 @@ export default function CompanionKiosk() {
     };
   }, [eventId, api]);
 
-  if (unpaired) {
-    return (
-      // For a potentially unattended device, it's better to keep the error message
-      // stuck without a way to "escape" out of it
-      <Box sx={KIOSK_DISABLED_SX}>
-        <WarningAmberIcon sx={{ fontSize: 200, color: "error.main" }} />
-        <Typography color="error" variant="h3" sx={{ fontWeight: 900 }}>
-          Sorry, this kiosk is out of service
-        </Typography>
-        <Typography variant="h5" sx={{ fontWeight: 500 }}>
-          A technical issue has stopped the kiosk from working.
-          <br />
-          Please reach out to administrator for assistance.
-        </Typography>
-        <Typography variant="body1" color="textSecondary">
-          (Detail: The pairing token was rotated or the event was removed)
-        </Typography>
-      </Box>
-    );
-  }
+  const renderScreen = () => {
+    if (unpaired) {
+      return (
+        <Box sx={KIOSK_DISABLED_SX}>
+          {/* For a potentially unattended device, it's better to keep the error message
+             stuck without a way to "escape" out of it */}
+          <WarningAmberIcon sx={{ fontSize: 200, color: "error.main" }} />
+          <Typography color="error" variant="kioskHeadline">
+            Sorry, this kiosk is out of service
+          </Typography>
+          <Typography variant="kioskSubtitle">
+            A technical issue has stopped the kiosk from working.
+            <br />
+            Please reach out to administrator for assistance.
+          </Typography>
+          <Typography variant="body1" color="textSecondary">
+            (Detail: The pairing token was rotated or the event was removed)
+          </Typography>
+        </Box>
+      );
+    }
 
-  if (display?.mode === "disabled") {
-    return (
-      <KioskDisabledScreen
-        eventName={display.eventName}
-        status={streamStatus}
-        battery={battery}
-      />
-    );
-  }
-
-  if (scanResult) {
-    return (
-      // Full-screen wrapper mirrors the fullScreen Dialog the phone/email
-      // workflows render inside, so both success screens are identical.
-      <Box sx={{ height: "100dvh", bgcolor: "background.paper" }}>
-        <CheckinResultDisplay
-          key={scanResult.key}
-          phase={scanResult.phase}
-          result={scanResult.result}
-          onDismiss={() => setScanResult(null)}
+    if (display?.mode === "disabled") {
+      return (
+        <KioskDisabledScreen
+          eventName={display.eventName}
+          status={streamStatus}
+          battery={battery}
         />
-      </Box>
-    );
-  }
+      );
+    }
 
-  if (pendingConfirm) {
-    return (
-      <AssistedConfirmationDialog
-        eventId={eventId}
-        participantId={pendingConfirm.participantId}
-        title={pendingConfirm.title}
-        name={pendingConfirm.name}
-        countryCode={pendingConfirm.countryCode}
-        phone={pendingConfirm.phone}
-        email={pendingConfirm.email}
-        accentColor={accentColor ?? "#000000"}
-        onOwnCheckin={markOwnCheckin}
-        onClose={closeConfirm}
-      />
-    );
-  }
-
-  return (
-    <Box sx={{ display: "flex", height: "100dvh" }}>
-      <CoverScreen
-        eventName={display?.eventName}
-        message={display?.kioskMessage}
-        accentColor={accentColor}
-        coverUrl={coverUrl}
-        banner={banner}
-        onPhone={
-          phoneCountryCodes.length > 0 ? () => setDialog("phone") : undefined
-        }
-        onEmail={() => setDialog("email")}
-        footer={
-          <KioskStatusLine
-            status={streamStatus}
-            mode={display?.mode}
-            battery={battery}
-            warn={dialog === null}
+    if (scanResult) {
+      return (
+        <Box sx={{ height: "100dvh", bgcolor: "background.paper" }}>
+          {/* Full-screen wrapper mirrors the fullScreen Dialog the phone/email
+             workflows render inside, so both success screens are identical. */}
+          <CheckinResultDisplay
+            key={scanResult.key}
+            phase={scanResult.phase}
+            result={scanResult.result}
+            accentColor={accentColor ?? undefined}
+            onDismiss={() => setScanResult(null)}
           />
-        }
-      />
+        </Box>
+      );
+    }
 
-      {dialog === "phone" && (
-        <KioskPhoneDialog
-          open
+    if (pendingConfirm) {
+      return (
+        <AssistedConfirmationDialog
           eventId={eventId}
+          participantId={pendingConfirm.participantId}
+          title={pendingConfirm.title}
+          name={pendingConfirm.name}
+          countryCode={pendingConfirm.countryCode}
+          phone={pendingConfirm.phone}
+          email={pendingConfirm.email}
           accentColor={accentColor ?? "#000000"}
-          onClose={closeDialog}
           onOwnCheckin={markOwnCheckin}
-          onUnpaired={() => setUnpaired(true)}
+          onClose={closeConfirm}
         />
-      )}
-      {dialog === "email" && (
-        <KioskEmailDialog
-          open
-          eventId={eventId}
-          accentColor={accentColor ?? "#000000"}
-          onClose={closeDialog}
-          onOwnCheckin={markOwnCheckin}
-          onUnpaired={() => setUnpaired(true)}
-        />
-      )}
+      );
+    }
 
-      <CompanionAdminSessionAlert show={adminCleared} />
-    </Box>
-  );
+    return (
+      <Box sx={{ display: "flex", height: "100dvh" }}>
+        <CoverScreen
+          eventName={display?.eventName}
+          message={display?.kioskMessage}
+          accentColor={accentColor}
+          coverUrl={coverUrl}
+          banner={banner}
+          onPhone={
+            phoneCountryCodes.length > 0 ? () => setDialog("phone") : undefined
+          }
+          onEmail={() => setDialog("email")}
+          footer={
+            <KioskStatusLine
+              status={streamStatus}
+              mode={display?.mode}
+              battery={battery}
+              warn={dialog === null}
+            />
+          }
+        />
+
+        {dialog === "phone" && (
+          <KioskPhoneDialog
+            open
+            eventId={eventId}
+            accentColor={accentColor ?? "#000000"}
+            countryCodes={phoneCountryCodes}
+            defaultCountryCode={phoneCountryDefaultCode}
+            onClose={closeDialog}
+            onOwnCheckin={markOwnCheckin}
+            onUnpaired={() => setUnpaired(true)}
+          />
+        )}
+        {dialog === "email" && (
+          <KioskEmailDialog
+            open
+            eventId={eventId}
+            accentColor={accentColor ?? "#000000"}
+            onClose={closeDialog}
+            onOwnCheckin={markOwnCheckin}
+            onUnpaired={() => setUnpaired(true)}
+          />
+        )}
+
+        <CompanionAdminSessionAlert show={adminCleared} />
+      </Box>
+    );
+  };
+
+  return <ThemeProvider theme={kioskTheme}>{renderScreen()}</ThemeProvider>;
 }
