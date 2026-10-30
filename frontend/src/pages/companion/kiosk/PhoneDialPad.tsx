@@ -2,7 +2,7 @@ import Grid from "@mui/material/Grid";
 import { Button } from "@mui/material";
 import CheckIcon from "@mui/icons-material/Check";
 import BackspaceIcon from "@mui/icons-material/Backspace";
-import { kioskContainedSx, kioskOutlinedSx } from "./kioskStyles";
+import { kioskAccentClass, kioskContainedSx } from "./kioskStyles";
 
 interface Props {
   onDigit?: (digit: string) => void;
@@ -41,6 +41,7 @@ export default function PhoneDialPad({
             <Button
               fullWidth
               variant="contained"
+              className={kioskAccentClass}
               disabled={disabled}
               onClick={() => onDigit?.(digit)}
               sx={{
@@ -63,7 +64,6 @@ export default function PhoneDialPad({
           sx={{
             height: DIAL_BUTTON_HEIGHT,
             fontSize: DIAL_ACTION_FONT_SIZE,
-            ...kioskOutlinedSx(),
           }}
         >
           <BackspaceIcon />
@@ -79,7 +79,6 @@ export default function PhoneDialPad({
           sx={{
             height: DIAL_BUTTON_HEIGHT,
             fontSize: DIAL_ACTION_FONT_SIZE,
-            ...kioskContainedSx("#2e7d32"),
           }}
         >
           <CheckIcon sx={{ mr: 1 }} />

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { createTheme, useTheme } from "@mui/material";
+import { buttonClasses, createTheme, useTheme } from "@mui/material";
+import { grey } from "@mui/material/colors";
 import type { SxProps, Theme } from "@mui/material";
 import type { TypographyVariantsOptions } from "@mui/material/styles";
 
@@ -161,17 +162,112 @@ export const KIOSK_TYPOGRAPHY: TypographyVariantsOptions = {
   },
 };
 
-/** The app theme plus the booth's type roles. Guest kiosk and preview both use it. */
+const KIOSK_EDGE = "#000000";
+
+// Marks a contained button whose fill is the event accent, so the theme can pin
+// that fill on hover. An sx rule shares its generated class with MUI's own hover
+// rule, and MUI's is inserted last, so the pin has to outrank both.
+export const kioskAccentClass = "KioskAccent";
+
+// Pill shape. The accent never draws the boundary: a 2px black edge does, so a
+// pale or white accent still reads as a button. The hard shadow sits under the
+// button (no offset sideways) so a row of keys stays aligned.
+const KIOSK_RADIUS = "9999px";
+const KIOSK_SHADOW = `0 3px 0 0 ${KIOSK_EDGE}`;
+
+// One shadow and one shape for every variant, so filled and outlined controls
+// read as the same family. This is the kiosk theme's MuiButton override.
+const KIOSK_BUTTON_BASE = {
+  borderRadius: KIOSK_RADIUS,
+  border: "2px solid",
+  borderColor: KIOSK_EDGE,
+  boxShadow: KIOSK_SHADOW,
+  "&:hover": { boxShadow: KIOSK_SHADOW },
+  "&:active": { boxShadow: KIOSK_SHADOW },
+  "&.Mui-focusVisible": { boxShadow: KIOSK_SHADOW },
+  "&.Mui-disabled": { boxShadow: "none" },
+  // MUI animates background-color for up to ~250ms while loading, delaying the disabled grey.
+  transition: "none",
+  ["&.MuiButton-loading"]: { backgroundColor: "action.disabledBackground" },
+  ["& .MuiButton-loadingIndicator"]: { color: "action.disabled" },
+} as const;
+
+/** The app theme plus the booth's type roles and button shape. Guest kiosk and preview both use it. */
 export function useKioskTheme() {
   const parent = useTheme();
   return useMemo(
-    () => createTheme(parent, { typography: KIOSK_TYPOGRAPHY }),
+    () => {
+      const kiosk = createTheme(parent, {
+        typography: KIOSK_TYPOGRAPHY,
+        components: {
+          MuiButton: {
+            styleOverrides: { root: KIOSK_BUTTON_BASE },
+            variants: [
+              {
+                props: { variant: "outlined" },
+                // Outlined buttons carry no accent: ink label on the ink edge.
+                // The outlined variant paints its label from this variable (a plain
+                // `color` loses to the variant rule), so set the variable itself.
+                // The callback receives the base theme, so read the palette off
+                // the extended one.
+                style: () => ({
+                  "--variant-outlinedColor": kiosk.palette.text.primary,
+                  // MUI's hover rule tints the background and solidifies the
+                  // border; pin both to their resting values. Scoped to the
+                  // outlined class so it never touches contained buttons.
+                  [`&.${buttonClasses.outlined}`]: {
+                    "@media (hover: hover)": {
+                      "&:hover": {
+                        "--variant-outlinedBg": "transparent",
+                        "--variant-outlinedBorder": kiosk.alpha(
+                          kiosk.palette.text.primary,
+                          0.5,
+                        ),
+                      },
+                    },
+                  },
+                }),
+              },
+              // Palette-colored contained buttons darken on hover; pin the fill
+              // back to the color they rest at.
+              ...(["success", "error"] as const).map((color) => ({
+                props: { variant: "contained" as const, color },
+                style: () => ({
+                  [`&.${buttonClasses.contained}`]: {
+                    "@media (hover: hover)": {
+                      "&:hover": {
+                        "--variant-containedBg": kiosk.palette[color].main,
+                      },
+                    },
+                  },
+                }),
+              })),
+              {
+                props: { variant: "contained" as const },
+                style: () => ({
+                  [`&.${kioskAccentClass}`]: {
+                    "@media (hover: hover)": {
+                      "&:hover": {
+                        "--variant-containedBg": "var(--kiosk-accent)",
+                        "--variant-containedColor": "var(--kiosk-accent-ink)",
+                      },
+                    },
+                  },
+                }),
+              },
+            ],
+          },
+        },
+      });
+      return kiosk;
+    },
     [parent],
   );
 }
 
 function luminance(hex: string): number | null {
-  const h = hex.replace("#", "");
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = [...h].map((c) => c + c).join("");
   if (h.length !== 6) return null;
   const lin = (c: number) =>
     c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
@@ -188,71 +284,41 @@ export function getOnColor(hex: string): string {
   return lum > 0.179 ? "#000000" : "#FFFFFF";
 }
 
-const KIOSK_EDGE = "#000000";
-
 // The grey.100 panel behind the phone icon in KioskPhoneDialog: the darkest
 // surface an accent mark sits on, so clearing 3:1 here clears it everywhere.
-export const KIOSK_MARKS_SURFACE = "#f5f5f5";
+// grey[100] is imported rather than read off the theme: the app theme runs in
+// cssVariables mode, where theme.palette.grey[100] is a var() string, unusable
+// as hex here.
+export const KIOSK_MARKS_SURFACE = grey[100];
+
+/** True when the accent clears 3:1 contrast against the surface. */
+export function accentReadable(hex: string, surface = "#ffffff"): boolean {
+  const accent = luminance(hex);
+  const behind = luminance(surface);
+  if (accent === null || behind === null) return false;
+  return (
+    (Math.max(accent, behind) + 0.05) / (Math.min(accent, behind) + 0.05) >= 3
+  );
+}
 
 // Accent when it clears 3:1 on the given surface, else the black edge, so a pale
 // accent cannot disappear.
 export function accentOnSurface(hex: string, surface = "#ffffff"): string {
-  const accent = luminance(hex);
-  const behind = luminance(surface);
-  if (accent === null || behind === null) return KIOSK_EDGE;
-  const ratio =
-    (Math.max(accent, behind) + 0.05) / (Math.min(accent, behind) + 0.05);
-  return ratio >= 3 ? hex : KIOSK_EDGE;
+  return accentReadable(hex, surface) ? hex : KIOSK_EDGE;
 }
-
-// Pill shape. The accent never draws the boundary: a 2px black edge does, so a
-// pale or white accent still reads as a button. The hard shadow sits under the
-// button (no offset sideways) so a row of keys stays aligned.
-const KIOSK_RADIUS = "9999px";
-const KIOSK_SHADOW = `0 3px 0 0 ${KIOSK_EDGE}`;
-
-// One shadow and one shape for every variant, so filled and outlined controls
-// read as the same family.
-const KIOSK_BUTTON_BASE = {
-  borderRadius: KIOSK_RADIUS,
-  border: "2px solid",
-  borderColor: KIOSK_EDGE,
-  boxShadow: KIOSK_SHADOW,
-  "&:hover": { boxShadow: KIOSK_SHADOW },
-  "&:active": { boxShadow: KIOSK_SHADOW },
-  "&.Mui-focusVisible": { boxShadow: KIOSK_SHADOW },
-  "&.Mui-disabled": { boxShadow: "none" },
-  // MUI animates background-color for up to ~250ms while loading, delaying the disabled grey.
-  transition: "none",
-  ["&.MuiButton-loading"]: { backgroundColor: "action.disabledBackground" },
-  ["& .MuiButton-loadingIndicator"]: { color: "action.disabled" },
-} as const;
 
 export function kioskContainedSx(accent: string): SxProps<Theme> {
   const color = getOnColor(accent);
   // The contained Button paints from these variables, and its own disabled
   // rule outranks them, so greying out needs no disabled style of ours.
+  // The hover pin lives in the theme, not here: an sx rule and MUI's own
+  // hover rule share one generated class, so source order lets the hover win.
   return {
-    ...KIOSK_BUTTON_BASE,
+    "--kiosk-accent": accent,
+    "--kiosk-accent-ink": color,
     "--variant-containedBg": accent,
     "--variant-containedColor": color,
-    // A tap leaves :hover on the element, which would repaint the accent over
-    // MUI's disabled grey; the :not() lets the disabled rule win.
-    "&:hover:not(.Mui-disabled)": { bgcolor: accent, boxShadow: KIOSK_SHADOW },
   };
-}
-
-export function kioskOutlinedSx(): SxProps<Theme> {
-  return {
-    ...KIOSK_BUTTON_BASE,
-    color: "text.primary",
-  };
-}
-
-// Semantic confirms (green / red) keep their own palette colour; only shape,
-// edge and shadow come from here.
-export function kioskSemanticSx(): SxProps<Theme> {
-  return KIOSK_BUTTON_BASE;
 }
 
 /**

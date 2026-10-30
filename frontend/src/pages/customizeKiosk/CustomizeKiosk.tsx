@@ -29,7 +29,7 @@ import CoverScreen, {
 } from "../companion/kiosk/CoverScreen";
 import PhoneCheckinPanel from "../companion/kiosk/PhoneCheckinPanel";
 import {
-  accentOnSurface,
+  accentReadable,
   KIOSK_MARKS_SURFACE,
   useKioskTheme,
 } from "../companion/kiosk/kioskStyles";
@@ -183,9 +183,7 @@ export default function CustomizeKiosk() {
   const currentAccentColor =
     accentDraft ?? accentColorQuery.data?.colorCode ?? "#000000";
   const previewAccent = useDebounce(currentAccentColor, 150);
-  const appliedAccent = accentOnSurface(previewAccent, KIOSK_MARKS_SURFACE);
-  const accentTooLight =
-    appliedAccent.toLowerCase() !== previewAccent.toLowerCase();
+  const accentTooLight = !accentReadable(previewAccent, KIOSK_MARKS_SURFACE);
   const currentMessage = messageDraft ?? kioskMessageQuery.data?.message ?? "";
 
   useEffect(() => {

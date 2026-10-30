@@ -3,6 +3,7 @@ import { Box, Button, Stack, Typography } from "@mui/material";
 import {
   accentOnSurface,
   KIOSK_MARKS_SURFACE,
+  kioskAccentClass,
   kioskContainedSx,
 } from "./kioskStyles";
 import EmailIcon from "@mui/icons-material/Email";
@@ -117,6 +118,7 @@ export default function CoverScreen({
             <Button
               variant="contained"
               size="large"
+              className={kioskAccentClass}
               startIcon={<PhoneAndroidIcon fontSize="inherit" />}
               onClick={onPhone}
               sx={{
@@ -132,6 +134,7 @@ export default function CoverScreen({
           <Button
             variant="contained"
             size="large"
+            className={kioskAccentClass}
             startIcon={<EmailIcon fontSize="inherit" />}
             onClick={onEmail}
             tabIndex={onEmail ? undefined : -1}

@@ -346,6 +346,17 @@ export default function CompanionKiosk() {
     };
   }, [eventId, api]);
 
+  // One fetch, two callers: the boot retry loop and the refresh-on-open.
+  const fetchCodes = useCallback(async (): Promise<string[]> => {
+    const res = await api.get<{ default: string; options: string[] }>(
+      `/api/events/${eventId}/companion/phones/countryCodes`,
+    );
+    const options = res.options ?? [];
+    setPhoneCountryCodes(options);
+    setPhoneCountryDefaultCode(res.default);
+    return options;
+  }, [api, eventId]);
+
   // Load available phone country codes so we can decide whether to offer the
   // "check in with phone number" option (hide it entirely when no participants
   // have a phone number). An empty options list is a success: the event simply
@@ -356,12 +367,8 @@ export default function CompanionKiosk() {
 
     const load = async () => {
       try {
-        const res = await api.get<{ default: string; options: string[] }>(
-          `/api/events/${eventId}/companion/phones/countryCodes`,
-        );
+        await fetchCodes();
         if (cancelled) return;
-        setPhoneCountryCodes(res.options ?? []);
-        setPhoneCountryDefaultCode(res.default);
         setCodesReady(true);
       } catch (e: unknown) {
         if (cancelled) return;
@@ -378,7 +385,7 @@ export default function CompanionKiosk() {
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [eventId, api]);
+  }, [fetchCodes]);
 
   // Boot load only decides the button. Refresh on open so a code added after
   // the kiosk started is in the list. A failure keeps the list already shown.
@@ -387,13 +394,8 @@ export default function CompanionKiosk() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await api.get<{ default: string; options: string[] }>(
-          `/api/events/${eventId}/companion/phones/countryCodes`,
-        );
+        const options = await fetchCodes();
         if (cancelled) return;
-        const options = res.options ?? [];
-        setPhoneCountryCodes(options);
-        setPhoneCountryDefaultCode(res.default);
         if (options.length === 0) closeDialog();
       } catch (e: unknown) {
         if (cancelled) return;
@@ -403,7 +405,7 @@ export default function CompanionKiosk() {
     return () => {
       cancelled = true;
     };
-  }, [dialog, eventId, api, closeDialog]);
+  }, [dialog, fetchCodes, closeDialog]);
 
   useEffect(() => {
     // connect companion stream (mode=kiosk)
@@ -598,12 +600,12 @@ export default function CompanionKiosk() {
     };
   }, [eventId, api]);
 
-  if (unpaired) {
-    return (
-      <ThemeProvider theme={kioskTheme}>
-        {/* For a potentially unattended device, it's better to keep the error message
-           stuck without a way to "escape" out of it */}
+  const renderScreen = () => {
+    if (unpaired) {
+      return (
         <Box sx={KIOSK_DISABLED_SX}>
+          {/* For a potentially unattended device, it's better to keep the error message
+             stuck without a way to "escape" out of it */}
           <WarningAmberIcon sx={{ fontSize: 200, color: "error.main" }} />
           <Typography color="error" variant="kioskHeadline">
             Sorry, this kiosk is out of service
@@ -617,28 +619,24 @@ export default function CompanionKiosk() {
             (Detail: The pairing token was rotated or the event was removed)
           </Typography>
         </Box>
-      </ThemeProvider>
-    );
-  }
+      );
+    }
 
-  if (display?.mode === "disabled") {
-    return (
-      <ThemeProvider theme={kioskTheme}>
+    if (display?.mode === "disabled") {
+      return (
         <KioskDisabledScreen
           eventName={display.eventName}
           status={streamStatus}
           battery={battery}
         />
-      </ThemeProvider>
-    );
-  }
+      );
+    }
 
-  if (scanResult) {
-    return (
-      <ThemeProvider theme={kioskTheme}>
-        {/* Full-screen wrapper mirrors the fullScreen Dialog the phone/email
-           workflows render inside, so both success screens are identical. */}
+    if (scanResult) {
+      return (
         <Box sx={{ height: "100dvh", bgcolor: "background.paper" }}>
+          {/* Full-screen wrapper mirrors the fullScreen Dialog the phone/email
+             workflows render inside, so both success screens are identical. */}
           <CheckinResultDisplay
             key={scanResult.key}
             phase={scanResult.phase}
@@ -647,13 +645,11 @@ export default function CompanionKiosk() {
             onDismiss={() => setScanResult(null)}
           />
         </Box>
-      </ThemeProvider>
-    );
-  }
+      );
+    }
 
-  if (pendingConfirm) {
-    return (
-      <ThemeProvider theme={kioskTheme}>
+    if (pendingConfirm) {
+      return (
         <AssistedConfirmationDialog
           eventId={eventId}
           participantId={pendingConfirm.participantId}
@@ -666,12 +662,10 @@ export default function CompanionKiosk() {
           onOwnCheckin={markOwnCheckin}
           onClose={closeConfirm}
         />
-      </ThemeProvider>
-    );
-  }
+      );
+    }
 
-  return (
-    <ThemeProvider theme={kioskTheme}>
+    return (
       <Box sx={{ display: "flex", height: "100dvh" }}>
         <CoverScreen
           eventName={display?.eventName}
@@ -718,6 +712,8 @@ export default function CompanionKiosk() {
 
         <CompanionAdminSessionAlert show={adminCleared} />
       </Box>
-    </ThemeProvider>
-  );
+    );
+  };
+
+  return <ThemeProvider theme={kioskTheme}>{renderScreen()}</ThemeProvider>;
 }

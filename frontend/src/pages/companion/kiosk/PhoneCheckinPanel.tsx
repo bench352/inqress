@@ -19,7 +19,6 @@ import {
   accentOnSurface,
   KIOSK_MARKS_SURFACE,
   kioskInputSx,
-  kioskOutlinedSx,
 } from "./kioskStyles";
 
 interface PhoneCheckinPanelProps {
@@ -162,7 +161,6 @@ export default function PhoneCheckinPanel({
             width: DIAL_PAD_MAX_WIDTH,
             height: DIAL_BUTTON_HEIGHT,
             fontSize: DIAL_ACTION_FONT_SIZE,
-            ...kioskOutlinedSx(),
           }}
         >
           Cancel

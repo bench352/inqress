@@ -2,9 +2,7 @@ import { useState } from "react";
 import {
   accentOnSurface,
   KIOSK_MARKS_SURFACE,
-  kioskContainedSx,
   kioskInputSx,
-  kioskOutlinedSx,
 } from "./kioskStyles";
 import {
   Box,
@@ -192,13 +190,13 @@ export default function KioskEmailDialog({
                     flex: 1,
                     py: 1.5,
                     fontSize: "1.2rem",
-                    ...kioskOutlinedSx(),
                   }}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="contained"
+                  color="success"
                   size="large"
                   startIcon={<CheckIcon />}
                   disabled={!email}
@@ -207,7 +205,6 @@ export default function KioskEmailDialog({
                     flex: 1,
                     py: 1.5,
                     fontSize: "1.2rem",
-                    ...kioskContainedSx(accentColor),
                   }}
                 >
                   Check In

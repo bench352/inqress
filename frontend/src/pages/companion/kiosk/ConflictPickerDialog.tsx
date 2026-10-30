@@ -13,12 +13,7 @@ import { maskEmail, maskPhone } from "@/utils/masking";
 import { useConfetti } from "@/hooks/useConfetti";
 import { playSound } from "../sounds";
 import type { ConflictParticipant } from "./types";
-import {
-  accentOnSurface,
-  KIOSK_MARKS_SURFACE,
-  kioskContainedSx,
-  kioskOutlinedSx,
-} from "./kioskStyles";
+import { accentOnSurface, KIOSK_MARKS_SURFACE } from "./kioskStyles";
 
 const INITIAL_TIMEOUT_S = 60;
 const ALL_DONE_TIMEOUT_S = 5;
@@ -223,7 +218,6 @@ export default function ConflictPickerDialog({
                     px: 2,
                     fontSize: "1.3rem",
                     width: 220,
-                    ...kioskContainedSx("#2e7d32"), // success green keeps its semantic color
                   }}
                 >
                   {isCheckedIn ? "Checked in" : "Check in"}
@@ -238,7 +232,6 @@ export default function ConflictPickerDialog({
             variant="outlined"
             sx={{
               fontSize: "1.2rem",
-              ...kioskOutlinedSx(),
             }}
           >
             Close ({countdown}s)
