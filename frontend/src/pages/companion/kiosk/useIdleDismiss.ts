@@ -14,7 +14,8 @@ export default function useIdleDismiss(
   paused = false,
 ) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const deadlineRef = useRef(0);
+  // While a timer runs: when it fires. While paused: how long is left.
+  const deadlineRef = useRef<number | null>(null);
 
   const start = useCallback(
     (ms: number) => {
@@ -31,25 +32,25 @@ export default function useIdleDismiss(
     if (!active) {
       if (timerRef.current !== null) clearTimeout(timerRef.current);
       timerRef.current = null;
-      deadlineRef.current = 0;
+      deadlineRef.current = null;
       return;
     }
-    if (paused && timerRef.current !== null) {
-      const left = Math.max(0, deadlineRef.current - Date.now());
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
-      timerRef.current = null;
-      deadlineRef.current = Date.now() + left;
-      return;
-    }
+    if (paused) return;
     if (timerRef.current === null) {
-      const left = deadlineRef.current
-        ? Math.max(0, deadlineRef.current - Date.now())
-        : IDLE_DISMISS_MS;
+      const left = deadlineRef.current ?? IDLE_DISMISS_MS;
       start(left > 0 ? left : IDLE_DISMISS_MS);
     }
     return () => {
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
-      timerRef.current = null;
+      // Runs before the next setup, and is the last point where the live
+      // deadline is known: turn it into the time left for a resume.
+      if (timerRef.current !== null) {
+        deadlineRef.current = Math.max(
+          0,
+          (deadlineRef.current ?? Date.now()) - Date.now(),
+        );
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, [active, paused, start]);
 

@@ -30,20 +30,14 @@ export default function ScanNotice({ notice, paused, onDismiss }: Props) {
   const leftRef = useRef(NOTICE_MS);
 
   useEffect(() => {
-    if (!open) return;
-    if (paused) {
-      // Freeze, keeping what is left for the resume.
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-        leftRef.current = Math.max(0, deadlineRef.current - Date.now());
-      }
-      return;
-    }
+    if (!open || paused) return;
     deadlineRef.current = Date.now() + leftRef.current;
     timerRef.current = window.setTimeout(() => setOpen(false), leftRef.current);
     return () => {
+      // Runs before the next setup, and is the last point where the live
+      // deadline is known: turn it into the time left for a resume.
       if (timerRef.current !== null) {
+        leftRef.current = Math.max(0, deadlineRef.current - Date.now());
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
