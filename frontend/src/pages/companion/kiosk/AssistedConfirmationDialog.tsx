@@ -6,7 +6,7 @@ import EmailIcon from "@mui/icons-material/Email";
 import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 import PhoneIcon from "@mui/icons-material/Phone";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
-import confirmSound from "@/assets/soundEffects/checkin_need_confirmation.aac";
+import confirmSound from "@/assets/soundEffects/kiosk_confirmation_needed.aac";
 import { maskEmail, maskPhone } from "@/utils/masking";
 import { useCompanionApi } from "@/api";
 import { playSound } from "../sounds";

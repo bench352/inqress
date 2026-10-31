@@ -19,8 +19,8 @@ import ErrorIcon from "@mui/icons-material/Error";
 import { useParams } from "@tanstack/react-router";
 import { ApiError, useCompanionApi } from "@/api";
 import { useBootHold } from "@/components/bootHold";
-import scannedBeep from "@/assets/soundEffects/scanned_beep.aac";
-import lowBatterySound from "@/assets/soundEffects/low_battery_alert.aac";
+import scannedBeep from "@/assets/soundEffects/scanner_beep.aac";
+import lowBatterySound from "@/assets/soundEffects/companion_battery_low.aac";
 import { playSound, useSounds } from "./sounds";
 import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
@@ -313,6 +313,8 @@ export default function CompanionScanner() {
     setBusy(true);
     // Beep as soon as the ticket is accepted, not when the result arrives.
     playSound(scannedBeep);
+    // Same moment as the beep. A held ticket returns above, so it stays still.
+    navigator.vibrate?.(200);
     try {
       const res = await api.post<{
         success: boolean;

@@ -5,9 +5,9 @@ import EmailIcon from "@mui/icons-material/Email";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PhoneIcon from "@mui/icons-material/Phone";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
-import successSound from "@/assets/soundEffects/checkin_success.aac";
-import failSound from "@/assets/soundEffects/checkin_fail.aac";
-import confirmSound from "@/assets/soundEffects/checkin_need_confirmation.aac";
+import successSound from "@/assets/soundEffects/kiosk_checkin_success.aac";
+import failSound from "@/assets/soundEffects/kiosk_error.aac";
+import confirmSound from "@/assets/soundEffects/kiosk_confirmation_needed.aac";
 import { useCompanionApi } from "@/api";
 import { maskEmail, maskPhone } from "@/utils/masking";
 import { useConfetti } from "@/hooks/useConfetti";
@@ -174,27 +174,29 @@ export default function ConflictPickerDialog({
                     {p.title ? `${p.title} ` : ""}
                     {p.name}
                   </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    sx={{ alignItems: "center" }}
-                  >
-                    <PhoneIcon sx={{ fontSize: 28 }} />
-                    <Typography variant="kioskDetail">
-                      {p.countryCode && p.phone
-                        ? `${p.countryCode} ${maskPhone(p.phone)}`
-                        : "(No phone number)"}
-                    </Typography>
-                  </Stack>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    sx={{ alignItems: "center" }}
-                  >
-                    <EmailIcon sx={{ fontSize: 28 }} />
-                    <Typography variant="kioskDetail">
-                      {p.email ? maskEmail(p.email) : "(No email address)"}
-                    </Typography>
+                  <Stack spacing={0}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ alignItems: "center" }}
+                    >
+                      <PhoneIcon sx={{ fontSize: 28 }} />
+                      <Typography variant="kioskDetail">
+                        {p.countryCode && p.phone
+                          ? `${p.countryCode} ${maskPhone(p.phone)}`
+                          : "(No phone number)"}
+                      </Typography>
+                    </Stack>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ alignItems: "center" }}
+                    >
+                      <EmailIcon sx={{ fontSize: 28 }} />
+                      <Typography variant="kioskDetail">
+                        {p.email ? maskEmail(p.email) : "(No email address)"}
+                      </Typography>
+                    </Stack>
                   </Stack>
                 </Stack>
                 {errorById[p.id] && (

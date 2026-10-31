@@ -167,7 +167,7 @@ export default function KioskEmailDialog({
                 sx={{
                   width: "100%",
                   maxWidth: FIELD_MAX_WIDTH,
-                  ...kioskInputSx(accentColor),
+                  ...kioskInputSx(),
                 }}
                 slotProps={{
                   input: {

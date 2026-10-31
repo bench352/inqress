@@ -376,7 +376,8 @@ export default function CustomizeKiosk() {
         </Box>
       </Box>
       <Typography variant="body2" color="textSecondary" align="center">
-        Preview only. The booth differs with screen size and aspect ratio.
+        Preview only. The actual kiosk UI differs with screen size and aspect
+        ratio.
       </Typography>
 
       <Stack spacing={2}>
