@@ -15,7 +15,8 @@ import failSound from "@/assets/soundEffects/kiosk_error.aac";
 import confirmSound from "@/assets/soundEffects/kiosk_confirmation_needed.aac";
 import lowBatterySound from "@/assets/soundEffects/companion_battery_low.aac";
 import CoverScreen from "./kiosk/CoverScreen";
-import { useSounds } from "./sounds";
+import ScanNotice from "./kiosk/ScanNotice";
+import { playSound, useSounds } from "./sounds";
 import KioskPhoneDialog from "./kiosk/KioskPhoneDialog";
 import KioskEmailDialog from "./kiosk/KioskEmailDialog";
 import AssistedConfirmationDialog from "./kiosk/AssistedConfirmationDialog";
@@ -23,8 +24,8 @@ import CheckinResultDisplay from "./kiosk/CheckinResultDisplay";
 import type { CheckinResponse } from "./kiosk/types";
 import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
-import BatteryIndicator from "./BatteryIndicator";
-import useBattery, { type BatteryState } from "./useBattery";
+import BatteryIndicator, { LowBatteryAlert } from "./BatteryIndicator";
+import useBattery, { type BatteryState, batteryAlertOpen } from "./useBattery";
 import { useKioskTheme } from "./kiosk/kioskStyles";
 
 interface Display {
@@ -90,12 +91,10 @@ function KioskStatusLine({
   status,
   mode,
   battery,
-  warn = true,
 }: {
   status: StreamStatus;
   mode?: string;
   battery: BatteryState | null;
-  warn?: boolean;
 }) {
   const { time } = useSystemClock();
   const connected = status === "connected";
@@ -113,7 +112,7 @@ function KioskStatusLine({
         color: "textPrimary",
       }}
     >
-      <BatteryIndicator battery={battery} warn={warn} />
+      <BatteryIndicator battery={battery} />
       {mode === "test" && (
         <ScienceOutlinedIcon fontSize="medium" color="warning" />
       )}
@@ -139,7 +138,11 @@ export default function CompanionKiosk() {
     phase: ResultPhase;
     result: CheckinResponse;
   } | null>(null);
-  const [banner, setBanner] = useState<string | null>(null);
+  // A scan result shown beside an open dialog instead of over it.
+  const [notice, setNotice] = useState<{
+    key: number;
+    result: CheckinResponse;
+  } | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [coverReady, setCoverReady] = useState(false);
   const [accentReady, setAccentReady] = useState(false);
@@ -190,16 +193,14 @@ export default function CompanionKiosk() {
   const displayRef = useRef<Display | null>(null);
   const pendingConfirmRef = useRef<typeof pendingConfirm>(null);
   const ownCheckinRef = useRef<{ name: string; ts: number } | null>(null);
-  const bannerTimerRef = useRef<number | null>(null);
   const scanSeqRef = useRef(0);
+  const noticeSeqRef = useRef(0);
 
   const closeDialog = useCallback(() => {
     setDialog(null);
-    setBanner(null);
   }, []);
   const closeConfirm = useCallback(() => {
     setPendingConfirm(null);
-    setBanner(null);
   }, []);
   const markOwnCheckin = useCallback((name: string) => {
     ownCheckinRef.current = { name, ts: Date.now() };
@@ -216,6 +217,8 @@ export default function CompanionKiosk() {
   const adminCleared = useClearAdminSession();
 
   const battery = useBattery();
+  // The only thing that pauses the booth: the card is modal, the scan notice is not.
+  const batteryOpen = batteryAlertOpen(battery);
   const soundsReady = useSounds(KIOSK_SOUNDS);
 
   // Preload the faces the booth paints so the first frame cannot flash a
@@ -467,7 +470,10 @@ export default function CompanionKiosk() {
             setDisplay((d) => (d ? { ...d, mode: parsed.data.value } : d));
             // Closing the booth drops whatever result is up, so reopening
             // cannot flash it.
-            if (parsed.data.value === "disabled") setScanResult(null);
+            if (parsed.data.value === "disabled") {
+              setScanResult(null);
+              setNotice(null);
+            }
           }
           if (
             parsed.eventType === "ATTENDANCE" &&
@@ -480,76 +486,79 @@ export default function CompanionKiosk() {
             if (own && own.name === data.name && Date.now() - own.ts < 5000) {
               return;
             }
+            const result: CheckinResponse = {
+              success: true,
+              detail: { title: data.title ?? null, name: data.name },
+            };
             const confirm = pendingConfirmRef.current;
-            if (confirm) {
-              // The confirm screen owns this guest: its own result card is
-              // already showing, so never downgrade it to a banner — including
-              // when the SSE echo beats the POST response back to the browser.
-              if (confirm.name === data.name) return;
-              // Someone else checked in meanwhile: keep their name on screen
-              // without disturbing the confirmation.
-              setBanner(`${data.name} checked in`);
-              if (bannerTimerRef.current !== null) {
-                window.clearTimeout(bannerTimerRef.current);
-              }
-              bannerTimerRef.current = window.setTimeout(
-                () => setBanner(null),
-                2500,
-              );
+            if (confirm && confirm.name === data.name) {
+              // Staff scanned the guest the confirm screen is holding: that
+              // screen is superseded, so close it and take the whole booth.
+              setPendingConfirm(null);
+              setNotice(null);
+              setScanResult({
+                key: ++scanSeqRef.current,
+                phase: "success",
+                result,
+              });
               return;
             }
-            // A phone/email dialog is mid-entry: banner behind the dialog.
-            if (dialogRef.current) {
-              setBanner(`${data.name} checked in`);
-              if (bannerTimerRef.current !== null) {
-                window.clearTimeout(bannerTimerRef.current);
-              }
-              bannerTimerRef.current = window.setTimeout(
-                () => setBanner(null),
-                2500,
-              );
+            if (confirm || dialogRef.current) {
+              // Beside the dialog, not over it: the guest keeps their screen,
+              // and its clock keeps running.
+              playSound(successSound);
+              setNotice({ key: ++noticeSeqRef.current, result });
               return;
             }
-            // Idle kiosk: full-screen check-in success, original booth style.
-            setBanner(null);
+            // Idle kiosk: full-screen check-in success, whose own sound plays.
+            setNotice(null);
             setScanResult({
               key: ++scanSeqRef.current,
               phase: "success",
-              result: {
-                success: true,
-                detail: {
-                  title: data.title ?? null,
-                  name: data.name,
-                },
-              },
+              result,
             });
           }
           if (
             parsed.eventType === "SCAN_REFUSAL" &&
             parsed.type === "NOTIFICATION"
           ) {
-            // Busy or closed booth leaves the verdict on the staff phone.
-            if (
-              displayRef.current?.mode === "disabled" ||
-              dialogRef.current !== null ||
-              pendingConfirmRef.current !== null
-            ) {
-              return;
-            }
+            // A closed booth leaves the verdict on the staff phone.
+            if (displayRef.current?.mode === "disabled") return;
             const data = parsed.data;
             if (typeof data?.reason !== "string") return;
-            setBanner(null);
+            const result: CheckinResponse = {
+              success: false,
+              detail: {
+                reason: data.reason,
+                title: data.title ?? null,
+                name: data.name ?? null,
+              },
+            };
+            const confirm = pendingConfirmRef.current;
+            const sameGuest =
+              !!confirm &&
+              typeof data.name === "string" &&
+              confirm.name === data.name;
+            if (sameGuest) {
+              setPendingConfirm(null);
+              setNotice(null);
+              setScanResult({
+                key: ++scanSeqRef.current,
+                phase: "error",
+                result,
+              });
+              return;
+            }
+            if (confirm || dialogRef.current) {
+              playSound(failSound);
+              setNotice({ key: ++noticeSeqRef.current, result });
+              return;
+            }
+            setNotice(null);
             setScanResult({
               key: ++scanSeqRef.current,
               phase: "error",
-              result: {
-                success: false,
-                detail: {
-                  reason: data.reason,
-                  title: data.title ?? null,
-                  name: data.name ?? null,
-                },
-              },
+              result,
             });
           }
           if (parsed.eventType === "CONTROL") {
@@ -559,6 +568,7 @@ export default function CompanionKiosk() {
               // was doing so it cannot re-appear behind the result.
               setDialog(null);
               setScanResult(null);
+              setNotice(null);
               setConfirmSeq((n) => n + 1);
               setPendingConfirm({
                 participantId: String(p.participantId ?? ""),
@@ -597,9 +607,6 @@ export default function CompanionKiosk() {
       es?.close();
       if (watchdogRef.current !== null) {
         window.clearInterval(watchdogRef.current);
-      }
-      if (bannerTimerRef.current !== null) {
-        window.clearTimeout(bannerTimerRef.current);
       }
     };
   }, [eventId, api]);
@@ -666,6 +673,7 @@ export default function CompanionKiosk() {
           accentColor={accentColor ?? "#000000"}
           onOwnCheckin={markOwnCheckin}
           onClose={closeConfirm}
+          paused={batteryOpen}
         />
       );
     }
@@ -677,7 +685,6 @@ export default function CompanionKiosk() {
           message={display?.kioskMessage}
           accentColor={accentColor}
           coverUrl={coverUrl}
-          banner={banner}
           onPhone={
             phoneCountryCodes.length > 0 ? () => setDialog("phone") : undefined
           }
@@ -687,7 +694,6 @@ export default function CompanionKiosk() {
               status={streamStatus}
               mode={display?.mode}
               battery={battery}
-              warn={dialog === null}
             />
           }
         />
@@ -702,6 +708,7 @@ export default function CompanionKiosk() {
             onClose={closeDialog}
             onOwnCheckin={markOwnCheckin}
             onUnpaired={() => setUnpaired(true)}
+            paused={batteryOpen}
           />
         )}
         {dialog === "email" && (
@@ -712,6 +719,7 @@ export default function CompanionKiosk() {
             onClose={closeDialog}
             onOwnCheckin={markOwnCheckin}
             onUnpaired={() => setUnpaired(true)}
+            paused={batteryOpen}
           />
         )}
 
@@ -720,5 +728,21 @@ export default function CompanionKiosk() {
     );
   };
 
-  return <ThemeProvider theme={kioskTheme}>{renderScreen()}</ThemeProvider>;
+  return (
+    <ThemeProvider theme={kioskTheme}>
+      {renderScreen()}
+      {/* Above every screen, because the screens it sits over unmount. */}
+      {battery && (
+        <LowBatteryAlert open={batteryOpen} onClose={battery.dismiss} />
+      )}
+      {notice && (
+        <ScanNotice
+          key={notice.key}
+          notice={notice}
+          paused={batteryOpen}
+          onDismiss={() => setNotice(null)}
+        />
+      )}
+    </ThemeProvider>
+  );
 }

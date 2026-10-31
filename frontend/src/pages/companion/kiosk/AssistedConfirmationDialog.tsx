@@ -29,6 +29,8 @@ interface Props {
   accentColor: string;
   onOwnCheckin: (name: string) => void;
   onClose: () => void;
+  /** The low battery card is in front: freeze the countdown. */
+  paused?: boolean;
 }
 
 export default function AssistedConfirmationDialog({
@@ -42,6 +44,7 @@ export default function AssistedConfirmationDialog({
   accentColor,
   onOwnCheckin,
   onClose,
+  paused = false,
 }: Props) {
   const api = useCompanionApi();
   const [phase, setPhase] = useState<ConfirmPhase>("input");
@@ -54,6 +57,13 @@ export default function AssistedConfirmationDialog({
     playSound(confirmSound);
   }, []);
 
+  // Read through a ref so a pause does not restart the effect and reset the
+  // clock to 60.
+  const pausedRef = useRef(paused);
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
   useEffect(() => {
     countdownRef.current = INITIAL_TIMEOUT_S;
     // clearInterval cannot cancel a tick the browser already queued; without
@@ -61,7 +71,7 @@ export default function AssistedConfirmationDialog({
     let cancelled = false;
 
     timerRef.current = setInterval(() => {
-      if (cancelled) return;
+      if (cancelled || pausedRef.current) return;
       countdownRef.current -= 1;
       setCountdown(countdownRef.current);
       if (countdownRef.current <= 0) {

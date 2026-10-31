@@ -18,7 +18,6 @@ interface Props {
   message?: string;
   accentColor: string | null;
   coverUrl: string | null;
-  banner?: string | null;
   onPhone?: () => void;
   onEmail?: () => void;
   footer?: ReactNode;
@@ -34,7 +33,6 @@ export default function CoverScreen({
   message,
   accentColor,
   coverUrl,
-  banner,
   onPhone,
   onEmail,
   footer,
@@ -84,11 +82,6 @@ export default function CoverScreen({
           gap: 6,
         }}
       >
-        {banner && (
-          <Typography variant="kioskBanner" sx={{ color: "success.main" }}>
-            {banner}
-          </Typography>
-        )}
         <Stack spacing={1.5}>
           <Typography
             variant="kioskEventName"

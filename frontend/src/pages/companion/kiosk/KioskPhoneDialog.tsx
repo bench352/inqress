@@ -23,6 +23,8 @@ interface Props {
   onClose: () => void;
   onOwnCheckin?: (name: string) => void;
   onUnpaired?: () => void;
+  /** The low battery card is in front: freeze the idle countdown. */
+  paused?: boolean;
 }
 
 export default function KioskPhoneDialog({
@@ -34,6 +36,7 @@ export default function KioskPhoneDialog({
   onClose,
   onOwnCheckin,
   onUnpaired,
+  paused = false,
 }: Props) {
   const api = useCompanionApi();
   const [userSelectedCode, setUserSelectedCode] = useState<string | null>(null);
@@ -42,7 +45,7 @@ export default function KioskPhoneDialog({
   const [result, setResult] = useState<CheckinResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [conflicting, setConflicting] = useState<ConflictParticipant[]>([]);
-  const bumpIdle = useIdleDismiss(onClose, phase === "input");
+  const bumpIdle = useIdleDismiss(onClose, phase === "input", paused);
 
   const effectiveDefault =
     countryCodes.includes(defaultCountryCode) && defaultCountryCode

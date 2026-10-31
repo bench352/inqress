@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Alert, Snackbar } from "@mui/material";
-import SecurityIcon from "@mui/icons-material/Security";
+import { Snackbar } from "@mui/material";
 
 /** Tells the operator that the admin session on this browser was signed out. */
 export default function CompanionAdminSessionAlert({
@@ -14,17 +13,9 @@ export default function CompanionAdminSessionAlert({
     <Snackbar
       open={show && !dismissed}
       autoHideDuration={10000}
+      message="Admin session has been logged out for security."
       onClose={() => setDismissed(true)}
       anchorOrigin={{ vertical: "top", horizontal: "center" }}
-    >
-      <Alert
-        severity="warning"
-        variant="filled"
-        icon={<SecurityIcon />}
-        onClose={() => setDismissed(true)}
-      >
-        Admin session has been logged out for security.
-      </Alert>
-    </Snackbar>
+    />
   );
 }

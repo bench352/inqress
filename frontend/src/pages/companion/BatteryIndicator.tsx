@@ -9,8 +9,6 @@ import { playSound, stopSound } from "./sounds";
 
 interface Props {
   battery: BatteryState | null;
-  /** False while a full-screen dialog or result would be covered. */
-  warn?: boolean;
   size?: "small" | "medium";
 }
 
@@ -19,52 +17,47 @@ const ALERT_ICON_SIZE = 60;
 // 500ms on, 500ms off, four times: the length of the alert sound.
 const ALERT_VIBRATION = [500, 500, 500, 500, 500, 500, 500, 500];
 
-export default function BatteryIndicator({
-  battery,
-  warn = true,
-  size = "medium",
-}: Props) {
+export default function BatteryIndicator({ battery, size = "medium" }: Props) {
   // Unsupported browsers get no mark at all, rather than an empty gap.
   if (!battery) return null;
 
-  const { percent, charging, dismiss, dismissed } = battery;
+  const { percent, charging } = battery;
   const low = !charging && percent < LOW_PERCENT;
 
   return (
-    <>
-      <Stack
-        direction="row"
-        spacing={0}
-        role="img"
-        aria-label={`Battery ${percent}%, ${charging ? "charging" : "not charging"}`}
-        sx={{
-          alignItems: "center",
-          flexShrink: 0,
-          lineHeight: 1,
-          color: low ? "error.main" : "inherit",
-        }}
+    <Stack
+      direction="row"
+      spacing={0}
+      role="img"
+      aria-label={`Battery ${percent}%, ${charging ? "charging" : "not charging"}`}
+      sx={{
+        alignItems: "center",
+        flexShrink: 0,
+        lineHeight: 1,
+        color: low ? "error.main" : "inherit",
+      }}
+    >
+      <Typography
+        component="span"
+        variant={size === "small" ? "body2" : "body1"}
+        sx={{ fontWeight: 500 }}
       >
-        <Typography
-          component="span"
-          variant={size === "small" ? "body2" : "body1"}
-          sx={{ fontWeight: 500 }}
-        >
-          {percent}%
-        </Typography>
-        {charging ? (
-          <PowerOutlinedIcon fontSize={size} aria-hidden />
-        ) : (
-          <Battery0BarOutlinedIcon fontSize={size} aria-hidden />
-        )}
-      </Stack>
-      <LowBatteryAlert open={warn && low && !dismissed} onClose={dismiss} />
-    </>
+        {percent}%
+      </Typography>
+      {charging ? (
+        <PowerOutlinedIcon fontSize={size} aria-hidden />
+      ) : (
+        <Battery0BarOutlinedIcon fontSize={size} aria-hidden />
+      )}
+    </Stack>
   );
 }
 
-// Mounted only once battery info exists, so unsupported browsers never load
-// the warning sound.
-function LowBatteryAlert({
+/**
+ * Mounted by the page, not the indicator: the card outlives the screen it sits
+ * over, so it cannot live inside one that unmounts.
+ */
+export function LowBatteryAlert({
   open,
   onClose,
 }: {
@@ -89,6 +82,8 @@ function LowBatteryAlert({
       onClose={onClose}
       maxWidth="xs"
       fullWidth
+      // Above every other dialog, including the scan notice.
+      sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
       slotProps={{ paper: { onClick: onClose } }}
     >
       <DialogContent>

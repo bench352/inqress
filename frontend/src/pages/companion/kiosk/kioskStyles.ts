@@ -162,7 +162,7 @@ export const KIOSK_TYPOGRAPHY: TypographyVariantsOptions = {
   },
 };
 
-const KIOSK_EDGE = "#000000";
+export const KIOSK_EDGE = "#000000";
 
 // Marks a contained button whose fill is the event accent, so the theme can pin
 // that fill on hover. An sx rule shares its generated class with MUI's own hover
@@ -173,7 +173,7 @@ export const kioskAccentClass = "KioskAccent";
 // pale or white accent still reads as a button. The hard shadow sits under the
 // button (no offset sideways) so a row of keys stays aligned.
 const KIOSK_RADIUS = "9999px";
-const KIOSK_SHADOW = `0 3px 0 0 ${KIOSK_EDGE}`;
+export const KIOSK_SHADOW = `0 3px 0 0 ${KIOSK_EDGE}`;
 
 // One shadow and one shape for every variant, so filled and outlined controls
 // read as the same family. This is the kiosk theme's MuiButton override.
