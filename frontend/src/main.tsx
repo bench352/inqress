@@ -26,6 +26,10 @@ const theme = createTheme({
   },
   components: {
     MuiTextField: { defaultProps: { variant: "outlined" } },
+    // The paper carries tabIndex={-1} so the focus trap can reach it. A press
+    // focuses it, and the browser then paints its outline. Same declaration
+    // MUI already puts on the dialog container.
+    MuiDialog: { styleOverrides: { paper: { outline: 0 } } },
   },
 });
 

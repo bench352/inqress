@@ -83,3 +83,8 @@ export function useSounds(sources: readonly string[]): boolean {
 export function playSound(src: string) {
   sounds.get(src)?.play();
 }
+
+/** Cuts a sound already playing, e.g. an alert dismissed before it finishes. */
+export function stopSound(src: string) {
+  sounds.get(src)?.stop();
+}

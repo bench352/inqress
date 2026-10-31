@@ -36,6 +36,8 @@ interface Props {
   onClose: () => void;
   onOwnCheckin?: (name: string) => void;
   onUnpaired?: () => void;
+  /** The low battery card is in front: freeze the idle countdown. */
+  paused?: boolean;
 }
 
 const EMAIL_ICON_SIZE = 96;
@@ -64,6 +66,7 @@ export default function KioskEmailDialog({
   onClose,
   onOwnCheckin,
   onUnpaired,
+  paused = false,
 }: Props) {
   const api = useCompanionApi();
   const [email, setEmail] = useState("");
@@ -71,7 +74,7 @@ export default function KioskEmailDialog({
   const [result, setResult] = useState<CheckinResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [conflicting, setConflicting] = useState<ConflictParticipant[]>([]);
-  const bumpIdle = useIdleDismiss(onClose, phase === "input");
+  const bumpIdle = useIdleDismiss(onClose, phase === "input", paused);
 
   const handleSubmit = async () => {
     if (!email) return;
@@ -167,7 +170,7 @@ export default function KioskEmailDialog({
                 sx={{
                   width: "100%",
                   maxWidth: FIELD_MAX_WIDTH,
-                  ...kioskInputSx(accentColor),
+                  ...kioskInputSx(),
                 }}
                 slotProps={{
                   input: {

@@ -106,7 +106,7 @@ export default function PhoneCheckinPanel({
             sx={{
               flex: "0 0 auto",
               minWidth: 120,
-              ...kioskInputSx(accentColor),
+              ...kioskInputSx(),
             }}
           >
             <Select
@@ -136,7 +136,7 @@ export default function PhoneCheckinPanel({
             fullWidth
             variant="standard"
             value={phoneNo}
-            sx={kioskInputSx(accentColor)}
+            sx={kioskInputSx()}
             slotProps={{
               input: {
                 readOnly: true,

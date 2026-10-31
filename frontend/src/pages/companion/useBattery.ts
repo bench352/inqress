@@ -15,6 +15,16 @@ interface Reading {
   charging: boolean;
 }
 
+/** The one expression behind the low battery card, for the pages that pause for it. */
+export function batteryAlertOpen(battery: BatteryState | null): boolean {
+  return (
+    battery !== null &&
+    !battery.charging &&
+    battery.percent < LOW_PERCENT &&
+    !battery.dismissed
+  );
+}
+
 interface BatteryManagerLike extends EventTarget {
   level: number;
   charging: boolean;

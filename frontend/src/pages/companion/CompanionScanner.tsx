@@ -19,13 +19,13 @@ import ErrorIcon from "@mui/icons-material/Error";
 import { useParams } from "@tanstack/react-router";
 import { ApiError, useCompanionApi } from "@/api";
 import { useBootHold } from "@/components/bootHold";
-import scannedBeep from "@/assets/soundEffects/scanned_beep.aac";
-import lowBatterySound from "@/assets/soundEffects/low_battery_alert.aac";
+import scannedBeep from "@/assets/soundEffects/scanner_beep.aac";
+import lowBatterySound from "@/assets/soundEffects/companion_battery_low.aac";
 import { playSound, useSounds } from "./sounds";
 import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
-import BatteryIndicator from "./BatteryIndicator";
-import useBattery, { type BatteryState } from "./useBattery";
+import BatteryIndicator, { LowBatteryAlert } from "./BatteryIndicator";
+import useBattery, { type BatteryState, batteryAlertOpen } from "./useBattery";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
 const CAMERA_KEY = "settings.webcamDeviceId";
@@ -78,13 +78,11 @@ function ScannerFooter({
   display,
   status,
   battery,
-  warn,
   busy = false,
 }: {
   display: Display | null;
   status: ConnectionStatus;
   battery: BatteryState | null;
-  warn: boolean;
   busy?: boolean;
 }) {
   return (
@@ -122,7 +120,7 @@ function ScannerFooter({
               aria-label="Verifying ticket"
             />
           )}
-          <BatteryIndicator battery={battery} warn={warn} size="small" />
+          <BatteryIndicator battery={battery} size="small" />
           {status === "connected" ? (
             <SensorsOutlinedIcon
               fontSize="small"
@@ -156,6 +154,8 @@ export default function CompanionScanner() {
   );
   const esRef = useRef<EventSource | null>(null);
   const resultTimer = useRef<number | null>(null);
+  const resultLeftRef = useRef(RESULT_MS);
+  const resultDeadlineRef = useRef(0);
   const mountedAt = useRef(0);
   const seenTicket = useRef<string | null>(null);
   const seenAt = useRef(0);
@@ -246,7 +246,32 @@ export default function CompanionScanner() {
   const adminCleared = useClearAdminSession();
 
   const battery = useBattery();
+  const batteryOpen = batteryAlertOpen(battery);
   const soundsReady = useSounds(SCANNER_SOUNDS);
+
+  // The battery card sits above the result rather than closing it, so the
+  // result's clock freezes with the card open and resumes with what was left.
+  useEffect(() => {
+    if (!resultRef.current) return;
+    if (batteryOpen) {
+      if (resultTimer.current !== null) {
+        window.clearTimeout(resultTimer.current);
+        resultTimer.current = null;
+        resultLeftRef.current = Math.max(
+          0,
+          resultDeadlineRef.current - Date.now(),
+        );
+      }
+      return;
+    }
+    if (resultTimer.current === null) {
+      resultDeadlineRef.current = Date.now() + resultLeftRef.current;
+      resultTimer.current = window.setTimeout(
+        dismissResult,
+        resultLeftRef.current,
+      );
+    }
+  }, [batteryOpen, dismissResult]);
   useBootHold(
     !unpaired && !(display !== null && soundsReady),
     "Getting scanner ready...",
@@ -289,6 +314,8 @@ export default function CompanionScanner() {
     resultRef.current = outcome;
     setResult(outcome);
     if (resultTimer.current !== null) window.clearTimeout(resultTimer.current);
+    resultLeftRef.current = RESULT_MS;
+    resultDeadlineRef.current = Date.now() + RESULT_MS;
     resultTimer.current = window.setTimeout(dismissResult, RESULT_MS);
   };
 
@@ -313,6 +340,8 @@ export default function CompanionScanner() {
     setBusy(true);
     // Beep as soon as the ticket is accepted, not when the result arrives.
     playSound(scannedBeep);
+    // Same moment as the beep. A held ticket returns above, so it stays still.
+    navigator.vibrate?.(200);
     try {
       const res = await api.post<{
         success: boolean;
@@ -478,9 +507,16 @@ export default function CompanionScanner() {
         display={display}
         status={status}
         battery={battery}
-        warn={!result}
         busy={busy && cameraOn && !result}
       />
+
+      {/* Above the result card: the result is not closed to make room. */}
+      {battery && (
+        <LowBatteryAlert
+          open={batteryAlertOpen(battery)}
+          onClose={battery.dismiss}
+        />
+      )}
 
       <Dialog
         open={!!result}

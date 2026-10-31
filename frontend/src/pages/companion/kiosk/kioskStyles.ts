@@ -139,7 +139,7 @@ export const KIOSK_TYPOGRAPHY: TypographyVariantsOptions = {
   kioskNameSmall: {
     fontFamily: ROBOTO,
     fontWeight: 700,
-    fontSize: "1.5rem",
+    fontSize: "2rem",
     lineHeight: 1.1,
   },
   kioskClock: {
@@ -162,7 +162,7 @@ export const KIOSK_TYPOGRAPHY: TypographyVariantsOptions = {
   },
 };
 
-const KIOSK_EDGE = "#000000";
+export const KIOSK_EDGE = "#000000";
 
 // Marks a contained button whose fill is the event accent, so the theme can pin
 // that fill on hover. An sx rule shares its generated class with MUI's own hover
@@ -173,7 +173,7 @@ export const kioskAccentClass = "KioskAccent";
 // pale or white accent still reads as a button. The hard shadow sits under the
 // button (no offset sideways) so a row of keys stays aligned.
 const KIOSK_RADIUS = "9999px";
-const KIOSK_SHADOW = `0 3px 0 0 ${KIOSK_EDGE}`;
+export const KIOSK_SHADOW = `0 3px 0 0 ${KIOSK_EDGE}`;
 
 // One shadow and one shape for every variant, so filled and outlined controls
 // read as the same family. This is the kiosk theme's MuiButton override.
@@ -256,6 +256,44 @@ export function useKioskTheme() {
             },
           ],
         },
+        MuiInput: {
+          styleOverrides: {
+            root: {
+              // The bar is on for good: the booth sets user-select: none, and
+              // Chrome already paints ::after under it. The doubled class
+              // outranks MUI's palette color variant, which would paint primary.
+              "&&::after": {
+                borderBottom: `2px solid ${KIOSK_EDGE}`,
+                transform: "scaleX(1) translateX(0)",
+                transition: "none",
+              },
+              "&&.Mui-focused::after": {
+                borderBottom: `2px solid ${KIOSK_EDGE}`,
+                transform: "scaleX(1) translateX(0)",
+              },
+              // Pin MUI's hover thickening back to the resting line.
+              "@media (hover: hover)": {
+                "&:hover:not(.Mui-disabled, .Mui-error)::before": {
+                  borderBottom: "1px solid rgba(0, 0, 0, 0.42)",
+                },
+              },
+            },
+          },
+        },
+        // Outlined only: Paper is also the dialog surface and the country menu.
+        MuiCard: {
+          styleOverrides: {
+            root: {
+              // Doubled class: Paper's outlined border is a 2-class rule too,
+              // and only specificity settles which one wins.
+              "&&.MuiPaper-outlined": {
+                border: `2px solid ${KIOSK_EDGE}`,
+                boxShadow: KIOSK_SHADOW,
+                transition: "none",
+              },
+            },
+          },
+        },
       },
     });
     return kiosk;
@@ -319,18 +357,12 @@ export function kioskContainedSx(accent: string): SxProps<Theme> {
 }
 
 /**
- * Standard-variant input: paint the focus bar in the accent when it clears
- * 3:1 on the white dialog, otherwise black. The placeholder uses the
- * instruction face so it matches the heading above the field.
- * `.MuiInputBase-root::after` outranks MUI's own `&::after` rule.
+ * Standard-variant input: the placeholder uses the instruction face so it
+ * matches the heading above the field. The underline itself is the kiosk
+ * theme's MuiInput override; an sx rule here would outrank it.
  */
-export function kioskInputSx(accent: string): SxProps<Theme> {
-  const bar = accentOnSurface(accent);
+export function kioskInputSx(): SxProps<Theme> {
   return {
-    "& .MuiInputBase-root::after": {
-      borderBottomColor: bar,
-      transition: "none",
-    },
     "& .MuiInputBase-input::placeholder": {
       fontFamily: CONDENSED,
       opacity: 0.3,
