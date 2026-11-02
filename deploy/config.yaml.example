@@ -1,0 +1,46 @@
+server:
+  # The process binds this address. 127.0.0.1 inside the container breaks the
+  # published port and the proxy.
+  host: 0.0.0.0
+  # If you change this, also change the right side of "8000:8000" in
+  # docker-compose.yml.
+  port: 8000
+  debug: false
+  api_docs: false
+
+app:
+  organization_name:
+  default_country_code: HK
+  max_upload_mb: 30
+  # Minutes between background syncs of the event data sources.
+  data_source_poll_minutes: 5
+  # Turn on only if a data-source link is on the LAN. Link-local addresses stay
+  # blocked either way.
+  allow_private_data_sources: false
+
+auth:
+  # Required. An empty value stops the app at startup.
+  # Changing the password later logs every session out.
+  admin_username: ""
+  admin_password: ""
+  # Keep true. The app does not terminate TLS.
+  cookie_secure: true
+  session_idle_days: 30
+  session_absolute_days: 90
+  login_rate_limit:
+    enabled: true
+    max_failures: 10
+    window_seconds: 900
+    # Address of the bundled test proxy. Replace it with your own proxy's
+    # address. Never 0.0.0.0/0: the app accepts it, and it defeats the limit.
+    trusted_proxies: ["172.30.211.10"]
+
+email_smtp:
+  # Leave host empty to skip email.
+  host: ""
+  port: 465
+  username: ""
+  password: ""
+  from_address:
+  email_footer_enabled: true
+  wait_between_delivery_second: 5

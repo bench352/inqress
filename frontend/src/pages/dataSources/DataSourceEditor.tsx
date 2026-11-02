@@ -408,12 +408,6 @@ function DataSourceEditorForm({
           </Stack>
 
           {fetchError && <Alert severity="error">{fetchError}</Alert>}
-          {isEdit && !sheets && (
-            <Alert severity="info">
-              Press Next to reload the columns. Saving without checking keeps
-              the current column mapping.
-            </Alert>
-          )}
 
           <Box>
             <Button variant="contained" loading={fetching} onClick={handleNext}>
