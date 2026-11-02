@@ -6,16 +6,16 @@
 
 ## Key Features ✨
 
-InQRess is still the check-in system you know and love, with a massive grow-up in V2:
+InQRess is still the check-in system you know and love, with massive upgrades in V2:
 
-- **Just scan and they’re in:** Send your guests QR code tickets, and scan them when they arrive.
+- **Just scan and they’re in:** Send QR code tickets to your guests, and scan them when they arrive.
 - **Multiple check-in methods:** QR ticket, phone/email on the kiosk, or manual confirmation with the guest.
-- **Automatic guest import:** Sync participants data from the forms and spreadsheets you already use.
-- **Send tickets by email or yourself:** Bulk ticket delivery by email, or you share it yourself, using customizable message templates.
+- **Automatic guest import:** Sync participant data from the forms and spreadsheets you already use.
+- **Send tickets by email, or share them yourself:** Bulk ticket delivery by email, or share it yourself, using customizable message templates.
 - **Customizable kiosk:** Set custom images and accent color for the guest check-in kiosk.
 - **Live attendance:** See who's arrived while the event is running.
 
-### (Probably) the easiest way to check your guest in, now even faster in V2
+### (Probably) the easiest way to check your guests in, now even faster in V2
 
 Just scan and your guest is checked in. As simple as that.
 
@@ -31,7 +31,7 @@ Guests can check in on the touchscreen kiosk **with the phone number or email ad
 
 ![](docs/assets/phone_n_email_check_in.PNG)
 
-Alternatively, a receptionist can search for the guest by name at the admin page, then ask the guest to **confirm at the kiosk screen**.
+Alternatively, a receptionist can search for the guest by name on the admin page, then ask the guest to **confirm at the kiosk screen**.
 
 ![](docs/assets/confirm_at_kiosk.PNG)
 
@@ -39,7 +39,7 @@ Alternatively, a receptionist can search for the guest by name at the admin page
 
 InQRess can now automatically pull participants from the forms or spreadsheets you use to register your guests.
 
-Just add them as a **data source** for your events, and configure how the spreadsheet columns map to participants' detail. InQRess will **synchronize and keep your participant list updated** every now and then.
+Just add them as a **data source** for your events, and configure how the spreadsheet columns map to participants' details. InQRess will **synchronize and keep your participant list updated** every now and then.
 
 ![](docs/assets/data_sources.PNG)
 
@@ -51,13 +51,13 @@ Of course, the old-school way of importing guests via **manual spreadsheet uploa
 
 ![](docs/assets/manual_import.PNG)
 
-### Send your guests tickets by email or yourself
+### Send your guests tickets by email, or share them yourself
 
 Once your guests are registered and admitted, you can **send tickets to the guests by email**, all at once.
 
 ![](docs/assets/bulk_email_delivery.PNG)
 
-Of course, you have the creative freedom of how your email looks to your guest, with **customizable subject line** and **message template**.
+Of course, you have the creative freedom of how your email looks to your guest, with a **customizable subject line** and **message template**.
 
 ![](docs/assets/customize_message.png)
 
@@ -65,7 +65,7 @@ If you want to share the ticket via a medium outside of email by yourself, V2 al
 
 ![](docs/assets/share_ticket_menu.png)
 
-### Make your front desk personal with customizable kiosk
+### Make your front desk personal with a customizable kiosk
 
 ![](docs/assets/customizable_kiosk.PNG)
 
@@ -89,7 +89,7 @@ The InQRess admin pages are designed from the ground up to support [Responsive W
 
 ![](docs/assets/undo_options.PNG)
 
-Whether you accidentally put your event in "live" mode while testing ticket scanning, or you accidentally mark a guest’s ticket as delivered, or even deactivate the guest's ticket after admission. You can now **undo it yourself**.
+Whether you accidentally put your event in "live" mode while testing ticket scanning, accidentally mark a guest's ticket as delivered, or even want to deactivate the guest's ticket after admission, you can now **undo it yourself**.
 
 ### Status bar and battery monitoring
 
@@ -97,7 +97,7 @@ Whether you accidentally put your event in "live" mode while testing ticket scan
 
 On a connected kiosk or scanner, you can check the connectivity status (or the current time on a kiosk) at a glance through the **status bar**.
 
-If the battery runs low on your connected device (below 25%), an **audible low battery warning** will also appear to remind you to keep them charged immediately.
+If the battery runs low on your connected device (below 25%), an **audible low battery warning** will also appear to remind you to charge it immediately.
 
 ![](docs/assets/companion_low_battery.PNG)
 
@@ -117,7 +117,7 @@ InQRess also reads live attendance records and participant status from your even
 
 ## Love the idea? Get InQRess on your computer / server
 
-You’ll need Docker and network knowledge (and a bit of comfort with the terminal). For how to set it up on your own hardware as well as the device needed, see [setup guide](docs/setup.md).
+For how to set it up on your own hardware as well as the devices needed, see the [setup guide](docs/setup.md).
 
 ## Tech stack
 
@@ -127,8 +127,8 @@ You’ll need Docker and network knowledge (and a bit of comfort with the termin
 
 ---
 
-**This project is at an early stage and is not thoroughly tested. To suggest a feature or report a bug, [open an issue](https://github.com/bench352/inqress/issues).*
+*This project is at an early stage and is not thoroughly tested. To suggest a feature or report a bug, [open an issue](https://github.com/bench352/inqress/issues).*
 
-**The image used in the customize kiosk example is shot by me, at [West Kowloon Cultral District, Hong Kong](https://maps.app.goo.gl/L9252v2z7kvh7SeYA).*
+*The image used in the customizable kiosk example was taken by me, at [West Kowloon Cultural District, Hong Kong](https://maps.app.goo.gl/L9252v2z7kvh7SeYA).*
 
 *All personal data in the illustrations is fictional and does not represent any real person.*
