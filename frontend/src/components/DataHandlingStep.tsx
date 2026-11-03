@@ -73,11 +73,11 @@ const ROW_TRACKING = {
   label: "Row tracking",
   icon: TableRowsIcon,
   description:
-    "Each person keeps the record they came from. A later sync updates that same person, so a corrected name reaches the ticket they already hold.",
+    "Each person is bind to the exact row of record they came from. Recommended for form responses.",
 } as const;
 
 const ROW_TRACKING_WARNING =
-  "Records are matched by position. Sorting the sheet or adding a record above someone writes their details onto the wrong ticket. Don't pick this option when records might be rearranged in the data source.";
+  "Records are matched by position on the data source. Sorting or adding a record within existing entries will write their details onto the wrong participant. Do not pick this option when records might be rearranged in the data source.";
 
 function OptionCard({
   selected,
@@ -198,7 +198,7 @@ export default function DataHandlingStep({
         </Box>
       </Stack>
 
-      {rowTracking && <Alert severity="warning">{ROW_TRACKING_WARNING}</Alert>}
+      {rowTracking && <Alert severity="info">{ROW_TRACKING_WARNING}</Alert>}
 
       {!rowTracking && (
         <Stack spacing={1.5}>

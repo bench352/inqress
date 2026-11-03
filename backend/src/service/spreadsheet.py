@@ -1,6 +1,7 @@
 import csv
 import datetime
 import io
+import math
 import threading
 import uuid
 
@@ -21,6 +22,14 @@ def _cleanup(task_id: uuid.UUID) -> None:
         _cache.pop(task_id, None)
 
 
+def _cell_text(value: object) -> str:
+    # str(91234567.0) is '91234567.0'; the phone parser reads the dot as a separator.
+    if isinstance(value, float) and math.isfinite(value) and value.is_integer():
+        # shortcut: integer floats only; a non-integer or already-rounded sheet number cannot be recovered.
+        return format(int(value), "d")
+    return "" if value is None else str(value)
+
+
 def _take_first_nonempty_as_header(
     rows: Sequence[Sequence],
 ) -> tuple[list[str], list[list[str]], int]:
@@ -34,15 +43,15 @@ def _take_first_nonempty_as_header(
     # skip leading rows that are entirely blank
     start = 0
     for i, row in enumerate(rows):
-        if any(c is not None and str(c).strip() for c in row):
+        if any(_cell_text(c).strip() for c in row):
             start = i
             break
     else:
         return [], [], 0
 
-    columns = [str(c) if c is not None else "" for c in rows[start]]
+    columns = [_cell_text(c) for c in rows[start]]
     data_rows = rows[start + 1 :]
-    data = [[str(c) if c is not None else "" for c in row] for row in data_rows]
+    data = [[_cell_text(c) for c in row] for row in data_rows]
     header_row = start + 1  # convert 0-based index to 1-based sheet row
     return columns, data, header_row
 

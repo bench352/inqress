@@ -1,0 +1,14 @@
+{
+	admin off
+	skip_install_trust
+}
+
+# Replace 192.0.2.10 with the address you will open.
+# This is a test proxy. The browser shows a certificate warning. Continue past it.
+192.0.2.10 {
+	tls internal
+
+	reverse_proxy inqress:8000 {
+		flush_interval -1
+	}
+}

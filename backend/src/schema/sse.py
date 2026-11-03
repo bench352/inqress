@@ -10,6 +10,7 @@ class SseEventType(enum.StrEnum):
     CREATE_PARTICIPANT = "CREATE_PARTICIPANT"
     SEND_EMAIL = "SEND_EMAIL"
     ATTENDANCE = "ATTENDANCE"
+    ATTENDANCE_CLEARED = "ATTENDANCE_CLEARED"
     SCAN_REFUSAL = "SCAN_REFUSAL"
     GENERATE_TICKET_QR = "GENERATE_TICKET_QR"
     CHANGE_MODE = "CHANGE_MODE"
@@ -71,6 +72,10 @@ class AttendanceNotificationData(schema.rest.RestModel):
     name: str
     check_in_method: str
     check_in_at: str
+
+
+class AttendanceClearedData(schema.rest.RestModel):
+    participant_id: str
 
 
 class ScanRefusalData(schema.rest.RestModel):

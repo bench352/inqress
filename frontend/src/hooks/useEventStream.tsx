@@ -45,6 +45,10 @@ interface SseAttendanceData {
   checkInAt: string;
 }
 
+interface SseAttendanceClearedData {
+  participantId: string;
+}
+
 interface SseDataSourceSyncData {
   sourceId: string;
   sourceName: string;
@@ -65,6 +69,7 @@ interface SseRawEvent {
     | SseSuccessData
     | SseErrorData
     | SseAttendanceData
+    | SseAttendanceClearedData
     | SseDataSourceSyncData;
 }
 
@@ -136,7 +141,13 @@ export function useEventStream(
       const es = new EventSource(url, { withCredentials: true });
       eventSourceRef.current = es;
 
-      es.onopen = () => console.log("[SSE] connection opened");
+      es.onopen = () => {
+        console.log("[SSE] connection opened");
+        // Missed events during the drop left the list stale; refetch it.
+        queryClientRef.current.invalidateQueries({
+          queryKey: ["participants", eventId],
+        });
+      };
       es.onmessage = (e) => {
         try {
           const parsed = JSON.parse(e.data) as SseRawEvent;
@@ -364,6 +375,21 @@ export function useEventStream(
           enqueueSnackbarRef.current(
             `${data.title ? data.title + " " : ""}${data.name} checked in`,
             { variant: "success" },
+          );
+        }
+      } else if (ev.eventType === "ATTENDANCE_CLEARED") {
+        if (ev.type === "NOTIFICATION") {
+          const data = ev.data as SseAttendanceClearedData;
+          queryClientRef.current.setQueryData(
+            ["participants", eventId],
+            (old: object[] | undefined) => {
+              if (!old) return old;
+              return (
+                old as Array<{ id: string; checkedInAt: string | null }>
+              ).map((a) =>
+                a.id === data.participantId ? { ...a, checkedInAt: null } : a,
+              );
+            },
           );
         }
       }

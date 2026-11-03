@@ -71,7 +71,15 @@ def delete_attendance(event_id: uuid.UUID, participant_id: uuid.UUID) -> bool:
                 schema.orm.AttendanceLog.participant_id == participant_id,
             )
         )
-        return result.rowcount > 0  # type: ignore[attr-defined]
+        deleted = result.rowcount > 0  # type: ignore[attr-defined]
+    if deleted:
+        evt = schema.sse.SseEvent[schema.sse.AttendanceClearedData](
+            event_type=schema.sse.SseEventType.ATTENDANCE_CLEARED,
+            type=schema.sse.SseType.NOTIFICATION,
+            data=schema.sse.AttendanceClearedData(participant_id=str(participant_id)),
+        )
+        service.event_stream.event_stream_manager.send(event_id, evt)
+    return deleted
 
 
 def _emit_attendance(

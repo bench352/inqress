@@ -1,0 +1,38 @@
+# The image tag below must equal the git tag of the commit you release.
+# Never use latest.
+services:
+  inqress:
+    image: bench352/inqress:0.2.0
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ${HOME}/.inqress:/app/data
+    networks:
+      - inqress
+
+  # Optional test proxy. Start it with: docker compose --profile https up -d
+  caddy:
+    profiles: ["https"]
+    image: caddy:2.11.7-alpine
+    restart: unless-stopped
+    # Root, so Caddy can write its data and config directories.
+    user: "0:0"
+    ports:
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy:/data
+      - ./caddy-config:/config
+    networks:
+      inqress:
+        ipv4_address: 172.30.211.10
+    depends_on:
+      inqress:
+        condition: service_healthy
+
+networks:
+  inqress:
+    ipam:
+      config:
+        - subnet: 172.30.211.0/24

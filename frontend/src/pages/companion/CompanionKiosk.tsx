@@ -21,7 +21,7 @@ import KioskPhoneDialog from "./kiosk/KioskPhoneDialog";
 import KioskEmailDialog from "./kiosk/KioskEmailDialog";
 import AssistedConfirmationDialog from "./kiosk/AssistedConfirmationDialog";
 import CheckinResultDisplay from "./kiosk/CheckinResultDisplay";
-import type { CheckinResponse } from "./kiosk/types";
+import { isSuccessDetail, type CheckinResponse } from "./kiosk/types";
 import CompanionAdminSessionAlert from "./CompanionAdminSessionAlert";
 import useClearAdminSession from "./useClearAdminSession";
 import BatteryIndicator, { LowBatteryAlert } from "./BatteryIndicator";
@@ -193,6 +193,10 @@ export default function CompanionKiosk() {
   const displayRef = useRef<Display | null>(null);
   const pendingConfirmRef = useRef<typeof pendingConfirm>(null);
   const ownCheckinRef = useRef<{ name: string; ts: number } | null>(null);
+  // A phone/email request is out, so the stream's copy of its attendance is
+  // not yet known to be ours.
+  const ownCheckinInflightRef = useRef(false);
+  const heldAttendanceRef = useRef<CheckinResponse[]>([]);
   const scanSeqRef = useRef(0);
   const noticeSeqRef = useRef(0);
 
@@ -205,6 +209,63 @@ export default function CompanionKiosk() {
   const markOwnCheckin = useCallback((name: string) => {
     ownCheckinRef.current = { name, ts: Date.now() };
   }, []);
+
+  // Routes an attendance result: beside an open dialog, or over an idle booth.
+  // Reads only refs, so the stream and a settling check-in share it.
+  const presentAttendance = useCallback((result: CheckinResponse) => {
+    const name = isSuccessDetail(result.detail) ? result.detail.name : null;
+    const own = ownCheckinRef.current;
+    // Don't replay a success for a check-in this kiosk just performed itself
+    // (the stream echo that races the HTTP response).
+    if (own && name === own.name && Date.now() - own.ts < 5000) {
+      return;
+    }
+    const confirm = pendingConfirmRef.current;
+    if (confirm && confirm.name === name) {
+      // Staff scanned the guest the confirm screen is holding: that screen is
+      // superseded, so close it and take the whole booth.
+      setPendingConfirm(null);
+      setNotice(null);
+      setScanResult({
+        key: ++scanSeqRef.current,
+        phase: "success",
+        result,
+      });
+      return;
+    }
+    if (confirm || dialogRef.current) {
+      // Beside the dialog, not over it: the guest keeps their screen,
+      // and its clock keeps running.
+      playSound(successSound);
+      setNotice({ key: ++noticeSeqRef.current, result });
+      return;
+    }
+    // Idle kiosk: full-screen check-in success, whose own sound plays.
+    setNotice(null);
+    setScanResult({
+      key: ++scanSeqRef.current,
+      phase: "success",
+      result,
+    });
+  }, []);
+
+  const beginOwnCheckin = useCallback(() => {
+    ownCheckinInflightRef.current = true;
+  }, []);
+
+  // null: the request failed or was ambiguous, so nothing held here is ours.
+  const finishOwnCheckin = useCallback(
+    (name: string | null) => {
+      ownCheckinInflightRef.current = false;
+      if (name !== null) ownCheckinRef.current = { name, ts: Date.now() };
+      const held = heldAttendanceRef.current;
+      heldAttendanceRef.current = [];
+      // The own marker is set first, so the held echo of this check-in is
+      // dropped by its guard rather than shown beside the full-screen success.
+      held.forEach(presentAttendance);
+    },
+    [presentAttendance],
+  );
 
   useEffect(() => {
     dialogRef.current = dialog;
@@ -480,43 +541,17 @@ export default function CompanionKiosk() {
             parsed.type === "NOTIFICATION"
           ) {
             const data = parsed.data;
-            const own = ownCheckinRef.current;
-            // Don't replay a full-screen success for a check-in this kiosk just
-            // performed itself (dialog self-echo after it closes).
-            if (own && own.name === data.name && Date.now() - own.ts < 5000) {
-              return;
-            }
             const result: CheckinResponse = {
               success: true,
               detail: { title: data.title ?? null, name: data.name },
             };
-            const confirm = pendingConfirmRef.current;
-            if (confirm && confirm.name === data.name) {
-              // Staff scanned the guest the confirm screen is holding: that
-              // screen is superseded, so close it and take the whole booth.
-              setPendingConfirm(null);
-              setNotice(null);
-              setScanResult({
-                key: ++scanSeqRef.current,
-                phase: "success",
-                result,
-              });
+            if (ownCheckinInflightRef.current) {
+              // Our own result lands with the HTTP response; holding the stream
+              // copy keeps a busy-kiosk notice off that success screen.
+              heldAttendanceRef.current.push(result);
               return;
             }
-            if (confirm || dialogRef.current) {
-              // Beside the dialog, not over it: the guest keeps their screen,
-              // and its clock keeps running.
-              playSound(successSound);
-              setNotice({ key: ++noticeSeqRef.current, result });
-              return;
-            }
-            // Idle kiosk: full-screen check-in success, whose own sound plays.
-            setNotice(null);
-            setScanResult({
-              key: ++scanSeqRef.current,
-              phase: "success",
-              result,
-            });
+            presentAttendance(result);
           }
           if (
             parsed.eventType === "SCAN_REFUSAL" &&
@@ -609,7 +644,7 @@ export default function CompanionKiosk() {
         window.clearInterval(watchdogRef.current);
       }
     };
-  }, [eventId, api]);
+  }, [eventId, api, presentAttendance]);
 
   const renderScreen = () => {
     if (unpaired) {
@@ -706,7 +741,8 @@ export default function CompanionKiosk() {
             countryCodes={phoneCountryCodes}
             defaultCountryCode={phoneCountryDefaultCode}
             onClose={closeDialog}
-            onOwnCheckin={markOwnCheckin}
+            onCheckinStart={beginOwnCheckin}
+            onCheckinSettled={finishOwnCheckin}
             onUnpaired={() => setUnpaired(true)}
             paused={batteryOpen}
           />
@@ -717,7 +753,8 @@ export default function CompanionKiosk() {
             eventId={eventId}
             accentColor={accentColor ?? "#000000"}
             onClose={closeDialog}
-            onOwnCheckin={markOwnCheckin}
+            onCheckinStart={beginOwnCheckin}
+            onCheckinSettled={finishOwnCheckin}
             onUnpaired={() => setUnpaired(true)}
             paused={batteryOpen}
           />
