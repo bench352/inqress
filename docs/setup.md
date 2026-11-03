@@ -13,7 +13,7 @@ If these are foreign to you, you may want help from someone more experienced wit
 
 ## Device requirements
 
-![](assets/devices.PNG)
+![](assets/devices.jpg)
 
 InQRess needs multiple devices to work together. Make sure you have something that can fill each role:
 
