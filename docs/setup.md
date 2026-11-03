@@ -1,4 +1,4 @@
-# Setup InQRess for your events
+# Set up InQRess for your events
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ InQRess needs multiple devices to work together. Make sure you have something th
 
    ```bash
    # Back up any existing config
-   [ -f "~/.inqress/config.yaml" ] && mv "~/.inqress/config.yaml" "~/.inqress/config.yaml.bak"
+   [ -f ~/.inqress/config.yaml ] && mv ~/.inqress/config.yaml ~/.inqress/config.yaml.bak
    cp ~/inqress/config.yaml.example ~/.inqress/config.yaml
    ```
 
@@ -64,7 +64,7 @@ InQRess needs multiple devices to work together. Make sure you have something th
 
 5. Open `http://localhost:8000` on the machine running Docker and log in with the credentials from step 3.
 
-> [!important]
+> [!IMPORTANT]
 >
 > Core features such as QR scanning require a [secure context](https://www.w3.org/TR/secure-contexts/). `localhost` is treated as secure, so the admin interface works over plain HTTP on the same machine. Companion devices (phones and tablets) need an HTTPS connection with a trusted certificate.
 >
@@ -72,11 +72,12 @@ InQRess needs multiple devices to work together. Make sure you have something th
 
 ## Optional: local HTTPS with the bundled Caddy proxy
 
-The compose file also includes a Caddy service that provides HTTPS on your local network, so you can test device pairing and connectivity without setting up a certificate. **NOTE: Browsers will show a certificate warning (which you can bypass in some browsers).**
+The compose file also includes a Caddy proxy that provides HTTPS on your local network, so you can test device pairing and connectivity without setting up a certificate.
+
+> [!WARNING]
+> Browsers will show a certificate warning, which you can bypass in some browsers. This proxy is for testing only.
 
 Here's how to set it up with the Caddy proxy:
-
-`192.0.2.10` in the Caddyfile is a placeholder for the address phones will use to reach the server: the server's LAN IP (e.g. `192.168.1.42`) or a hostname that resolves to it. That same address goes in the Caddyfile and in the browser, because Caddy issues its certificate for that name. `trusted_proxies` stays as it is for this setup: it already points at Caddy inside the Docker network.
 
 1. Edit `~/inqress/Caddyfile` and replace `192.0.2.10` with the LAN IP or hostname your phones and tablets use to reach the server.
 
@@ -89,7 +90,7 @@ Here's how to set it up with the Caddy proxy:
    docker compose --profile https up -d
    ```
 
-4. On your phone or tablet, open `https://<ip-or-domain-of-your-server>` and continue past the certificate warning. Complete device pairing after you have created an event and participants.
+4. On your phone or tablet, open `https://<host-ip-or-domain-of-your-server>` and continue past the certificate warning. Complete device pairing after you have created an event and participants.
 
 To stop only the test proxy:
 

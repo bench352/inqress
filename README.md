@@ -8,13 +8,6 @@
 
 InQRess is still the check-in system you know and love, with massive upgrades in V2:
 
-- **Just scan and they’re in:** Send QR code tickets to your guests, and scan them when they arrive.
-- **Multiple check-in methods:** QR ticket, phone/email on the kiosk, or manual confirmation with the guest.
-- **Automatic guest import:** Sync participant data from the forms and spreadsheets you already use.
-- **Send tickets by email, or share them yourself:** Bulk ticket delivery by email, or share it yourself, using customizable message templates.
-- **Customizable kiosk:** Set custom images and accent color for the guest check-in kiosk.
-- **Live attendance:** See who's arrived while the event is running.
-
 ### (Probably) the easiest way to check your guests in, now even faster in V2
 
 Just scan and your guest is checked in. As simple as that.
@@ -35,7 +28,7 @@ Alternatively, a receptionist can search for the guest by name on the admin page
 
 ![](docs/assets/confirm_at_kiosk.PNG)
 
-### Bring your guests into the events, now automatically in V2
+### Bring your guests into your events, now automatically in V2
 
 InQRess can now automatically pull participants from the forms or spreadsheets you use to register your guests.
 
@@ -101,7 +94,7 @@ If the battery runs low on your connected device (below 25%), an **audible low b
 
 ![](docs/assets/companion_low_battery.PNG)
 
-> [!note]
+> [!NOTE]
 >
 > Battery status is only supported on Google Chrome or [certain Chromium-based browsers](https://developer.mozilla.org/en-US/docs/Web/API/Battery_Status_API#browser_compatibility).
 
@@ -109,7 +102,7 @@ If the battery runs low on your connected device (below 25%), an **audible low b
 
 With a **robust security mechanism** built in, only tickets you created can be used to check in at your events.
 
-Every ticket is generated using [PASETO (Platform-Agnostic SEcurity TOkens)](https://paseto.io/), and you keep a unique pair of keys per event that you can sign the tickets with and verify later that the tickets are indeed created by you (of course, everything is done automatically inside InQRess!). A guest without your key will not be able to forge a ticket that can pass your ticket validation.
+Every ticket is generated using [PASETO (Platform-Agnostic SEcurity TOkens)](https://paseto.io/), and you keep a unique key pair per event, which signs the tickets and verifies later that a ticket was indeed created by you (of course, everything is done automatically inside InQRess!). A guest without your key will not be able to forge a ticket that can pass your ticket validation.
 
 ![](docs/assets/ticket_signing_and_verifying.PNG)
 

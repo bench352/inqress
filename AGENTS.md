@@ -7,6 +7,7 @@ InQRess is a single-admin QR ticketing and check-in system.
 - Backend: FastAPI in `backend/src/`
 - Frontend: React + Vite, built into the same Docker image
 - Release image: `Dockerfile`
+- Release deployment files: `deploy/` (`docker-compose.yml`, `config.yaml.example`, `Caddyfile`); install steps in `docs/setup.md`
 - Dev environment: same image via `dev-compose.yaml` + Compose Watch
 - Auth: HttpOnly session cookie (`__Host-inqress_session` when `cookie_secure: true`)
 - Config: `backend/src/config.py` (pydantic models) + YAML loaded via `CONFIG_PATH`
@@ -124,9 +125,8 @@ These relationships must be kept in sync. Breaking any of them causes runtime or
 
 ### Config
 - New required fields must be added in `backend/src/config.py`
-- The same fields must be emitted by `install.sh:generate_config()`
-- `local_dev/config.yaml.example` must contain the new keys (or rely on pydantic defaults)
-- YAML uses snake_case. `install.sh` writes to `~/.inqress/config.yaml`. Dev compose mounts `local_dev/config.yaml.example` at `/app/config.yaml` and sets `CONFIG_PATH`.
+- The same fields must also appear in `deploy/config.yaml.example` (release) and `local_dev/config.yaml.example` (dev), or rely on pydantic defaults
+- YAML uses snake_case. Release: the operator copies `deploy/config.yaml.example` to `~/.inqress/config.yaml`; `deploy/docker-compose.yml` mounts `${HOME}/.inqress:/app/data` and sets no `CONFIG_PATH`, so the app reads the default `/app/data/config.yaml`. Dev compose mounts `local_dev/config.yaml` (the live file, not the example) at `/app/config.yaml` and sets `CONFIG_PATH=/app/config.yaml`.
 
 ### Database schema
 - `backend/src/schema/orm.py` must match the live tables and the chain of alembic revisions that live in `backend/src/alembic/versions/`.
