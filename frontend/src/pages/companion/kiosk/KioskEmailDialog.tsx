@@ -34,7 +34,10 @@ interface Props {
   eventId: string;
   accentColor: string;
   onClose: () => void;
-  onOwnCheckin?: (name: string) => void;
+  /** A request is going out: hold the stream's copy of it. */
+  onCheckinStart?: () => void;
+  /** The request settled. The name is the guest's, or null when it did not check in. */
+  onCheckinSettled?: (name: string | null) => void;
   onUnpaired?: () => void;
   /** The low battery card is in front: freeze the idle countdown. */
   paused?: boolean;
@@ -64,7 +67,8 @@ export default function KioskEmailDialog({
   eventId,
   accentColor,
   onClose,
-  onOwnCheckin,
+  onCheckinStart,
+  onCheckinSettled,
   onUnpaired,
   paused = false,
 }: Props) {
@@ -78,6 +82,7 @@ export default function KioskEmailDialog({
 
   const handleSubmit = async () => {
     if (!email) return;
+    onCheckinStart?.();
     setPhase("loading");
     try {
       const data = await api.post<CheckinResponse>(
@@ -85,16 +90,18 @@ export default function KioskEmailDialog({
         { email: email.trim().toLowerCase() },
       );
       if (!data.success && isConflictDetail(data.detail)) {
+        onCheckinSettled?.(null);
         setConflicting(data.detail.conflictingParticipants);
         setPhase("multiple");
         return;
       }
+      onCheckinSettled?.(
+        data.success && isSuccessDetail(data.detail) ? data.detail.name : null,
+      );
       setResult(data);
       setPhase(data.success ? "success" : "error");
-      if (data.success && isSuccessDetail(data.detail)) {
-        onOwnCheckin?.(data.detail.name);
-      }
     } catch (e: unknown) {
+      onCheckinSettled?.(null);
       if (e instanceof ApiError && e.status === 401) {
         onUnpaired?.();
         return;

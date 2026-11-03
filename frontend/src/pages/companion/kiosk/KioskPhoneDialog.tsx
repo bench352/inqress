@@ -21,7 +21,10 @@ interface Props {
   /** The server's default country code for the event. */
   defaultCountryCode: string;
   onClose: () => void;
-  onOwnCheckin?: (name: string) => void;
+  /** A request is going out: hold the stream's copy of it. */
+  onCheckinStart?: () => void;
+  /** The request settled. The name is the guest's, or null when it did not check in. */
+  onCheckinSettled?: (name: string | null) => void;
   onUnpaired?: () => void;
   /** The low battery card is in front: freeze the idle countdown. */
   paused?: boolean;
@@ -34,7 +37,8 @@ export default function KioskPhoneDialog({
   countryCodes,
   defaultCountryCode,
   onClose,
-  onOwnCheckin,
+  onCheckinStart,
+  onCheckinSettled,
   onUnpaired,
   paused = false,
 }: Props) {
@@ -71,6 +75,7 @@ export default function KioskPhoneDialog({
 
   const handleSubmit = async () => {
     if (!phoneNo) return;
+    onCheckinStart?.();
     setPhase("loading");
     try {
       const data = await api.post<CheckinResponse>(
@@ -78,16 +83,18 @@ export default function KioskPhoneDialog({
         { countryCode: selectedCountryCode, phoneNo },
       );
       if (!data.success && isConflictDetail(data.detail)) {
+        onCheckinSettled?.(null);
         setConflicting(data.detail.conflictingParticipants);
         setPhase("multiple");
         return;
       }
+      onCheckinSettled?.(
+        data.success && isSuccessDetail(data.detail) ? data.detail.name : null,
+      );
       setResult(data);
       setPhase(data.success ? "success" : "error");
-      if (data.success && isSuccessDetail(data.detail)) {
-        onOwnCheckin?.(data.detail.name);
-      }
     } catch (e: unknown) {
+      onCheckinSettled?.(null);
       if (e instanceof ApiError && e.status === 401) {
         onUnpaired?.();
         return;
