@@ -370,6 +370,7 @@ export default function ShareTicketDialog({
         open={previewOpen}
         src={ticket.url}
         alt="Ticket"
+        error={ticket.isError}
         onClose={() => setPreviewOpen(false)}
       />
     </AppDialog>
