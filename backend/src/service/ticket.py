@@ -463,22 +463,29 @@ def _store_ticket_zip(event_id: uuid.UUID, path: Path) -> uuid.UUID:
     return download_id
 
 
-def take_ticket_zip(event_id: uuid.UUID, download_id: uuid.UUID) -> Path | None:
-    """Hand the finished zip to the download endpoint."""
+def get_ticket_zip(event_id: uuid.UUID, download_id: uuid.UUID) -> Path | None:
+    """The zip this event is offering, for the download endpoint."""
     with _zips_lock:
-        if _ready.get(event_id) == download_id:
-            del _ready[event_id]
-        return _zips.pop(download_id, None)
+        if _ready.get(event_id) != download_id:
+            return None
+        return _zips.get(download_id)
 
 
 def _discard_ticket_zip(download_id: uuid.UUID) -> None:
+    expired_event_id = None
     with _zips_lock:
         path = _zips.pop(download_id, None)
         for event_id, ready_id in list(_ready.items()):
             if ready_id == download_id:
                 del _ready[event_id]
+                expired_event_id = event_id
     if path is not None:
         path.unlink(missing_ok=True)
+    if expired_event_id is not None:
+        # The file is gone, so a later subscriber must not replay the button.
+        service.event_stream.event_stream_manager.clear_sticky(
+            expired_event_id, schema.sse.SseEventType.EXPORT_TICKET_ZIP_READY
+        )
 
 
 def _export_zip_task(event_id: uuid.UUID) -> None:
@@ -604,6 +611,14 @@ def _export_zip_task(event_id: uuid.UUID) -> None:
         return
 
     _send_progress(in_progress=False)
+
+    if num_errors == total:
+        # Nothing made it in, so offering the empty archive would look like success.
+        archive_path.unlink(missing_ok=True)
+        _notify_error("No ticket images could be exported")
+        logger.warning("No ticket images exported for event %s", event_id)
+        return
+
     # Sticky: a page opened after the export finished still offers the download.
     manager.send(
         event_id,
@@ -611,7 +626,8 @@ def _export_zip_task(event_id: uuid.UUID) -> None:
             event_type=schema.sse.SseEventType.EXPORT_TICKET_ZIP_READY,
             type=schema.sse.SseType.NOTIFICATION,
             data=schema.sse.ExportTicketZipSuccessData(
-                download_id=str(_store_ticket_zip(event_id, archive_path))
+                download_id=str(_store_ticket_zip(event_id, archive_path)),
+                num_errors=num_errors,
             ),
         ),
         sticky=True,
@@ -623,5 +639,16 @@ def export_zip_and_notify(event_id: uuid.UUID) -> None:
     manager = service.event_stream.event_stream_manager
     try:
         _export_zip_task(event_id)
+    except Exception as e:
+        # The task reads the event first, so its own handler never sees that failure.
+        logger.exception("Ticket export failed for event %s", event_id)
+        manager.send(
+            event_id,
+            schema.sse.SseEvent[schema.sse.ExportTicketZipErrorData](
+                event_type=schema.sse.SseEventType.EXPORT_TICKET_ZIP,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.ExportTicketZipErrorData(detail=str(e)),
+            ),
+        )
     finally:
         manager.mark_job_done(event_id, "ticket_zip")

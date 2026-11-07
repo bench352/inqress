@@ -4,7 +4,7 @@ import LaunchIcon from "@mui/icons-material/Launch";
 import type { QueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useSnackbar, type SnackbarKey } from "notistack";
-import { apiUrl, sessionStatus, useApi } from "../api";
+import { ApiError, apiUrl, sessionStatus, useApi } from "../api";
 import { redirectToLogin } from "../providers/redirectToLogin";
 import { useAuth } from "../providers/useAuth";
 import type { DataSourceSyncState } from "../providers/useDataSourceSync";
@@ -31,6 +31,7 @@ interface SseSuccessData {
   expireOn?: string;
   resultId?: string;
   downloadId?: string;
+  numErrors?: number;
 }
 
 interface SseErrorData {
@@ -80,6 +81,7 @@ export interface UseEventStreamReturn {
   generateTicketQrProgress: ProgressState | null;
   exportTicketZipProgress: ProgressState | null;
   ticketZipDownloadId: string | null;
+  ticketZipErrorCount: number;
   downloadTicketZip: () => Promise<void>;
   resultDialog: { resultId: string } | null;
   dismissResultDialog: () => void;
@@ -136,6 +138,8 @@ export function useEventStream(
   const [ticketZipDownloadId, setTicketZipDownloadId] = useState<string | null>(
     null,
   );
+  // How many ticket images were missing from that zip, shown on the download card.
+  const [ticketZipErrorCount, setTicketZipErrorCount] = useState(0);
   const [resultDialog, setResultDialog] = useState<{
     resultId: string;
   } | null>(null);
@@ -146,7 +150,7 @@ export function useEventStream(
     setResultDialog(null);
   }, []);
 
-  /** The id is single use, so any answer clears it: the zip is gone either way. */
+  /** The zip stays on the server until it expires, so the card stays after a download and a failed one can be retried. */
   const downloadTicketZip = useCallback(async () => {
     if (!ticketZipDownloadId) return;
     const downloadPath = `/api/events/${eventId}/ticketImages/${ticketZipDownloadId}`;
@@ -163,13 +167,21 @@ export function useEventStream(
       enqueueSnackbarRef.current("Ticket images downloaded.", {
         variant: "success",
       });
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setTicketZipDownloadId(null);
+        setTicketZipErrorCount(0);
+        enqueueSnackbarRef.current(
+          "That export has expired or was replaced. Start a new one from event settings.",
+          { variant: "error" },
+        );
+        return;
+      }
       enqueueSnackbarRef.current(
         "Could not download the ticket images. Try again.",
         { variant: "error" },
       );
     }
-    setTicketZipDownloadId(null);
   }, [eventId, ticketZipDownloadId]);
 
   useEffect(() => {
@@ -362,8 +374,11 @@ export function useEventStream(
       } else if (ev.eventType === "EXPORT_TICKET_ZIP_READY") {
         // Sticky, so a reload or a late tab still gets the download button.
         if (ev.type === "NOTIFICATION") {
-          const { downloadId } = ev.data as SseSuccessData;
-          if (downloadId) setTicketZipDownloadId(downloadId);
+          const { downloadId, numErrors } = ev.data as SseSuccessData;
+          if (downloadId) {
+            setTicketZipDownloadId(downloadId);
+            setTicketZipErrorCount(numErrors ?? 0);
+          }
         }
       } else if (ev.eventType === "DATA_SOURCE_SYNC") {
         const data = ev.data as SseDataSourceSyncData;
@@ -476,6 +491,7 @@ export function useEventStream(
     generateTicketQrProgress,
     exportTicketZipProgress,
     ticketZipDownloadId,
+    ticketZipErrorCount,
     downloadTicketZip,
     resultDialog,
     dismissResultDialog,

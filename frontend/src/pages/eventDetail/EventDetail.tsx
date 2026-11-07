@@ -71,6 +71,7 @@ export default function EventDetail() {
     generateTicketQrProgress,
     exportTicketZipProgress,
     ticketZipDownloadId,
+    ticketZipErrorCount,
     downloadTicketZip,
     resultDialog,
     dismissResultDialog,
@@ -385,6 +386,7 @@ export default function EventDetail() {
           generateTicketQrProgress={generateTicketQrProgress}
           exportTicketZipProgress={exportTicketZipProgress}
           ticketZipDownloadId={ticketZipDownloadId}
+          ticketZipErrorCount={ticketZipErrorCount}
           onDownloadTicketZip={downloadTicketZip}
         />
       )}

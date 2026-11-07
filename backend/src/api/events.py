@@ -274,20 +274,14 @@ def start_ticket_images_export(
 def download_ticket_images(
     event_id: uuid.UUID,
     download_id: uuid.UUID,
-    background_tasks: fastapi.BackgroundTasks,
 ) -> fastapi.responses.FileResponse:
-    archive_path = service.ticket.take_ticket_zip(event_id, download_id)
+    archive_path = service.ticket.get_ticket_zip(event_id, download_id)
     if archive_path is None:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_404_NOT_FOUND,
             detail="Export not found or expired",
         )
-    # One download clears the offer: no page should still show the button.
-    service.event_stream.event_stream_manager.clear_sticky(
-        event_id, schema.sse.SseEventType.EXPORT_TICKET_ZIP_READY
-    )
-    # The id is single use: the file goes away once this response is sent.
-    background_tasks.add_task(archive_path.unlink, missing_ok=True)
+    # The file stays until its timer expires, so a failed download can be retried.
     return fastapi.responses.FileResponse(
         archive_path,
         media_type="application/zip",

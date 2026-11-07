@@ -30,6 +30,7 @@ interface Props {
   generateTicketQrProgress: ProgressState | null;
   exportTicketZipProgress: ProgressState | null;
   ticketZipDownloadId: string | null;
+  ticketZipErrorCount: number;
   onDownloadTicketZip: () => void;
 }
 
@@ -44,6 +45,7 @@ export default function ActionsSection({
   generateTicketQrProgress,
   exportTicketZipProgress,
   ticketZipDownloadId,
+  ticketZipErrorCount,
   onDownloadTicketZip,
 }: Props) {
   const navigate = useNavigate();
@@ -115,10 +117,7 @@ export default function ActionsSection({
                 </Typography>
               </Stack>
               <Typography variant="body1">
-                {failedSources[0].name}: {failedSources[0].lastError}
-                {failedSources.length > 1
-                  ? ` (and ${failedSources.length - 1} more)`
-                  : ""}
+                {failedSources.length} data source(s) cannot be synced. Check the error details on the Data sources page.
               </Typography>
               <Button
                 variant="contained"
@@ -226,6 +225,12 @@ export default function ActionsSection({
                 The ticket images export you started earlier is completed.
                 Download them now.
               </Typography>
+              {ticketZipErrorCount > 0 && (
+                <Typography variant="body1" color="error">
+                  {ticketZipErrorCount} ticket image
+                  {ticketZipErrorCount !== 1 ? "s" : ""} could not be exported.
+                </Typography>
+              )}
               <Button variant="contained" onClick={onDownloadTicketZip}>
                 Download
               </Button>

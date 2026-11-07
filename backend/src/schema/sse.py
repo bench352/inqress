@@ -114,6 +114,7 @@ class ExportTicketZipProgressData(schema.rest.RestModel):
 class ExportTicketZipSuccessData(schema.rest.RestModel):
     type: str = "success"
     download_id: str
+    num_errors: int = 0
 
 
 class ExportTicketZipErrorData(schema.rest.RestModel):
