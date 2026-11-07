@@ -103,6 +103,7 @@ export default function ParticipantDetailsDialog({
     },
     onSuccess: () => {
       refresh();
+      enqueueSnackbar("Ticket marked as delivered.", { variant: "success" });
       setConfirm(null);
     },
   });
@@ -115,6 +116,9 @@ export default function ParticipantDetailsDialog({
     },
     onSuccess: () => {
       refresh();
+      enqueueSnackbar("Ticket marked as not delivered.", {
+        variant: "success",
+      });
     },
     onError: () => {
       enqueueSnackbar("Could not mark the ticket as not delivered.", {
@@ -131,6 +135,7 @@ export default function ParticipantDetailsDialog({
     },
     onSuccess: () => {
       refresh();
+      enqueueSnackbar("Check-in undone.", { variant: "success" });
       setConfirm(null);
     },
     onError: () => {
@@ -192,6 +197,7 @@ export default function ParticipantDetailsDialog({
     },
     onSuccess: () => {
       refresh();
+      enqueueSnackbar("Participant deleted.", { variant: "success" });
       onClose();
     },
   });

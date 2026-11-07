@@ -41,6 +41,7 @@ export default function EditParticipantDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
+      enqueueSnackbar("Participant details saved.", { variant: "success" });
       onClose();
     },
     onError: () => {
