@@ -23,6 +23,7 @@ import PageHeader from "@/components/PageHeader";
 import ResponsiveStepper from "@/components/ResponsiveStepper";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useSnackbar } from "notistack";
 import { ApiError, useApi } from "@/api.ts";
 import TabIcon from "@mui/icons-material/Tab";
 import {
@@ -70,6 +71,7 @@ export default function AddParticipantsBySpreadsheet() {
   });
   const navigate = useNavigate();
   const api = useApi();
+  const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
 
   const eventQuery = useQuery<{ name: string }>({
@@ -105,7 +107,14 @@ export default function AddParticipantsBySpreadsheet() {
     onError: (err: unknown) => {
       if (err instanceof ApiError && err.status === 409) {
         setConflictDetail(typeof err.detail === "string" ? err.detail : null);
+        return;
       }
+      enqueueSnackbar(
+        err instanceof ApiError && typeof err.detail === "string"
+          ? err.detail
+          : "Could not start the import.",
+        { variant: "error" },
+      );
     },
   });
 

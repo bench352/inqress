@@ -8,6 +8,7 @@ import {
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
+import { useSnackbar } from "notistack";
 import { useApi } from "@/api.ts";
 import AppDialog from "@/components/AppDialog";
 import { useAppInfo } from "@/providers/useAppInfo";
@@ -31,6 +32,7 @@ export default function EmailTicketDialog({
 }: Props) {
   const api = useApi();
   const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
   const { fromHeader, fromError: infoFromError } = useAppInfo();
 
   const previewQuery = useQuery({
@@ -69,6 +71,7 @@ export default function EmailTicketDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
+      enqueueSnackbar("Email sent.", { variant: "success" });
       onClose();
     },
   });
