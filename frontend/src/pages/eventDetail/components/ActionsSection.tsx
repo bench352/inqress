@@ -117,7 +117,8 @@ export default function ActionsSection({
                 </Typography>
               </Stack>
               <Typography variant="body1">
-                {failedSources.length} data source(s) cannot be synced. Check the error details on the Data sources page.
+                {failedSources.length} data source(s) cannot be synced. Check
+                the error details on the Data sources page.
               </Typography>
               <Button
                 variant="contained"
