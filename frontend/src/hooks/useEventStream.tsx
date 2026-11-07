@@ -4,7 +4,7 @@ import LaunchIcon from "@mui/icons-material/Launch";
 import type { QueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useSnackbar, type SnackbarKey } from "notistack";
-import { apiUrl, sessionStatus } from "../api";
+import { ApiError, apiUrl, sessionStatus, useApi } from "../api";
 import { redirectToLogin } from "../providers/redirectToLogin";
 import { useAuth } from "../providers/useAuth";
 import type { DataSourceSyncState } from "../providers/useDataSourceSync";
@@ -30,6 +30,8 @@ interface SseSuccessData {
   type: string;
   expireOn?: string;
   resultId?: string;
+  downloadId?: string;
+  numErrors?: number;
 }
 
 interface SseErrorData {
@@ -77,6 +79,10 @@ export interface UseEventStreamReturn {
   createParticipantProgress: ProgressState | null;
   sendEmailProgress: ProgressState | null;
   generateTicketQrProgress: ProgressState | null;
+  exportTicketZipProgress: ProgressState | null;
+  ticketZipDownloadId: string | null;
+  ticketZipErrorCount: number;
+  downloadTicketZip: () => Promise<void>;
   resultDialog: { resultId: string } | null;
   dismissResultDialog: () => void;
   dataSourceSync: DataSourceSyncState | null;
@@ -89,6 +95,7 @@ export function useEventStream(
   const { isAuthenticated } = useAuth();
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
   const navigate = useNavigate();
+  const api = useApi();
   const stoppedRef = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,6 +104,7 @@ export function useEventStream(
   const enqueueSnackbarRef = useRef(enqueueSnackbar);
   const closeSnackbarRef = useRef(closeSnackbar);
   const navigateRef = useRef(navigate);
+  const apiRef = useRef(api);
 
   useEffect(() => {
     queryClientRef.current = queryClient;
@@ -114,12 +122,24 @@ export function useEventStream(
     navigateRef.current = navigate;
   }, [navigate]);
 
+  useEffect(() => {
+    apiRef.current = api;
+  }, [api]);
+
   const [createParticipantProgress, setCreateParticipantProgress] =
     useState<ProgressState | null>(null);
   const [sendEmailProgress, setSendEmailProgress] =
     useState<ProgressState | null>(null);
   const [generateTicketQrProgress, setGenerateTicketQrProgress] =
     useState<ProgressState | null>(null);
+  const [exportTicketZipProgress, setExportTicketZipProgress] =
+    useState<ProgressState | null>(null);
+  // The finished zip the event is offering. Held until the user downloads it.
+  const [ticketZipDownloadId, setTicketZipDownloadId] = useState<string | null>(
+    null,
+  );
+  // How many ticket images were missing from that zip, shown on the download card.
+  const [ticketZipErrorCount, setTicketZipErrorCount] = useState(0);
   const [resultDialog, setResultDialog] = useState<{
     resultId: string;
   } | null>(null);
@@ -129,6 +149,40 @@ export function useEventStream(
   const dismissResultDialog = useCallback(() => {
     setResultDialog(null);
   }, []);
+
+  /** The zip stays on the server until it expires, so the card stays after a download and a failed one can be retried. */
+  const downloadTicketZip = useCallback(async () => {
+    if (!ticketZipDownloadId) return;
+    const downloadPath = `/api/events/${eventId}/ticketImages/${ticketZipDownloadId}`;
+    try {
+      const blob = await apiRef.current.getBlob(downloadPath);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "tickets.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      enqueueSnackbarRef.current("Ticket images downloaded.", {
+        variant: "success",
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setTicketZipDownloadId(null);
+        setTicketZipErrorCount(0);
+        enqueueSnackbarRef.current(
+          "That export has expired or was replaced. Start a new one from event settings.",
+          { variant: "error" },
+        );
+        return;
+      }
+      enqueueSnackbarRef.current(
+        "Could not download the ticket images. Try again.",
+        { variant: "error" },
+      );
+    }
+  }, [eventId, ticketZipDownloadId]);
 
   useEffect(() => {
     if (!eventId || !isAuthenticated) return;
@@ -303,6 +357,29 @@ export function useEventStream(
             );
           }
         }
+      } else if (ev.eventType === "EXPORT_TICKET_ZIP") {
+        if (ev.type === "PROGRESS") {
+          const data = ev.data as SseProgressData;
+          handleProgress(data, setExportTicketZipProgress);
+        } else if (ev.type === "NOTIFICATION") {
+          const data = ev.data as SseSuccessData | SseErrorData;
+          if (data.type === "error") {
+            const errorData = data as SseErrorData;
+            enqueueSnackbarRef.current(
+              `Ticket export failed: ${errorData.detail || "Unknown error"}`,
+              { variant: "error" },
+            );
+          }
+        }
+      } else if (ev.eventType === "EXPORT_TICKET_ZIP_READY") {
+        // Sticky, so a reload or a late tab still gets the download button.
+        if (ev.type === "NOTIFICATION") {
+          const { downloadId, numErrors } = ev.data as SseSuccessData;
+          if (downloadId) {
+            setTicketZipDownloadId(downloadId);
+            setTicketZipErrorCount(numErrors ?? 0);
+          }
+        }
       } else if (ev.eventType === "DATA_SOURCE_SYNC") {
         const data = ev.data as SseDataSourceSyncData;
         if (data.inProgress) {
@@ -412,6 +489,10 @@ export function useEventStream(
     createParticipantProgress,
     sendEmailProgress,
     generateTicketQrProgress,
+    exportTicketZipProgress,
+    ticketZipDownloadId,
+    ticketZipErrorCount,
+    downloadTicketZip,
     resultDialog,
     dismissResultDialog,
     dataSourceSync,

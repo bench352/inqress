@@ -5,18 +5,21 @@ import logging
 import math
 import os
 import tempfile
+import threading
 import time
 import uuid
 import zipfile
 from pathlib import Path
 from typing import Any
 
+import pypdfium2 as pdfium  # type: ignore[import-untyped]
 import pyseto
 import qrcode
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
-from html2pic import Html2Pic  # type: ignore[import-untyped]
 from sqlalchemy import select, update
+from weasyprint import HTML  # type: ignore[import-untyped]
+from weasyprint.text.fonts import FontConfiguration  # type: ignore[import-untyped]
 
 import schema.orm
 import schema.service
@@ -33,6 +36,12 @@ _TICKET_TEMPLATE_PATH = (
 _TICKET_CSS_PATH = (
     Path(__file__).resolve().parent.parent / "assets" / "ticket_template.css"
 )
+_FONTS_DIR = (Path(__file__).resolve().parent.parent / "assets" / "fonts").resolve()
+# The template is a bare fragment, so the page box and the body reset belong here.
+_PAGE_CSS = """
+@page { size: 1440px 2560px; margin: 0 }
+html, body { margin: 0; padding: 0 }
+"""
 logger = logging.getLogger(__name__)
 
 
@@ -299,10 +308,9 @@ def _load_ticket_css() -> str:
     ph = "ASSETS_PATH_PLACEHOLDER"
     if ph not in css:
         return css
-    fonts_dir = str(
-        (Path(__file__).resolve().parent.parent / "assets" / "fonts").resolve()
-    )
-    css = css.replace(ph, fonts_dir)
+    # WeasyPrint resolves @font-face URLs from the document base, so a file URL
+    # is required here.
+    css = css.replace(ph, f"file://{_FONTS_DIR}")
     return css
 
 
@@ -315,8 +323,10 @@ def _render_ticket_image(
     ticket_token: str,
     organization_name: str,
 ) -> io.BytesIO:
-    template_str = _load_ticket_template()
-    css = _load_ticket_css()
+    # @font-face rules reach FontConfiguration only when the CSS sits inside the
+    # document; a standalone CSS() object is parsed before the fonts register.
+    style = f"<style>{_load_ticket_css()}{_PAGE_CSS}</style>"
+    template_str = style + _load_ticket_template()
 
     # Generate QR to fit inside the white 1440px square with 60px padding on all sides.
     # The white container + padding gives scanners a reliable quiet zone.
@@ -348,7 +358,7 @@ def _render_ticket_image(
         html_str = service.markup.fill_placeholders(
             template_str,
             {
-                "ticketQR": qr_path,
+                "ticketQR": f"file://{qr_path}",
                 "organizationName": organization_name,
                 "eventName": event_name,
                 "fullName": display_name,
@@ -356,9 +366,16 @@ def _render_ticket_image(
             },
         )
 
-        renderer = Html2Pic(html_str, css)
-        image = renderer.render()
-        pil_image = image.to_pillow()
+        # PNG has no writer in WeasyPrint, so the page is rasterised instead.
+        document = HTML(string=html_str, base_url=f"file://{_FONTS_DIR}/").render(
+            font_config=FontConfiguration()
+        )
+        pdf = pdfium.PdfDocument(document.write_pdf())
+        try:
+            # 96/72 dpi: one image pixel per CSS pixel, so the card stays 1440x2560.
+            pil_image = pdf[0].render(scale=96 / 72).to_pil()
+        finally:
+            pdf.close()
 
         img_buf = io.BytesIO()
         pil_image.save(img_buf, format="PNG")  # type: ignore
@@ -422,7 +439,58 @@ def generate_single_ticket_image(
     return img_bytes, safe_name
 
 
-def export_ticket_images_zip(event_id: uuid.UUID) -> io.BytesIO:
+# A finished zip waits on disk until the browser fetches it, then the file is
+# removed. One process only, like the SSE job state.
+_ZIP_TTL_MINUTES = 30
+_zips: dict[uuid.UUID, Path] = {}
+# The zip each event is offering for download, so a new export can replace it.
+_ready: dict[uuid.UUID, uuid.UUID] = {}
+_zips_lock = threading.Lock()
+
+
+def _store_ticket_zip(event_id: uuid.UUID, path: Path) -> uuid.UUID:
+    """Publish a finished zip, replacing the event's previous undownloaded one."""
+    download_id = uuid.uuid4()
+    with _zips_lock:
+        previous = _ready.get(event_id)
+        _ready[event_id] = download_id
+        _zips[download_id] = path
+    if previous is not None:
+        _discard_ticket_zip(previous)
+    threading.Timer(
+        _ZIP_TTL_MINUTES * 60, _discard_ticket_zip, args=(download_id,)
+    ).start()
+    return download_id
+
+
+def get_ticket_zip(event_id: uuid.UUID, download_id: uuid.UUID) -> Path | None:
+    """The zip this event is offering, for the download endpoint."""
+    with _zips_lock:
+        if _ready.get(event_id) != download_id:
+            return None
+        return _zips.get(download_id)
+
+
+def _discard_ticket_zip(download_id: uuid.UUID) -> None:
+    expired_event_id = None
+    with _zips_lock:
+        path = _zips.pop(download_id, None)
+        for event_id, ready_id in list(_ready.items()):
+            if ready_id == download_id:
+                del _ready[event_id]
+                expired_event_id = event_id
+    if path is not None:
+        path.unlink(missing_ok=True)
+    if expired_event_id is not None:
+        # The file is gone, so a later subscriber must not replay the button.
+        service.event_stream.event_stream_manager.clear_sticky(
+            expired_event_id, schema.sse.SseEventType.EXPORT_TICKET_ZIP_READY
+        )
+
+
+def _export_zip_task(event_id: uuid.UUID) -> None:
+    manager = service.event_stream.event_stream_manager
+
     with service.db.get_session() as session:
         event = (
             session.execute(
@@ -449,35 +517,138 @@ def export_ticket_images_zip(event_id: uuid.UUID) -> io.BytesIO:
     cfg = config.get_config()
     organization_name = cfg.app.organization_name or ""
 
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for row in participant_rows:
-            participant_id, participant_name, participant_title, ticket_token = row
+    total = len(participant_rows)
+    num_completed = 0
+    num_errors = 0
+    start_time = time.monotonic()
 
-            if not ticket_token:
-                logger.warning(
-                    "Skipping participant %s: no ticket token", participant_id
-                )
-                continue
+    def _notify_error(detail: str) -> None:
+        manager.send(
+            event_id,
+            schema.sse.SseEvent[schema.sse.ExportTicketZipErrorData](
+                event_type=schema.sse.SseEventType.EXPORT_TICKET_ZIP,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.ExportTicketZipErrorData(detail=detail),
+            ),
+        )
 
-            try:
-                img_buf = _render_ticket_image(
-                    event_name,
-                    event_date,
-                    participant_id,
-                    participant_name,
-                    participant_title,
-                    ticket_token,
-                    organization_name,
-                )
-                filename = f"{service.filenames.safe_name(participant_name)} - {participant_id}.png"
-                zf.writestr(filename, img_buf.getvalue())
-            except Exception:
-                logger.warning(
-                    "Failed to render ticket for participant %s",
-                    participant_id,
-                    exc_info=True,
-                )
+    def _send_progress(in_progress: bool = True) -> None:
+        est = None
+        if in_progress and num_completed > 0:
+            elapsed = time.monotonic() - start_time
+            est_sec = (elapsed / num_completed) * (total - num_completed)
+            est = max(1, math.ceil(est_sec / 60))
+        manager.send(
+            event_id,
+            schema.sse.SseEvent[schema.sse.ExportTicketZipProgressData](
+                event_type=schema.sse.SseEventType.EXPORT_TICKET_ZIP,
+                type=schema.sse.SseType.PROGRESS,
+                data=schema.sse.ExportTicketZipProgressData(
+                    in_progress=in_progress,
+                    num_completed=num_completed,
+                    num_total=total,
+                    est_remain_min=est,
+                    num_errors=num_errors,
+                ),
+            ),
+            sticky=True,
+        )
 
-    buf.seek(0)
-    return buf
+    if total == 0:
+        _send_progress(in_progress=False)
+        _notify_error("There are no participants to export")
+        return
+
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+        archive_path = Path(tmp.name)
+
+    logger.info("Exporting %d ticket images for event %s", total, event_id)
+    _send_progress()
+
+    try:
+        with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for row in participant_rows:
+                participant_id, participant_name, participant_title, ticket_token = row
+
+                if not ticket_token:
+                    logger.warning(
+                        "Skipping participant %s: no ticket token", participant_id
+                    )
+                    num_errors += 1
+                    num_completed += 1
+                    _send_progress()
+                    continue
+
+                try:
+                    img_buf = _render_ticket_image(
+                        event_name,
+                        event_date,
+                        participant_id,
+                        participant_name,
+                        participant_title,
+                        ticket_token,
+                        organization_name,
+                    )
+                    filename = f"{service.filenames.safe_name(participant_name)} - {participant_id}.png"
+                    # Stream the PNG into the archive: no second copy in memory.
+                    with zf.open(filename, "w") as entry:
+                        entry.write(img_buf.getbuffer())
+                except Exception:
+                    num_errors += 1
+                    logger.warning(
+                        "Failed to render ticket for participant %s",
+                        participant_id,
+                        exc_info=True,
+                    )
+
+                num_completed += 1
+                _send_progress()
+    except Exception as e:
+        archive_path.unlink(missing_ok=True)
+        _send_progress(in_progress=False)
+        _notify_error(str(e))
+        logger.exception("Ticket export failed for event %s", event_id)
+        return
+
+    _send_progress(in_progress=False)
+
+    if num_errors == total:
+        # Nothing made it in, so offering the empty archive would look like success.
+        archive_path.unlink(missing_ok=True)
+        _notify_error("No ticket images could be exported")
+        logger.warning("No ticket images exported for event %s", event_id)
+        return
+
+    # Sticky: a page opened after the export finished still offers the download.
+    manager.send(
+        event_id,
+        schema.sse.SseEvent[schema.sse.ExportTicketZipSuccessData](
+            event_type=schema.sse.SseEventType.EXPORT_TICKET_ZIP_READY,
+            type=schema.sse.SseType.NOTIFICATION,
+            data=schema.sse.ExportTicketZipSuccessData(
+                download_id=str(_store_ticket_zip(event_id, archive_path)),
+                num_errors=num_errors,
+            ),
+        ),
+        sticky=True,
+    )
+    logger.info("Exported %d ticket images for event %s", total, event_id)
+
+
+def export_zip_and_notify(event_id: uuid.UUID) -> None:
+    manager = service.event_stream.event_stream_manager
+    try:
+        _export_zip_task(event_id)
+    except Exception as e:
+        # The task reads the event first, so its own handler never sees that failure.
+        logger.exception("Ticket export failed for event %s", event_id)
+        manager.send(
+            event_id,
+            schema.sse.SseEvent[schema.sse.ExportTicketZipErrorData](
+                event_type=schema.sse.SseEventType.EXPORT_TICKET_ZIP,
+                type=schema.sse.SseType.NOTIFICATION,
+                data=schema.sse.ExportTicketZipErrorData(detail=str(e)),
+            ),
+        )
+    finally:
+        manager.mark_job_done(event_id, "ticket_zip")

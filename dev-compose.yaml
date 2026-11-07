@@ -1,3 +1,4 @@
+name: inqress-dev
 services:
   inqress:
     restart: always
@@ -7,14 +8,18 @@ services:
         APP_VERSION: dev
     image: notbench352/inqress:dev
     ports:
-      - "7000:8000"
+      - "127.0.0.1:7000:8000"
     environment:
       - CONFIG_PATH=/app/config.yaml
     volumes:
       - ./local_dev/data:/app/data
       - ./local_dev/config.yaml:/app/config.yaml
-    networks:
-      - dev
+    # Test how InQRess performs under constrained environment
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 256M
     develop:
       watch:
         # Backend source: sync then restart (release process)
@@ -41,23 +46,3 @@ services:
 
         - action: rebuild
           path: ./Dockerfile
-  # Reverse proxy for HTTPS
-  caddy:
-    image: caddy:2-alpine
-    user: "0:0"
-    restart: always
-    ports:
-      - "7443:443"
-    volumes:
-      - ./local_dev/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ~/.certs:/certs:ro
-    networks:
-      - dev
-    depends_on:
-      - inqress
-
-networks:
-  dev:
-    ipam:
-      config:
-        - subnet: 172.31.210.0/24

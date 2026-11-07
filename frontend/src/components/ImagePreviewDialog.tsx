@@ -1,14 +1,23 @@
-import { Box, CircularProgress, Dialog } from "@mui/material";
+import { Box, CircularProgress, Dialog, Typography } from "@mui/material";
+import BrokenImageOutlinedIcon from "@mui/icons-material/BrokenImageOutlined";
+import Stack from "@mui/material/Stack";
 
 interface Props {
   open: boolean;
   src: string | null;
   alt: string;
+  error?: boolean;
   onClose: () => void;
 }
 
 /** A picture only: no chrome, the paper hugs the image, a tap closes it. */
-export default function ImagePreviewDialog({ open, src, alt, onClose }: Props) {
+export default function ImagePreviewDialog({
+  open,
+  src,
+  alt,
+  error = false,
+  onClose,
+}: Props) {
   return (
     <Dialog
       open={open}
@@ -26,7 +35,22 @@ export default function ImagePreviewDialog({ open, src, alt, onClose }: Props) {
         },
       }}
     >
-      {src ? (
+      {error ? (
+        <Stack
+          direction="column"
+          spacing={1}
+          sx={{
+            justifyContent: "center",
+            alignItems: "center",
+            p: 4,
+          }}
+        >
+          <BrokenImageOutlinedIcon fontSize="large" color="error" />
+          <Typography color="error">
+            Image got lost on its way. Sorry about that!
+          </Typography>
+        </Stack>
+      ) : src ? (
         <Box
           component="img"
           src={src}

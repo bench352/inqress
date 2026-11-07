@@ -14,18 +14,18 @@ import {
   ListItemText,
   Stack,
   TextField,
-  Typography,
 } from "@mui/material";
 import CropOriginalIcon from "@mui/icons-material/CropOriginal";
 import DatasetLinkedIcon from "@mui/icons-material/DatasetLinked";
+import DownloadIcon from "@mui/icons-material/Download";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
-import DownloadIcon from "@mui/icons-material/Download";
 import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
 import { useSnackbar } from "notistack";
 import dayjs from "dayjs";
 import { ApiError, useApi } from "@/api";
@@ -51,7 +51,22 @@ export default function EventSettings() {
   const api = useApi();
   const { enqueueSnackbar } = useSnackbar();
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
+
+  const exportTicketsMutation = useMutation({
+    mutationFn: () => api.post(`/api/events/${eventId}/ticketImages`),
+    onSuccess: () =>
+      enqueueSnackbar(
+        "Export started but it'll take a while. Check the progress on the event page.",
+        {
+          variant: "success",
+        },
+      ),
+    onError: (err: Error) =>
+      enqueueSnackbar(
+        err instanceof ApiError ? String(err.detail) : err.message,
+        { variant: "error" },
+      ),
+  });
 
   if (isEventLoading || !event) {
     return <LinearProgress />;
@@ -61,27 +76,6 @@ export default function EventSettings() {
     deleteEvent(undefined, {
       onSuccess: () => navigate({ to: "/admin/events" }),
     });
-  };
-
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const blob = await api.getBlob(`/api/events/${eventId}/ticketImages`);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "tickets.zip";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      enqueueSnackbar("Could not export the tickets. Try again.", {
-        variant: "error",
-      });
-    } finally {
-      setExporting(false);
-    }
   };
 
   return (
@@ -183,15 +177,15 @@ export default function EventSettings() {
           </ListItemButton>
           <ListItemButton
             disableGutters={true}
-            onClick={handleExport}
-            disabled={exporting}
+            disabled={exportTicketsMutation.isPending}
+            onClick={() => exportTicketsMutation.mutate()}
           >
             <ListItemIcon>
               <DownloadIcon />
             </ListItemIcon>
             <ListItemText
-              primary="Export all tickets"
-              secondary="Download every ticket image as a ZIP file."
+              primary="Export ticket images"
+              secondary="Download ticket images for existing participants in a ZIP file."
             />
           </ListItemButton>
           <ListItemButton
@@ -229,13 +223,6 @@ export default function EventSettings() {
             Delete
           </Button>
         </DialogActions>
-      </Dialog>
-
-      <Dialog open={exporting}>
-        <Stack direction="row" spacing={2} sx={{ alignItems: "center", p: 3 }}>
-          <LinearProgress sx={{ width: 120 }} />
-          <Typography variant="body1">Preparing ticket images…</Typography>
-        </Stack>
       </Dialog>
     </Stack>
   );

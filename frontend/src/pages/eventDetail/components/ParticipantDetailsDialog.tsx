@@ -683,6 +683,7 @@ export default function ParticipantDetailsDialog({
         open={previewOpen}
         src={ticket.url}
         alt={`Ticket for ${name}`}
+        error={ticket.isError}
         onClose={() => setPreviewOpen(false)}
       />
 

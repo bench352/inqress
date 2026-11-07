@@ -69,6 +69,10 @@ export default function EventDetail() {
     createParticipantProgress,
     sendEmailProgress,
     generateTicketQrProgress,
+    exportTicketZipProgress,
+    ticketZipDownloadId,
+    ticketZipErrorCount,
+    downloadTicketZip,
     resultDialog,
     dismissResultDialog,
     dataSourceSync,
@@ -257,7 +261,9 @@ export default function EventDetail() {
     notReadyCount > 0 ||
     !!createParticipantProgress?.inProgress ||
     !!sendEmailProgress?.inProgress ||
-    !!generateTicketQrProgress?.inProgress;
+    !!generateTicketQrProgress?.inProgress ||
+    !!exportTicketZipProgress?.inProgress ||
+    !!ticketZipDownloadId;
 
   if (isChildRouteActive) {
     return (
@@ -378,6 +384,10 @@ export default function EventDetail() {
           createParticipantProgress={createParticipantProgress}
           sendEmailProgress={sendEmailProgress}
           generateTicketQrProgress={generateTicketQrProgress}
+          exportTicketZipProgress={exportTicketZipProgress}
+          ticketZipDownloadId={ticketZipDownloadId}
+          ticketZipErrorCount={ticketZipErrorCount}
+          onDownloadTicketZip={downloadTicketZip}
         />
       )}
 
