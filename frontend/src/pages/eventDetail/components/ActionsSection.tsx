@@ -1,6 +1,7 @@
 import { Button, Card, Stack, Typography } from "@mui/material";
 import EmailIcon from "@mui/icons-material/Email";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
+import DownloadIcon from "@mui/icons-material/Download";
 import QrCodeIcon from "@mui/icons-material/QrCode";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -27,6 +28,9 @@ interface Props {
   createParticipantProgress: ProgressState | null;
   sendEmailProgress: ProgressState | null;
   generateTicketQrProgress: ProgressState | null;
+  exportTicketZipProgress: ProgressState | null;
+  ticketZipDownloadId: string | null;
+  onDownloadTicketZip: () => void;
 }
 
 export default function ActionsSection({
@@ -38,6 +42,9 @@ export default function ActionsSection({
   createParticipantProgress,
   sendEmailProgress,
   generateTicketQrProgress,
+  exportTicketZipProgress,
+  ticketZipDownloadId,
+  onDownloadTicketZip,
 }: Props) {
   const navigate = useNavigate();
   const api = useApi();
@@ -139,6 +146,10 @@ export default function ActionsSection({
           title="Making ticket images…"
           progress={generateTicketQrProgress}
         />
+        <ProgressCard
+          title="Exporting ticket images…"
+          progress={exportTicketZipProgress}
+        />
         {notReadyCount > 0 && !generateTicketQrProgress?.inProgress && (
           <Card variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={1.5}>
@@ -193,6 +204,30 @@ export default function ActionsSection({
                 }
               >
                 Send tickets
+              </Button>
+            </Stack>
+          </Card>
+        )}
+
+        {ticketZipDownloadId && (
+          <Card variant="outlined" sx={{ p: 2 }}>
+            <Stack spacing={1.5}>
+              <Stack
+                direction="row"
+                spacing={1.5}
+                sx={{ alignItems: "center" }}
+              >
+                <DownloadIcon color="primary" />
+                <Typography variant="h6">
+                  Ticket images export are ready to download
+                </Typography>
+              </Stack>
+              <Typography variant="body1">
+                The ticket images export you started earlier is completed.
+                Download them now.
+              </Typography>
+              <Button variant="contained" onClick={onDownloadTicketZip}>
+                Download
               </Button>
             </Stack>
           </Card>

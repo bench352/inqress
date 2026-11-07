@@ -52,7 +52,9 @@ async function request<T>(
   if (parse === "blob") return (await res.blob()) as T;
   if (parse === "text") return (await res.text()) as T;
   if (res.status === 204) return undefined as unknown as T;
-  return (await res.json()) as T;
+  // A started job answers 202 with no body, so there is nothing to parse.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 function createApi(redirectOn401: boolean) {

@@ -24,9 +24,12 @@ import service.auth
 import service.data_source
 import service.db
 
-# force= because an imported library (pictex) calls bare basicConfig() first, which
+# force= because an imported library may call bare basicConfig() first, which
 # would otherwise make this a no-op and drop every INFO log the app writes.
 logging.basicConfig(level=logging.INFO, force=True)
+# WeasyPrint logs seven INFO lines per rendered card; keep only its warnings so a
+# bulk export stays one line per step.
+logging.getLogger("weasyprint").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 cfg = config.get_config()

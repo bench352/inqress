@@ -8,6 +8,7 @@ import schema.rest
 import schema.sse
 import service.companion_stream
 import service.email
+import service.event_stream
 import service.events
 import service.filenames
 import service.settings
@@ -254,18 +255,41 @@ def set_accent_color(
     return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/{event_id}/ticketImages")
-def export_ticket_images(
-    event_id: uuid.UUID,
+@router.post("/{event_id}/ticketImages", status_code=fastapi.status.HTTP_202_ACCEPTED)
+def start_ticket_images_export(
+    event_id: uuid.UUID, background_tasks: fastapi.BackgroundTasks
 ) -> fastapi.responses.Response:
-    try:
-        zip_bytes = service.ticket.export_ticket_images_zip(event_id)
-    except ValueError:
+    if not service.event_stream.event_stream_manager.mark_job_active(
+        event_id, "ticket_zip"
+    ):
         raise fastapi.HTTPException(
-            status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Event not found"
+            status_code=fastapi.status.HTTP_409_CONFLICT,
+            detail="A ticket export is already running for this event",
         )
-    return fastapi.responses.Response(
-        content=zip_bytes.getvalue(),
+    background_tasks.add_task(service.ticket.export_zip_and_notify, event_id)
+    return fastapi.responses.Response(status_code=fastapi.status.HTTP_202_ACCEPTED)
+
+
+@router.get("/{event_id}/ticketImages/{download_id}")
+def download_ticket_images(
+    event_id: uuid.UUID,
+    download_id: uuid.UUID,
+    background_tasks: fastapi.BackgroundTasks,
+) -> fastapi.responses.FileResponse:
+    archive_path = service.ticket.take_ticket_zip(event_id, download_id)
+    if archive_path is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail="Export not found or expired",
+        )
+    # One download clears the offer: no page should still show the button.
+    service.event_stream.event_stream_manager.clear_sticky(
+        event_id, schema.sse.SseEventType.EXPORT_TICKET_ZIP_READY
+    )
+    # The id is single use: the file goes away once this response is sent.
+    background_tasks.add_task(archive_path.unlink, missing_ok=True)
+    return fastapi.responses.FileResponse(
+        archive_path,
         media_type="application/zip",
         headers={
             "Content-Disposition": service.filenames.attachment_disposition(

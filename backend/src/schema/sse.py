@@ -13,6 +13,8 @@ class SseEventType(enum.StrEnum):
     ATTENDANCE_CLEARED = "ATTENDANCE_CLEARED"
     SCAN_REFUSAL = "SCAN_REFUSAL"
     GENERATE_TICKET_QR = "GENERATE_TICKET_QR"
+    EXPORT_TICKET_ZIP = "EXPORT_TICKET_ZIP"
+    EXPORT_TICKET_ZIP_READY = "EXPORT_TICKET_ZIP_READY"
     CHANGE_MODE = "CHANGE_MODE"
     DATA_SOURCE_SYNC = "DATA_SOURCE_SYNC"
     CONTROL = "CONTROL"
@@ -97,6 +99,24 @@ class GenerateTicketQrSuccessData(schema.rest.RestModel):
 
 
 class GenerateTicketQrErrorData(schema.rest.RestModel):
+    type: str = "error"
+    detail: str
+
+
+class ExportTicketZipProgressData(schema.rest.RestModel):
+    in_progress: bool
+    num_completed: int
+    num_total: int
+    est_remain_min: int | None = None
+    num_errors: int = 0
+
+
+class ExportTicketZipSuccessData(schema.rest.RestModel):
+    type: str = "success"
+    download_id: str
+
+
+class ExportTicketZipErrorData(schema.rest.RestModel):
     type: str = "error"
     detail: str
 

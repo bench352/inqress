@@ -55,6 +55,13 @@ class EventStreamManager:
                 except queue.Full:
                     pass
 
+    def clear_sticky(
+        self, event_id: uuid.UUID, event_type: schema.sse.SseEventType
+    ) -> None:
+        """Forget a sticky event, so a later subscriber does not replay it."""
+        with self._lock:
+            self._sticky.get(event_id, {}).pop(event_type, None)
+
     def is_job_active(self, event_id: uuid.UUID, job_type: str) -> bool:
         with self._lock:
             return job_type in self._active_jobs.get(event_id, set())

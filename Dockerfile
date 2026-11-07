@@ -29,10 +29,13 @@ ARG APP_VERSION=0.0.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    fonts-liberation \
+    fontconfig \
     libegl1 \
     libgles2 \
     libgl1 \
+    libharfbuzz-subset0 \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
     libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -44,7 +47,8 @@ ENV APP_VERSION=${APP_VERSION} \
     PATH="/app/.venv/bin:$PATH" \
     FRONTEND_DIR="/app/frontend" \
     PYTHONUNBUFFERED=1 \
-    HOST=0.0.0.0
+    FONTCONFIG_PATH=/etc/fonts \
+    FONTCONFIG_FILE=/etc/fonts/fonts.conf
 
 WORKDIR /app/src
 EXPOSE 8000
