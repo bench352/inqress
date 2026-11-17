@@ -8,7 +8,7 @@ RUN npm ci --frozen-lockfile --production=false
 COPY frontend/ ./
 RUN npm run build
 
-FROM python:3.14-slim AS backend-build
+FROM python:3.15-slim AS backend-build
 COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /uvx /bin/
 WORKDIR /app
 
@@ -23,7 +23,7 @@ RUN uv sync --frozen --no-install-project --no-dev --no-cache
 
 COPY backend/src /app/src
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 ARG APP_VERSION=0.0.0
 
