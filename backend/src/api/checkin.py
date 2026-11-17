@@ -6,7 +6,6 @@ import schema.rest
 import service.checkin
 import service.events
 
-router_public = fastapi.APIRouter(tags=["Check-in"])
 router_authed = fastapi.APIRouter(tags=["Check-in"])
 
 

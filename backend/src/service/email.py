@@ -141,7 +141,7 @@ def send_ticket_email(
     msg = email.mime.multipart.MIMEMultipart("mixed")
     msg["Subject"] = strip_line_breaks(subject)
     msg["From"] = from_header(sender_name, from_address)
-    msg["To"] = to_email
+    msg["To"] = strip_line_breaks(to_email)
     msg.attach(related)
 
     card_bytes, card_name = ticket_card

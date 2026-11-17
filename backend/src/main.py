@@ -37,6 +37,14 @@ cfg = config.get_config()
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
+    rate_limit = cfg.auth.login_rate_limit
+    if rate_limit.enabled and not rate_limit.trusted_proxies:
+        logger.warning(
+            "Login rate limiting is enabled but trusted_proxies is empty; "
+            "behind a reverse proxy all clients share one bucket and a few "
+            "failed logins can lock everyone out. Set "
+            "auth.login_rate_limit.trusted_proxies to your proxy's address."
+        )
     logger.info("Running DB migrations")
     _alembic_cfg = Config(str(pathlib.Path(__file__).resolve().parent / "alembic.ini"))
     command.upgrade(_alembic_cfg, "head")
@@ -60,8 +68,22 @@ app = fastapi.FastAPI(
     openapi_url="/openapi.json" if cfg_for_docs.server.api_docs else None,
 )
 
+
+# Report-only while the policy is checked against the real app; flip the header
+# to "Content-Security-Policy" once the browser console shows no violations.
+@app.middleware("http")
+async def _csp_report_only(request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy-Report-Only"] = (
+        "default-src 'self'; script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; "
+        "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
+        "base-uri 'self'; form-action 'self'"
+    )
+    return response
+
+
 app.include_router(api.health.router, prefix="/api")
-app.include_router(api.checkin.router_public, prefix="/api")
 app.include_router(api.companion.router, prefix="/api")
 app.include_router(api.auth.router, prefix="/api")
 
