@@ -39,7 +39,8 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-simple-keyboard": "^3.8.2",
-    "simple-keyboard": "^3.7.53"
+    "simple-keyboard": "^3.7.53",
+    "zxing-wasm": "3.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

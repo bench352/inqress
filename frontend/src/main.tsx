@@ -7,6 +7,7 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import "./assets/fonts/Reglo/reglo.css";
+import "./wasm-pin";
 import { SnackbarProvider } from "notistack";
 import SessionAuthProvider from "./providers/SessionAuthProvider";
 import SystemClockProvider from "./providers/SystemClockProvider";

@@ -69,17 +69,20 @@ app = fastapi.FastAPI(
 )
 
 
-# Report-only while the policy is checked against the real app; flip the header
-# to "Content-Security-Policy" once the browser console shows no violations.
+# Enforced CSP. 'wasm-unsafe-eval' lets the self-hosted scanner WASM compile
+# without re-enabling JS eval. See frontend/src/wasm-pin.ts.
+_CSP_POLICY = (
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; "
+    "style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; "
+    "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
+    "base-uri 'self'; form-action 'self'"
+)
+
+
 @app.middleware("http")
-async def _csp_report_only(request, call_next):
+async def _csp(request, call_next):
     response = await call_next(request)
-    response.headers["Content-Security-Policy-Report-Only"] = (
-        "default-src 'self'; script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; "
-        "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
-        "base-uri 'self'; form-action 'self'"
-    )
+    response.headers["Content-Security-Policy"] = _CSP_POLICY
     return response
 
 
