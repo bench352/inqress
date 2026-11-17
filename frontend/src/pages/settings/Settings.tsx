@@ -87,7 +87,13 @@ export default function Settings() {
         </ListItemButton>
         <ListItemButton
           disableGutters
-          onClick={() => window.open("https://github.com/bench352/inqress")}
+          onClick={() =>
+            window.open(
+              "https://github.com/bench352/inqress",
+              "_blank",
+              "noopener,noreferrer",
+            )
+          }
         >
           <ListItemIcon>
             <GitHubIcon />

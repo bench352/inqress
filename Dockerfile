@@ -9,7 +9,7 @@ COPY frontend/ ./
 RUN npm run build
 
 FROM python:3.14-slim AS backend-build
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /uvx /bin/
 WORKDIR /app
 
 COPY backend/pyproject.toml backend/uv.lock ./

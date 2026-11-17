@@ -313,7 +313,8 @@ class InfoResponse(RestModel):
 
 class CompanionSessionRequest(RestModel):
     event_id: uuid.UUID
-    token: str
+    # Real pairing tokens are 43 chars; cap the field so a huge body is rejected early.
+    token: str = pydantic.Field(max_length=128)
 
 
 class CompanionSessionResponse(RestModel):

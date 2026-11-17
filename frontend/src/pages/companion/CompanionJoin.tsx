@@ -168,6 +168,12 @@ export default function CompanionJoin() {
           eventId: string;
           name: string;
         }>("/api/companion/session", { event_id: eventId, token });
+        // The token has been exchanged; drop it from the URL and history.
+        window.history.replaceState(
+          null,
+          "",
+          window.location.pathname + window.location.search,
+        );
         setPairInfo({ eventId: res.eventId, name: res.name });
         setSelectedMode(null);
         setActiveStep(1);
