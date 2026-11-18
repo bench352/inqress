@@ -47,6 +47,7 @@ import { useApi } from "@/api.ts";
 import DataSourceSyncProvider from "../../providers/DataSourceSyncProvider";
 import { useDebounce } from "@/hooks/useDebounce.ts";
 import { useEventStream } from "../../hooks/useEventStream";
+import { useRedirectIfEventMissing } from "../../hooks/useRedirectIfEventMissing";
 
 export default function EventDetail() {
   const { eventId } = useParams({ from: "/app-shell/admin/events/$eventId" });
@@ -58,12 +59,15 @@ export default function EventDetail() {
   const {
     event,
     isEventLoading,
+    eventError,
     participants,
     attended,
     isParticipantsLoading,
     updateMode,
     isUpdatingMode,
   } = useEventDetail(eventId);
+  // Covers every child route too: EventDetail stays mounted underneath them.
+  useRedirectIfEventMissing(eventError);
 
   const {
     createParticipantProgress,

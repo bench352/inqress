@@ -18,6 +18,7 @@ import { MuiColorInput } from "mui-color-input";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, useApi } from "@/api.ts";
+import { useRedirectIfEventMissing } from "@/hooks/useRedirectIfEventMissing";
 import { useSnackbar } from "notistack";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { EventItem } from "../eventsList/useEvents";
@@ -168,6 +169,7 @@ export default function CustomizeKiosk() {
     queryFn: () => api.get(`/api/events/${eventId}`),
     enabled: !!eventId,
   });
+  useRedirectIfEventMissing(eventQuery.error);
 
   const accentColorQuery = useQuery<{ colorCode: string }>({
     queryKey: ["accentColor", eventId],
