@@ -257,6 +257,13 @@ export default function KioskEmailDialog({
                 justifyContent: "center",
                 fontSize: EMAIL_KEY_FONT_SIZE,
               },
+              // The library's [data-skbtn="@"] max-width:60px cap outranks the
+              // rule above; this attribute selector outranks the cap so @
+              // flexes like the rest of its row.
+              "& .simple-keyboard.hg-theme-default .hg-button[data-skbtn='@']":
+                {
+                  maxWidth: "none",
+                },
             }}
           >
             <Keyboard
