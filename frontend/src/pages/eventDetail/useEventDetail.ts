@@ -84,6 +84,7 @@ export function useEventDetail(eventId: string) {
   return {
     event: eventQuery.data,
     isEventLoading: eventQuery.isLoading,
+    eventError: eventQuery.error,
     participants,
     attended,
     isParticipantsLoading: participantsQuery.isLoading,

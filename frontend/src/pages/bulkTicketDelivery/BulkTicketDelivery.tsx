@@ -26,6 +26,7 @@ import ConflictDialog from "@/components/ConflictDialog";
 import PageHeader from "@/components/PageHeader";
 import DOMPurify from "dompurify";
 import { ApiError, useApi } from "@/api.ts";
+import { useRedirectIfEventMissing } from "@/hooks/useRedirectIfEventMissing";
 import { useAppInfo } from "@/providers/useAppInfo";
 import type { ParticipantItem } from "../eventDetail/useEventDetail";
 import type { EventItem } from "../eventsList/useEvents";
@@ -45,6 +46,7 @@ export default function BulkTicketDelivery() {
     queryFn: () => api.get(`/api/events/${eventId}`),
     enabled: !!eventId,
   });
+  useRedirectIfEventMissing(eventQuery.error);
 
   const participantsQuery = useQuery<ParticipantItem[]>({
     queryKey: ["participants", eventId],
