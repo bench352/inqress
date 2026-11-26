@@ -5,25 +5,25 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "alembic>=1.14.1",
+    "alembic>=1.20.1",
     "fastapi[standard]>=0.136.1",
     "openpyxl>=3.1.5",
-    "phonenumbers>=9.0.30",
-    "pyyaml>=6.0.2",
-    "pyseto>=1.9.3",
+    "phonenumbers>=9.0.44",
+    "pyyaml>=6.0.4",
+    "pyseto>=1.10.0",
     "qrcode[pil]>=8.2",
-    "sqlalchemy>=2.0.49",
-    "rapidfuzz>=3.14.5",
+    "sqlalchemy>=2.1.9",
+    "rapidfuzz>=3.14.6",
     "weasyprint>=70.0",
-    "pypdfium2>=5.0.0",
-    "markdown-it-py>=4.2.0",
+    "pypdfium2>=5.15.2",
+    "markdown-it-py>=4.3.0",
     "httpx>=0.28.1",
 ]
 
 [dependency-groups]
 dev = [
-    "mypy>=2.1.0",
-    "ruff>=0.15.13",
+    "mypy>=2.4.1",
+    "ruff>=0.17.6",
     "types-qrcode>=8.2.0.20260518",
     "types-PyYAML>=6.0.12",
     "types-openpyxl>=3.1.0",
